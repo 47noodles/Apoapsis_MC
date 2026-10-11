@@ -5,8 +5,8 @@ This guide tells AI agents how work is split, sized, checked and committed in th
 ## Roles
 
 - **Opus** designs, decides module boundaries, reviews every agent branch and runs the merge. It is the only role that merges.
-- **Sonnet** takes rendering, visual UI, worldgen, cross-system client and server lifecycle, second-round nodes, and any task that needs much exploration or many files at once. It may hand a scoped part to Haiku.
-- **Haiku** takes server logic, data, hardening, small fixes, docs and research, each as one bounded task.
+- **Sonnet** leads build nodes. It plans the node, finds the code (file:line), writes narrow briefs for Haiku workers, reviews their diffs, test output and screenshots, and does the final integration, in-game check and commit. It does not do the bulk reading or typing itself; that is what keeps token use down. Sonnet leads every node that touches rendering, visual UI, worldgen or cross-system client and server lifecycle, and every node on its second round or later.
+- **Haiku** workers do the narrow parts a Sonnet lead hands them, and stand-alone single tasks (a one-file fix, a data file, a script, a doc edit) that can be briefed with exact file:line pointers.
 - **47noodles** approves design gates, go/no-go calls and releases.
 
 Every node in `docs/plan/work-graph.json` names its `model` (`sonnet` or `haiku`) and its `owner`. A node with a human or Opus owner is not agent work.
@@ -16,15 +16,22 @@ Every node in `docs/plan/work-graph.json` names its `model` (`sonnet` or `haiku`
 - Read the node in `docs/plan/work-graph.json` (by id, using a line-range read) and check its `owner`. Do not start a node owned by a human or by Opus.
 - Read only the files the node names, plus `CONTRIBUTING.md` for licence rules.
 - Check that every dependency is `done` before you write any code.
-- Work on one branch in your own worktree. Never reuse a worktree that another agent is using.
+- Work on one branch in your node's own worktree (a Haiku worker works in its lead's). Never use a worktree that belongs to another node.
 
 ## Why
 
 A review of 21 Haiku branches found the code clean: none was rejected and none broke the build. Every real failure was visual or only showed up at runtime (a grey planet, textures dropped on dimension change, overlapping labels, a plume covering the screen), and compiling and tests missed all of them. So work that needs judgement about how things look or how systems fit together goes to Sonnet, and every visual change is checked in the running game.
 
+## Lead and workers
+
+- A Sonnet lead splits its node into Haiku tasks, each with one concern, an exact write set, `file:line` pointers and an acceptance check.
+- Workers run in the lead's worktree (no separate worktree), one at a time when their files overlap.
+- The lead reviews each result and sends fixes back as a short delta brief. After two failed rounds on a task, the lead does it itself.
+- The lead owns the result: it builds, runs the GameTests, checks visual work in the game, commits and reports.
+
 ## Sizing Haiku tasks
 
-- Haiku runs with a 100k-token auto-compact window to keep costs down. A task whose reading does not fit stalls in a compaction loop and is stopped, so size it small or give it to Sonnet.
+- Haiku runs with a 100k-token auto-compact window to keep costs down. A task whose reading does not fit stalls in a compaction loop and is stopped, so size it small; if it cannot be cut small, the Sonnet lead keeps it.
 - One concern per task. If the brief needs "and also", split it.
 - Read at most about 5 files or 40k tokens. Use line-range reads and `file:line` pointers, not whole files.
 - Pipe long command output through `tail` or `grep`. Never print a whole file over 150 lines.
@@ -54,8 +61,8 @@ A review of 21 Haiku branches found the code clean: none was rejected and none b
 - Do not edit `.env`, credentials, deploy scripts or CI workflows unless the node names them.
 - Follow `CONTRIBUTING.md` for licences and clean-room rules. Do not copy code, art or text from non-open projects.
 - Do not write personal names, personal email addresses or local machine paths into committed files. Use GitHub handles only.
-- Several agents work in parallel, each in its own worktree. Do not touch another worktree.
-- Agents never push, merge or release. Commit on your own branch in your own worktree, then report and let Opus merge.
+- Several nodes run in parallel, each in its own worktree. Do not touch another node's worktree.
+- Agents never push, merge or release. Commit on your node's branch in its worktree, then report and let Opus merge.
 - Every commit ends with exactly these two trailers, and is signed off with `git commit -s`:
   - `Signed-off-by: 47noodles <167390129+47noodles@users.noreply.github.com>`
   - `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
