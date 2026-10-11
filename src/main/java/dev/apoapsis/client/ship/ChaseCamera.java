@@ -5,19 +5,30 @@ import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.CalculateDetachedCameraDistanceEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.client.event.ViewportEvent;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /**
  * Third-person chase camera for a ship. While the local player rides a ship in third person, the detached camera
  * distance is {@code clamp(2.5 * halfExtent + 4, 4, 48)} blocks times a zoom factor. The mouse wheel changes the zoom
  * (steps of 1.15, range 0.5 to 4) only in that case, and the factor is kept for the session. The distance eases
- * toward its target over a few frames. First person and on foot stay vanilla. Client only.
+ * toward its target over a few frames. The camera also orbits to a three-quarter view (see {@link #onComputeCameraAngles}).
+ * First person and on foot stay vanilla. Client only.
  */
 @EventBusSubscriber(modid = Apoapsis.MODID, value = Dist.CLIENT)
 public final class ChaseCamera {
+    private static final double DEG = Math.PI / 180.0;
+    /**
+     * Three-quarter chase offset, in the camera's own axes: 30 degrees to the right (yaw) and 20 degrees above (pitch,
+     * looking down). Vanilla backs the camera off along the final view, so the camera ends up on that side of the ship.
+     */
+    private static final Quaternionf ORBIT = new Quaternionf().rotationYXZ((float) (30 * DEG), (float) (-20 * DEG), 0f);
     private static final double ZOOM_MIN = 0.5;
     private static final double ZOOM_MAX = 4.0;
     private static final double ZOOM_STEP = 1.15;
@@ -87,5 +98,25 @@ public final class ChaseCamera {
         double factor = dy < 0.0 ? ZOOM_STEP : 1.0 / ZOOM_STEP;
         zoom = Mth.clamp(zoom * factor, ZOOM_MIN, ZOOM_MAX);
         event.setCanceled(true);
+    }
+
+    /**
+     * Orbits the chase camera to a three-quarter view while piloting in third person. The offset multiplies the camera
+     * rotation on the right, so it is taken in the current view's axes and turns with the free look. It runs at LOWEST,
+     * after CockpitCamera (NORMAL) and LaunchShake (LOW), so the shake is kept. First person is not changed.
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onComputeCameraAngles(ViewportEvent.ComputeCameraAngles event) {
+        if (chasedShip(Minecraft.getInstance()) == null) {
+            return;
+        }
+        // Same mapping as Camera.setRotation and CockpitCamera: yaw about Y, pitch about X, roll about Z.
+        Quaternionf cam = new Quaternionf().rotationYXZ(
+                (float) (Math.PI - event.getYaw() * DEG), (float) (-event.getPitch() * DEG), (float) (-event.getRoll() * DEG));
+        cam.mul(ORBIT);
+        Vector3f e = cam.getEulerAnglesYXZ(new Vector3f());
+        event.setYaw(Mth.wrapDegrees((float) (180.0 - e.y / DEG)));
+        event.setPitch((float) (-e.x / DEG));
+        event.setRoll((float) (-e.z / DEG));
     }
 }

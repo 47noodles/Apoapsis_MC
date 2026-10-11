@@ -45,7 +45,13 @@ public final class EngineParticles {
     /** Exhaust speed at full throttle, in blocks per tick. */
     private static final double FLAME_SPEED = 0.7;
     private static final double SMOKE_SPEED = 0.35;
-    private static final double VACUUM_SPEED = 0.9;
+    /** Vacuum flame speed at full throttle, blocks per tick. Short, so the flame fades within a few blocks. */
+    private static final double VACUUM_SPEED = 0.35;
+    /** Vacuum flames closer than this to the camera are not spawned, blocks. */
+    private static final double CLEAR_M = 6.0;
+    /** Vacuum flames heading into a cone of this half-angle toward the camera, within {@link #CONE_M}, are not spawned. */
+    private static final double CONE_COS = Math.cos(Math.toRadians(25.0));
+    private static final double CONE_M = 14.0;
 
     private EngineParticles() {}
 
@@ -66,7 +72,7 @@ public final class EngineParticles {
             }
             int budget = budget(Math.sqrt(ship.distanceToSqr(cam)), reach);
             if (budget > 0) {
-                emit(level, ship, throttle, budget);
+                emit(level, ship, throttle, budget, cam);
             }
         }
     }
@@ -86,7 +92,7 @@ public final class EngineParticles {
      * Spawns the exhaust of one ship, at most {@code budget} particles in all. The budget is split evenly across the
      * thrusters; the remainder goes to a run of thrusters from a random start, so no thruster is always cut off.
      */
-    private static void emit(ClientLevel level, ShipEntity ship, float throttle, int budget) {
+    private static void emit(ClientLevel level, ShipEntity ship, float throttle, int budget, Vec3 cam) {
         List<Thruster> thrusters = new ArrayList<>();
         for (Map.Entry<BlockPos, BlockState> e : ship.getStructure().blocks().entrySet()) {
             ShipParts.ThrusterSpec spec = ShipParts.thruster(e.getValue());
@@ -130,7 +136,7 @@ public final class EngineParticles {
                 b -= billow(level, ship, x, y, z, throttle, b / 3, rnd);
                 plumeAir(level, rnd, x, y, z, dir, throttle, b);
             } else {
-                plumeVacuum(level, rnd, x, y, z, dir, throttle, b);
+                plumeVacuum(level, rnd, x, y, z, dir, throttle, b, cam);
             }
         }
     }
@@ -164,17 +170,46 @@ public final class EngineParticles {
         }
     }
 
-    /** A wide, short-lived flame with no smoke, for the vacuum of orbit and Pale. */
+    /**
+     * A short, faint flame with no smoke, for the vacuum of orbit and Pale. Flames that would appear within
+     * {@link #CLEAR_M} of the camera, or that head into a narrow cone toward it, are skipped so the plume never fills the
+     * screen.
+     */
     private static void plumeVacuum(ClientLevel level, ThreadLocalRandom rnd, double x, double y, double z,
-            Vector3f dir, float throttle, int budget) {
-        int flames = Math.min(budget, (int) (throttle * 5.0 + rnd.nextDouble()));
+            Vector3f dir, float throttle, int budget, Vec3 cam) {
+        int flames = Math.min(budget, (int) (throttle * 3.0 + rnd.nextDouble()));
         double speed = VACUUM_SPEED * (0.5 + 0.5 * throttle);
         for (int k = 0; k < flames; k++) {
-            level.addParticle(ParticleTypes.SMALL_FLAME,
-                    x + scatter(rnd, 0.8), y + scatter(rnd, 0.8), z + scatter(rnd, 0.8),
+            double px = x + scatter(rnd, 0.8);
+            double py = y + scatter(rnd, 0.8);
+            double pz = z + scatter(rnd, 0.8);
+            if (nearCamera(cam, px, py, pz, dir)) {
+                continue;
+            }
+            level.addParticle(ParticleTypes.SMALL_FLAME, px, py, pz,
                     dir.x * speed + scatter(rnd, 0.3), dir.y * speed + scatter(rnd, 0.3),
                     dir.z * speed + scatter(rnd, 0.3));
         }
+    }
+
+    /**
+     * True when a vacuum flame at (px, py, pz) with exhaust direction {@code dir} would be too close to the camera: within
+     * {@link #CLEAR_M}, or within {@link #CONE_M} and heading inside the cone toward the camera.
+     */
+    private static boolean nearCamera(Vec3 cam, double px, double py, double pz, Vector3f dir) {
+        double dx = cam.x - px;
+        double dy = cam.y - py;
+        double dz = cam.z - pz;
+        double d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 <= CLEAR_M * CLEAR_M) {
+            return true;
+        }
+        if (d2 > CONE_M * CONE_M) {
+            return false;
+        }
+        double d = Math.sqrt(d2);
+        // dir is a unit vector (a rotated axis), so this is the cosine of the angle between heading and camera.
+        return (dir.x * dx + dir.y * dy + dir.z * dz) / d > CONE_COS;
     }
 
     /**
