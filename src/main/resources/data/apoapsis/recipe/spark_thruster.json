@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "I": "minecraft:iron_ingot",
+    "X": [
+      "minecraft:blast_furnace",
+      "minecraft:fire_charge"
+    ]
+  },
+  "pattern": [
+    "CIC",
+    "IXI",
+    "CIC"
+  ],
+  "result": {
+    "id": "apoapsis:spark_thruster"
+  }
+}

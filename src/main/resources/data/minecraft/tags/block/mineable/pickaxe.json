@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "apoapsis:hull_plate",
+    "apoapsis:cockpit",
+    "apoapsis:gyroscope",
+    "apoapsis:fuel_tank",
+    "apoapsis:spark_thruster"
+  ]
+}
