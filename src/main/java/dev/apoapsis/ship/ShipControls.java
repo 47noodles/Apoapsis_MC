@@ -18,9 +18,10 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * Server handler for pilot input. Only the pilot of a ship may drive it.
  *
  * <p>Rate limits, per player: at most one payload is applied per server tick. Payloads that arrive within one tick
- * are merged, so the latest rotation and throttle values win and no one-shot press is lost. One-shot flags
- * (SAS, assembly, warp) are edge-triggered: a flag fires only if the previous applied tick did not carry it, and each
- * flag then has a {@link #FLAG_COOLDOWN_TICKS} cooldown.
+ * are merged: the latest rotation wins, and the newer throttle wins unless it is {@code THROTTLE_HOLD}, in which case
+ * an older one-shot throttle command (full, cut) is kept, so a press is not lost to a later idle payload. One-shot
+ * flags (SAS, assembly, warp) are merged by union. They are edge-triggered: a flag fires only if the previous applied
+ * tick did not carry it, and each flag then has a {@link #FLAG_COOLDOWN_TICKS} cooldown.
  */
 @EventBusSubscriber(modid = Apoapsis.MODID)
 public final class ShipControls {
@@ -62,7 +63,11 @@ public final class ShipControls {
     }
 
     private static Pending merge(Pending older, Pending newer) {
-        return new Pending(newer.player(), newer.latest(), older.flags() | newer.flags());
+        ShipInputPayload n = newer.latest();
+        // A newer HOLD does not cancel an older one-shot throttle command merged into the same tick.
+        byte throttle = n.throttle() == ShipInputPayload.THROTTLE_HOLD ? older.latest().throttle() : n.throttle();
+        ShipInputPayload merged = new ShipInputPayload(n.shipId(), n.pitch(), n.yaw(), n.roll(), throttle, n.flags());
+        return new Pending(newer.player(), merged, older.flags() | newer.flags());
     }
 
     /** Applies each player's queued input once per server tick, before the ships tick. */

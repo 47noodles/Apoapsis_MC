@@ -75,6 +75,7 @@ final class TestDriverTransfer {
                         throttle = ShipInputPayload.THROTTLE_FULL;
                     }
                 } else {
+                    throttle = ShipInputPayload.THROTTLE_FULL; // every burn tick, so one lost packet cannot stall the burn
                     if (phaseTicks % 5 == 0 && encounterPredicted(p)) {
                         throttle = ShipInputPayload.THROTTLE_CUT;
                         logOrbit(p, "encounter predicted, engines off");
@@ -88,6 +89,9 @@ final class TestDriverTransfer {
                 }
             }
             case COAST -> {
+                if (phaseTicks <= 10) {
+                    throttle = ShipInputPayload.THROTTLE_CUT; // every coast tick at first, so one lost packet is harmless
+                }
                 if (p.body() != lastBody && lastBody != -1) {
                     logOrbit(p, "SOI changed (payload body now " + BodyId.byOrdinal(p.body()).id + ")");
                     shot(mc, "transfer-02-at-soi.png");

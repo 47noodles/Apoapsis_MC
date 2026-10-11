@@ -74,6 +74,12 @@ public final class TestDriver {
             }
             return;
         }
+        // Throttle commands are sent on every tick of their window, so one lost packet cannot skip the burn.
+        if (pilotTicks >= 240 && pilotTicks < 340) {
+            send(ship, ShipInputPayload.THROTTLE_FULL);
+        } else if (pilotTicks >= 340 && pilotTicks < 350) {
+            send(ship, ShipInputPayload.THROTTLE_CUT);
+        }
         switch (pilotTicks) {
             case 20 -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
             case 100 -> {
@@ -83,12 +89,8 @@ public final class TestDriver {
             case 120 -> MapClient.openMap();
             case 200 -> shot(mc, "apoapsis-02-map.png");
             case 220 -> mc.gui.setScreen(null);
-            case 240 -> send(ship, ShipInputPayload.THROTTLE_FULL);
             case 300 -> shot(mc, "apoapsis-03-burn.png");
-            case 340 -> {
-                send(ship, ShipInputPayload.THROTTLE_CUT);
-                logOrbit("after a 5 s burn");
-            }
+            case 340 -> logOrbit("after a 5 s burn");
             case 400 -> {
                 MapClient.openMap();
             }
