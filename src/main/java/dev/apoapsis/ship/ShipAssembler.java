@@ -4,6 +4,7 @@ import dev.apoapsis.ages.Ages;
 import dev.apoapsis.grid.FuelTankBlockEntity;
 import dev.apoapsis.grid.GridBlocks;
 import dev.apoapsis.grid.ShipParts;
+import dev.apoapsis.ownership.ShipOwnership;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -127,6 +128,7 @@ public final class ShipAssembler {
         Vec3 com = structure.centerOfMassLocal();
         Vec3 comWorld = new Vec3(cockpitPos.getX() + com.x, cockpitPos.getY() + com.y, cockpitPos.getZ() + com.z);
         ShipEntity ship = ShipEntity.spawn(level, structure, comWorld, new Quaternionf());
+        ShipOwnership.claim(ship, pilot);
         if (pilot != null) {
             ship.seatPilot(pilot);
         }

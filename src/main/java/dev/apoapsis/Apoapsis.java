@@ -5,6 +5,7 @@ import dev.apoapsis.ages.Ages;
 import dev.apoapsis.flight.Flight;
 import dev.apoapsis.grid.GridBlocks;
 import dev.apoapsis.net.ApNetwork;
+import dev.apoapsis.ownership.ShipOwnership;
 import dev.apoapsis.planet.PlanetMaps;
 import dev.apoapsis.planet.terrain.PaleFeatures;
 import dev.apoapsis.scenario.Scenarios;
@@ -23,6 +24,7 @@ public final class Apoapsis {
     public Apoapsis(IEventBus modBus, ModContainer container) {
         GridBlocks.register(modBus);
         ShipEntities.register(modBus);
+        ShipOwnership.register(modBus);
         Ages.register(modBus);
         Flight.register(modBus);
         Scenarios.register(modBus);

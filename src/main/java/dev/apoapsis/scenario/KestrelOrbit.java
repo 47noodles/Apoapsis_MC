@@ -5,6 +5,7 @@ import dev.apoapsis.ages.Ages;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.Flight;
 import dev.apoapsis.orbit.MeridianSystem;
+import dev.apoapsis.ownership.ShipOwnership;
 import dev.apoapsis.ship.ShipEntity;
 import java.util.Set;
 import net.minecraft.network.chat.Component;
@@ -54,6 +55,7 @@ public final class KestrelOrbit {
             player.sendSystemMessage(Component.translatable("apoapsis.scenario.orbit.failed"));
             return false;
         }
+        ShipOwnership.claim(ship, player);
 
         ServerLevel orbit = (ServerLevel) ship.level();
         player.teleportTo(orbit, ship.getX(), ship.getY(), ship.getZ(), Set.of(), player.getYRot(), player.getXRot(), true);

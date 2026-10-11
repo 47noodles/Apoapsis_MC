@@ -1,4 +1,5 @@
 {
+  "apoapsis.ownership.not_yours": "This ship belongs to %s.",
   "message.apoapsis.ship.hard_landing": "Hard landing",
   "message.apoapsis.ship.no_cockpit": "No cockpit here",
   "message.apoapsis.ship.no_room": "No room to place the ship here",

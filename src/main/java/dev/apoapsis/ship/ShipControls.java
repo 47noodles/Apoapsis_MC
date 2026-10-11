@@ -3,6 +3,7 @@ package dev.apoapsis.ship;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.flight.FlightHooks;
 import dev.apoapsis.net.ShipInputPayload;
+import dev.apoapsis.ownership.ShipOwnership;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -141,7 +142,8 @@ public final class ShipControls {
             FlightHooks.requestWarp(ship, -1);
         }
         if (fire(gate, edges, ShipInputPayload.FLAG_ASSEMBLY, now, FLAG_COOLDOWN_TICKS)) {
-            Component error = ShipAssembler.disassemble(ship);
+            Component error = ShipOwnership.mayDisassemble(ship, player)
+                    ? ShipAssembler.disassemble(ship) : ShipOwnership.notYours(ship);
             if (error != null) {
                 player.sendOverlayMessage(error);
             }

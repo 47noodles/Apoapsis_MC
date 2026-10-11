@@ -3,6 +3,7 @@ package dev.apoapsis.ship;
 import dev.apoapsis.flight.Environment;
 import dev.apoapsis.flight.FlightHooks;
 import dev.apoapsis.grid.ShipParts;
+import dev.apoapsis.ownership.ShipOwnership;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -372,6 +373,10 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
             return InteractionResult.PASS;
         }
         if (!level().isClientSide()) {
+            if (!ShipOwnership.mayPilot(this, player)) {
+                player.sendOverlayMessage(ShipOwnership.notYours(this));
+                return InteractionResult.FAIL;
+            }
             seatPilot(player);
         }
         return InteractionResult.SUCCESS;

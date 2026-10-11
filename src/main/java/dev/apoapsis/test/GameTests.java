@@ -1,5 +1,6 @@
 package dev.apoapsis.test;
 
+import com.mojang.authlib.GameProfile;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.ages.Ages;
 import dev.apoapsis.ages.Firsts;
@@ -9,10 +10,13 @@ import dev.apoapsis.flight.FlightHooks;
 import dev.apoapsis.flight.FlightRules;
 import dev.apoapsis.grid.FuelRefineryBlockEntity;
 import dev.apoapsis.grid.FuelTankBlockEntity;
+import dev.apoapsis.ownership.ShipOwnership;
 import dev.apoapsis.ship.ShipAssembler;
+import dev.apoapsis.ship.ShipEntities;
 import dev.apoapsis.ship.ShipEntity;
 import dev.apoapsis.test.ApoapsisGameTest.ShipCleanup;
 import java.util.List;
+import java.util.UUID;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -22,10 +26,20 @@ import net.minecraft.gametest.framework.TestEnvironmentDefinition;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.TagValueOutput;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
@@ -75,6 +89,176 @@ public final class GameTests {
                         GameTests::suborbitalAdvancementAwarded));
         event.registerTest(TestSupport.id("pale_sample_grants_age_five"),
                 new ApoapsisGameTest("pale_sample_grants_age_five", environment, 40, GameTests::paleSampleGrantsAgeFive));
+        event.registerTest(TestSupport.id("ship_owner_may_pilot"),
+                new ApoapsisGameTest("ship_owner_may_pilot", environment, 40, GameTests::shipOwnerMayPilot));
+        event.registerTest(TestSupport.id("ship_stranger_may_not_pilot"),
+                new ApoapsisGameTest("ship_stranger_may_not_pilot", environment, 40, GameTests::shipStrangerMayNotPilot));
+        event.registerTest(TestSupport.id("ship_teammate_may_pilot"),
+                new ApoapsisGameTest("ship_teammate_may_pilot", environment, 40, GameTests::shipTeammateMayPilot));
+        event.registerTest(TestSupport.id("unclaimed_ship_allows_anyone"),
+                new ApoapsisGameTest("unclaimed_ship_allows_anyone", environment, 40, GameTests::unclaimedShipAllowsAnyone));
+        event.registerTest(TestSupport.id("ship_owner_survives_save"),
+                new ApoapsisGameTest("ship_owner_survives_save", environment, 40, GameTests::shipOwnerSurvivesSave));
+        event.registerTest(TestSupport.id("ship_boarding_checks_owner"),
+                new ApoapsisGameTest("ship_boarding_checks_owner", environment, 40, GameTests::shipBoardingChecksOwner));
+        event.registerTest(TestSupport.id("ship_owner_survives_rebuild"),
+                new ApoapsisGameTest("ship_owner_survives_rebuild", environment, 40, GameTests::shipOwnerSurvivesRebuild));
+    }
+
+    /** Scoreboard team names used by the ownership tests; each test removes its teams when it is done. */
+    private static final String CREW_TEAM = "apoapsis_test_crew";
+    private static final String RIVAL_TEAM = "apoapsis_test_rival";
+
+    /**
+     * A bare player with its own name. Every vanilla mock player is called "test-mock-player", and scoreboard teams
+     * are keyed by name, so the team tests need players that can be told apart.
+     */
+    private static Player namedPlayer(GameTestHelper helper, String name) {
+        return new Player(helper.getLevel(), new GameProfile(UUID.randomUUID(), name)) {
+            @Override
+            public GameType gameMode() {
+                return GameType.SURVIVAL;
+            }
+
+            @Override
+            public boolean isClientAuthoritative() {
+                return false;
+            }
+        };
+    }
+
+    /** A ship held in the test plot, claimed by {@code owner} unless that is null. */
+    private static ShipEntity claimedShip(GameTestHelper helper, ShipCleanup ships, Player owner) {
+        TestSupport.stoneFloor(helper);
+        ShipEntity ship = ships.track(TestSupport.spawnAboveFloor(helper, TestSupport.threeBlockShip(helper, 600.0), 6));
+        ShipOwnership.claim(ship, owner);
+        return ship;
+    }
+
+    /** After claim, the claimer may pilot and disassemble the ship, and a later claim by someone else changes nothing. */
+    @SuppressWarnings("removal")
+    private static void shipOwnerMayPilot(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        Player other = namedPlayer(helper, "latecomer");
+        ShipEntity ship = claimedShip(helper, ships, owner);
+        helper.assertTrue(ShipOwnership.ownerOf(ship).isPresent(), "the ship has no owner after claim");
+        helper.assertTrue(ShipOwnership.mayPilot(ship, owner), "the owner may not pilot their own ship");
+        helper.assertTrue(ShipOwnership.mayDisassemble(ship, owner), "the owner may not disassemble their own ship");
+        ShipOwnership.claim(ship, other);
+        helper.assertTrue(ShipOwnership.ownerOf(ship).get().id().equals(owner.getUUID()),
+                "a second claim took the ship from its owner");
+        helper.assertTrue(!ShipOwnership.mayPilot(ship, other), "a second claim let the claimer pilot the ship");
+        helper.succeed();
+    }
+
+    /** A second player with no team may not pilot or disassemble, even when the owner is on a team. */
+    @SuppressWarnings("removal")
+    private static void shipStrangerMayNotPilot(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        Player stranger = namedPlayer(helper, "stranger");
+        ShipEntity ship = claimedShip(helper, ships, owner);
+        helper.assertTrue(!ShipOwnership.mayPilot(ship, stranger), "a stranger with no team may pilot the ship");
+        helper.assertTrue(!ShipOwnership.mayDisassemble(ship, stranger), "a stranger with no team may disassemble the ship");
+
+        Scoreboard scoreboard = helper.getLevel().getScoreboard();
+        PlayerTeam crew = scoreboard.addPlayerTeam(CREW_TEAM);
+        try {
+            scoreboard.addPlayerToTeam(owner.getScoreboardName(), crew);
+            helper.assertTrue(!ShipOwnership.mayPilot(ship, stranger),
+                    "a stranger with no team may pilot a ship whose owner is on a team");
+        } finally {
+            scoreboard.removePlayerTeam(crew);
+        }
+        helper.succeed();
+    }
+
+    /** A second player on the owner's team may pilot and disassemble; a player on another team may not. */
+    @SuppressWarnings("removal")
+    private static void shipTeammateMayPilot(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        Player mate = namedPlayer(helper, "crewmate");
+        Player rival = namedPlayer(helper, "rival");
+        ShipEntity ship = claimedShip(helper, ships, owner);
+
+        Scoreboard scoreboard = helper.getLevel().getScoreboard();
+        PlayerTeam crew = scoreboard.addPlayerTeam(CREW_TEAM);
+        PlayerTeam others = scoreboard.addPlayerTeam(RIVAL_TEAM);
+        try {
+            scoreboard.addPlayerToTeam(owner.getScoreboardName(), crew);
+            scoreboard.addPlayerToTeam(mate.getScoreboardName(), crew);
+            scoreboard.addPlayerToTeam(rival.getScoreboardName(), others);
+            helper.assertTrue(ShipOwnership.mayPilot(ship, mate), "a player on the owner's team may not pilot the ship");
+            helper.assertTrue(ShipOwnership.mayDisassemble(ship, mate),
+                    "a player on the owner's team may not disassemble the ship");
+            helper.assertTrue(!ShipOwnership.mayPilot(ship, rival), "a player on another team may pilot the ship");
+        } finally {
+            scoreboard.removePlayerTeam(crew);
+            scoreboard.removePlayerTeam(others);
+        }
+        helper.succeed();
+    }
+
+    /** A ship with no owner, as in an old save, allows anyone to pilot and disassemble it. */
+    private static void unclaimedShipAllowsAnyone(GameTestHelper helper, ShipCleanup ships) {
+        Player anyone = namedPlayer(helper, "anyone");
+        ShipEntity ship = claimedShip(helper, ships, null);
+        helper.assertTrue(ShipOwnership.ownerOf(ship).isEmpty(), "a ship nobody claimed has an owner");
+        helper.assertTrue(ShipOwnership.mayPilot(ship, anyone), "an unclaimed ship refused a pilot");
+        helper.assertTrue(ShipOwnership.mayDisassemble(ship, anyone), "an unclaimed ship refused a disassembly");
+        helper.succeed();
+    }
+
+    /** The owner is saved with the ship: a ship loaded from its saved data has the same owner, and a stranger is refused. */
+    @SuppressWarnings("removal")
+    private static void shipOwnerSurvivesSave(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        ShipEntity ship = claimedShip(helper, ships, owner);
+        TagValueOutput out = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, helper.getLevel().registryAccess());
+        ship.saveWithoutId(out);
+        ShipEntity loaded = new ShipEntity(ShipEntities.SHIP.get(), helper.getLevel());
+        loaded.load(TagValueInput.create(ProblemReporter.DISCARDING, helper.getLevel().registryAccess(), out.buildResult()));
+        helper.assertTrue(ShipOwnership.ownerOf(loaded).equals(ShipOwnership.ownerOf(ship)),
+                "the loaded ship's owner is " + ShipOwnership.ownerOf(loaded) + ", expected " + ShipOwnership.ownerOf(ship));
+        helper.assertTrue(ShipOwnership.mayPilot(loaded, owner), "the owner may not pilot the ship after a save and load");
+        helper.assertTrue(!ShipOwnership.mayPilot(loaded, namedPlayer(helper, "stranger")),
+                "a stranger may pilot the ship after a save and load");
+        helper.succeed();
+    }
+
+    /** Right-clicking a claimed ship seats its owner but not a stranger: the check is on the boarding path itself. */
+    @SuppressWarnings("removal")
+    private static void shipBoardingChecksOwner(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        ServerPlayer stranger = helper.makeMockServerPlayerInLevel();
+        ShipEntity ship = claimedShip(helper, ships, owner);
+        InteractionResult refused = ship.interact(stranger, InteractionHand.MAIN_HAND, Vec3.ZERO);
+        helper.assertTrue(refused == InteractionResult.FAIL, "boarding by a stranger returned " + refused + ", expected FAIL");
+        helper.assertTrue(ship.getPilot() == null, "a stranger was seated in someone else's ship");
+        ship.interact(owner, InteractionHand.MAIN_HAND, Vec3.ZERO);
+        helper.assertTrue(ship.getPilot() == owner, "the owner was not seated in their own ship");
+        helper.succeed();
+    }
+
+    /**
+     * A ship rebuilt as a new entity (flight/Transitions.move, on a surface-to-orbit crossing) keeps its owner through
+     * ShipOwnership.copy, and a rebuilt unclaimed ship stays unclaimed. The orbit dimension is not loaded in the
+     * GameTest world, so the copy is tested on two ships in the test level.
+     */
+    @SuppressWarnings("removal")
+    private static void shipOwnerSurvivesRebuild(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer owner = helper.makeMockServerPlayerInLevel();
+        ShipEntity old = claimedShip(helper, ships, owner);
+        ShipEntity fresh = ships.track(TestSupport.spawnAboveFloor(helper, TestSupport.threeBlockShip(helper, 600.0), 12));
+        ShipOwnership.copy(old, fresh);
+        helper.assertTrue(ShipOwnership.ownerOf(fresh).equals(ShipOwnership.ownerOf(old)),
+                "the rebuilt ship's owner is " + ShipOwnership.ownerOf(fresh) + ", expected " + ShipOwnership.ownerOf(old));
+        helper.assertTrue(!ShipOwnership.mayPilot(fresh, namedPlayer(helper, "stranger")),
+                "a stranger may pilot the rebuilt ship");
+        ShipEntity unclaimed = ships.track(TestSupport.spawnAboveFloor(helper, TestSupport.threeBlockShip(helper, 600.0), 18));
+        ShipEntity rebuilt = ships.track(TestSupport.spawnAboveFloor(helper, TestSupport.threeBlockShip(helper, 600.0), 24));
+        ShipOwnership.copy(unclaimed, rebuilt);
+        helper.assertTrue(ShipOwnership.ownerOf(rebuilt).isEmpty(), "rebuilding an unclaimed ship gave it an owner");
+        helper.succeed();
     }
 
     /** Recording SUBORBITAL twice leaves one entry on the player's attachment: the second call does nothing. */

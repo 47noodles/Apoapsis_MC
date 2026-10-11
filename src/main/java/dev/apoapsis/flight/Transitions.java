@@ -6,6 +6,7 @@ import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Kepler;
 import dev.apoapsis.orbit.StateVector;
 import dev.apoapsis.orbit.Vec3d;
+import dev.apoapsis.ownership.ShipOwnership;
 import dev.apoapsis.ship.ShipEntity;
 import dev.apoapsis.ship.ShipStructure;
 import java.util.HashMap;
@@ -151,6 +152,7 @@ final class Transitions {
         ShipEntity fresh = ShipEntity.spawn(target, structure, pos, orientation);
         fresh.setThrottle(old.getThrottle());
         fresh.setSasMode(old.getSasMode());
+        ShipOwnership.copy(old, fresh);
         fresh.setVelocity(velocity);
         fresh.setAngularVelocity(old.getAngularVelocity());
         fresh.setData(FlightAttachments.FLIGHT.get(), state);
