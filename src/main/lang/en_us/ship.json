@@ -5,5 +5,6 @@
   "message.apoapsis.ship.no_spacewalks": "No spacewalks in the prototype",
   "message.apoapsis.ship.not_landed": "Land and come to a stop before you leave the ship as blocks",
   "message.apoapsis.ship.not_level": "Level the ship before you leave it as blocks",
-  "message.apoapsis.ship.too_many_blocks": "Too many blocks: the limit is 4,096"
+  "message.apoapsis.ship.protected": "Some of these blocks are protected",
+  "message.apoapsis.ship.too_many_blocks": "Too many blocks: the limit is 1,024"
 }

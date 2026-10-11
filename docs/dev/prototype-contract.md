@@ -46,7 +46,7 @@ Placeholder art and UI. Round planets, real grid physics (Jolt), Mekanism and mu
 | `apoapsis:ship` | entity | SHIP | `ShipEntity` |
 | `apoapsis:orbit` | dimension | FLT | Void, starry black sky; ships in orbit live here |
 | `apoapsis:pale` | dimension | FLT | Flat regolith over basalt, sea level y = 64, no atmosphere |
-| `#apoapsis:ship_blocks` | block tag | BLK | Blocks assembly may include: all of the above except regolith, plus glass, iron/copper blocks, lamps |
+| `#apoapsis:ship_blocks` | block tag | BLK | Blocks assembly may include (at most 1,024 per ship): all of the above except regolith, plus glass, iron/copper blocks, lamps |
 
 ## Bodies (from `tools/calc/system.py`, g0 = 9.81)
 

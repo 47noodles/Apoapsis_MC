@@ -110,25 +110,59 @@ final class ShipGeometry {
     }
 
     /** The block's "facing" direction property, or null if it has none. */
-    @SuppressWarnings("unchecked")
     static Direction facingOf(BlockState state) {
+        Property<Direction> p = facingProperty(state);
+        return p == null ? null : state.getValue(p);
+    }
+
+    /**
+     * True if the block's facing, turned by {@code snap}, is a value its property allows. A horizontal facing (a
+     * cockpit's) turned up or down is not, so such a block cannot be placed by a sideways rotation.
+     */
+    static boolean canRotateFacing(BlockState state, Snap snap) {
+        Property<Direction> p = facingProperty(state);
+        return p == null || p.getPossibleValues().contains(snap.apply(state.getValue(p)));
+    }
+
+    /**
+     * Returns the state with its "facing" property turned by {@code snap}. A result the property does not allow
+     * becomes the nearest direction it does allow, so this never throws.
+     */
+    static BlockState rotateFacing(BlockState state, Snap snap) {
+        Property<Direction> p = facingProperty(state);
+        if (p == null) {
+            return state;
+        }
+        Direction from = state.getValue(p);
+        Direction to = snap.apply(from);
+        if (!p.getPossibleValues().contains(to)) {
+            to = nearestAllowed(p, snap, from);
+        }
+        return state.setValue(p, to);
+    }
+
+    /** The allowed direction closest to {@code from} turned by {@code snap}. */
+    private static Direction nearestAllowed(Property<Direction> p, Snap snap, Direction from) {
+        Vec3 turned = snap.apply(new Vec3(from.getStepX(), from.getStepY(), from.getStepZ()));
+        Direction best = from;
+        double bestDot = -Double.MAX_VALUE;
+        for (Direction d : p.getPossibleValues()) {
+            double dot = turned.x * d.getStepX() + turned.y * d.getStepY() + turned.z * d.getStepZ();
+            if (dot > bestDot) {
+                bestDot = dot;
+                best = d;
+            }
+        }
+        return best;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Property<Direction> facingProperty(BlockState state) {
         for (Property<?> p : state.getProperties()) {
             if ("facing".equals(p.getName()) && p.getValueClass() == Direction.class) {
-                return state.getValue((Property<Direction>) p);
+                return (Property<Direction>) p;
             }
         }
         return null;
-    }
-
-    /** Returns the state with its "facing" property rotated by {@code snap}. */
-    @SuppressWarnings("unchecked")
-    static BlockState rotateFacing(BlockState state, Snap snap) {
-        for (Property<?> p : state.getProperties()) {
-            if ("facing".equals(p.getName()) && p.getValueClass() == Direction.class) {
-                Property<Direction> prop = (Property<Direction>) p;
-                return state.setValue(prop, snap.apply(state.getValue(prop)));
-            }
-        }
-        return state;
     }
 }

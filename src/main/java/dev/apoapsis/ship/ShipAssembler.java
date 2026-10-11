@@ -1,27 +1,38 @@
 package dev.apoapsis.ship;
 
+import dev.apoapsis.ages.Ages;
 import dev.apoapsis.grid.FuelTankBlockEntity;
+import dev.apoapsis.grid.GridBlocks;
 import dev.apoapsis.grid.ShipParts;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.BlockSnapshot;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import org.joml.Quaternionf;
 
 /**
- * Turns placed blocks into a {@link ShipEntity} and back.
+ * Turns placed blocks into a {@link ShipEntity} and back. When a player is involved, every block must pass
+ * {@code Level.mayInteract} and the NeoForge break (assembly) or place (disassembly) event, or nothing changes.
  */
 public final class ShipAssembler {
     /** Removing ship blocks: client update only, no drops, no neighbour updates (so nothing cascades). */
@@ -40,13 +51,25 @@ public final class ShipAssembler {
     public record Result(ShipEntity ship, Component error) {
     }
 
+    /** One block to place when disassembling: its target cell, the state it takes and the fuel it keeps. */
+    private record Placement(BlockPos cell, BlockState state, double fuelKg) {
+    }
+
     /**
      * Flood-fills face-connected ship blocks from the cockpit, removes them from the world, spawns the ship, and
-     * seats {@code pilot} if non-null. Nothing changes in the world if the attempt fails.
+     * seats {@code pilot} if non-null. Nothing changes in the world if the attempt fails. With a pilot, the cockpit
+     * must be usable at the pilot's Age and every block must be breakable by the pilot.
      */
     public static Result assemble(ServerLevel level, BlockPos cockpitPos, Player pilot) {
         if (!ShipParts.isCockpit(level.getBlockState(cockpitPos))) {
             return new Result(null, Component.translatable("message.apoapsis.ship.no_cockpit"));
+        }
+        if (pilot != null) {
+            ItemStack cockpitItem = new ItemStack(GridBlocks.COCKPIT.get());
+            if (!Ages.canUse(pilot, cockpitItem)) {
+                return new Result(null, Component.translatable("apoapsis.ages.needs",
+                        Ages.ageName(Ages.requiredAge(cockpitItem))));
+            }
         }
 
         Set<BlockPos> found = new LinkedHashSet<>();
@@ -68,6 +91,14 @@ public final class ShipAssembler {
                 BlockPos imm = next.immutable();
                 found.add(imm);
                 queue.add(imm);
+            }
+        }
+
+        if (pilot != null) {
+            for (BlockPos p : found) {
+                if (!mayBreak(level, pilot, p)) {
+                    return new Result(null, protectedError());
+                }
             }
         }
 
@@ -113,6 +144,14 @@ public final class ShipAssembler {
         }
 
         ShipStructure structure = ship.getStructure();
+        // A sideways ship would turn a horizontal facing (the cockpit's) up or down, which no block allows.
+        for (BlockState state : structure.blocks().values()) {
+            if (!ShipGeometry.canRotateFacing(state, snap)) {
+                return Component.translatable("message.apoapsis.ship.not_level");
+            }
+        }
+
+        Player pilot = ship.getPilot();
         Vec3 com = ship.getCenterOfMassLocal();
         Vec3 base = ship.position();
         Vec3 origin = null;
@@ -129,20 +168,28 @@ public final class ShipAssembler {
             return Component.translatable("message.apoapsis.ship.no_room");
         }
 
+        // Validate every block before placing any: protection for the pilot, then the state each block takes.
+        List<Placement> plan = new ArrayList<>(targets.size());
         for (Map.Entry<BlockPos, BlockPos> e : targets.entrySet()) {
             BlockPos local = e.getKey();
             BlockPos cell = e.getValue();
-            BlockState state = ShipGeometry.rotateFacing(structure.get(local), snap);
-            level.setBlock(cell, state, Block.UPDATE_ALL);
-            if (level.getBlockEntity(cell) instanceof FuelTankBlockEntity tank) {
-                tank.setFuelKg(structure.getFuel(local));
+            if (!mayPlace(level, cell, pilot)) {
+                return protectedError();
+            }
+            plan.add(new Placement(cell, ShipGeometry.rotateFacing(structure.get(local), snap),
+                    structure.getFuel(local)));
+        }
+
+        for (Placement p : plan) {
+            level.setBlock(p.cell(), p.state(), Block.UPDATE_ALL);
+            if (level.getBlockEntity(p.cell()) instanceof FuelTankBlockEntity tank) {
+                tank.setFuelKg(p.fuelKg());
             }
         }
 
         // Move the entity to the placed pose so the pilot is put down beside the cockpit as it now is.
         ship.setOrientation(snap.quaternion());
         ship.setPos(origin);
-        Player pilot = ship.getPilot();
         if (pilot != null) {
             pilot.stopRiding();
         }
@@ -162,11 +209,45 @@ public final class ShipAssembler {
                     local.getZ() + 0.5 - com.z));
             BlockPos cell = BlockPos.containing(origin.x + offset.x, origin.y + offset.y, origin.z + offset.z);
             if (!level.hasChunkAt(cell) || level.isOutsideBuildHeight(cell)
-                    || !level.getBlockState(cell).canBeReplaced()) {
+                    || !canReceiveBlock(level.getBlockState(cell))) {
                 return null;
             }
             cells.put(local, cell);
         }
         return cells;
+    }
+
+    /** Air, or a replaceable plant or snow layer without fluid. Fluids and fire are never overwritten. */
+    private static boolean canReceiveBlock(BlockState state) {
+        if (state.isAir()) {
+            return true;
+        }
+        return state.canBeReplaced() && state.getFluidState().isEmpty() && !state.is(BlockTags.FIRE);
+    }
+
+    /** Whether {@code player} may break {@code pos}: the level allows interaction and no listener cancels the break. */
+    private static boolean mayBreak(ServerLevel level, Player player, BlockPos pos) {
+        if (!level.mayInteract(player, pos)) {
+            return false;
+        }
+        BreakBlockEvent event = new BreakBlockEvent(level, pos, level.getBlockState(pos), player);
+        return !NeoForge.EVENT_BUS.post(event).isCanceled();
+    }
+
+    /**
+     * Whether a ship block may be placed at {@code cell}. The pilot, if any, must be allowed to interact there, and the
+     * place event must not be cancelled. The event is posted with no pilot too, with a null entity.
+     */
+    private static boolean mayPlace(ServerLevel level, BlockPos cell, Player pilot) {
+        if (pilot != null && !level.mayInteract(pilot, cell)) {
+            return false;
+        }
+        BlockEvent.EntityPlaceEvent event = new BlockEvent.EntityPlaceEvent(
+                BlockSnapshot.create(level.dimension(), level, cell), level.getBlockState(cell.below()), pilot);
+        return !NeoForge.EVENT_BUS.post(event).isCanceled();
+    }
+
+    private static Component protectedError() {
+        return Component.translatable("message.apoapsis.ship.protected");
     }
 }
