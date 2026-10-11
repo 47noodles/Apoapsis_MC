@@ -58,6 +58,24 @@ public final class CockpitCamera {
         NeoForge.EVENT_BUS.addListener(CockpitCamera::onComputeCameraAngles);
     }
 
+    /** Clears all held state. Called on logout, so a relogged session never reads the previous session's orientation. */
+    public static void reset() {
+        last = null;
+        held = null;
+        active = false;
+        applied = null;
+    }
+
+    /**
+     * Called when a client level unloads. Dimension changes unload the level too, so state is cleared only when it is
+     * already too old to hold or linger: a transition in progress keeps its orientation.
+     */
+    public static void onLevelUnload() {
+        if (last == null || ClientState.clientTicks - last.tick() > HOLD_TICKS) {
+            reset();
+        }
+    }
+
     private static void onComputeCameraAngles(ViewportEvent.ComputeCameraAngles event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) {

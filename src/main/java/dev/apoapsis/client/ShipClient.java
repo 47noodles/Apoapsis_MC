@@ -74,11 +74,13 @@ public final class ShipClient {
 
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         ShipRenderCache.clear();
+        CockpitCamera.reset();
     }
 
     private static void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel() instanceof ClientLevel) {
             ShipRenderCache.clear();
+            CockpitCamera.onLevelUnload();
         }
     }
 }

@@ -29,8 +29,8 @@
   "apoapsis.hud.label.twr": "TWR",
   "apoapsis.hud.sas.off": "SAS OFF",
   "apoapsis.hud.sas.hold": "SAS HOLD",
-  "apoapsis.hud.sas.prograde": "SAS PRO",
-  "apoapsis.hud.sas.retrograde": "SAS RETRO",
+  "apoapsis.hud.sas.prograde": "SAS PROGRADE",
+  "apoapsis.hud.sas.retrograde": "SAS RETROGRADE",
   "apoapsis.hud.nose.prograde": "Nose %s from prograde",
   "apoapsis.hud.nose.retrograde": "Nose %s from retrograde"
 }

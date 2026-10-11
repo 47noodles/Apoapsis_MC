@@ -24,10 +24,15 @@ import java.util.List;
  */
 public final class FlightHud {
     /**
-     * Text top, GUI px above the bottom edge, in survival. The status rows reach up to y = h-59 and the selected item
-     * name sits at y = h-59, so the row goes above both.
+     * Text top, GUI px above the bottom edge, in survival. Vanilla's overlay message (action bar) glyphs run h-72..h-64
+     * (Hud.java:382, 391), and the chat's four lowest lines run h-76..h-40 (chat bottom h-40, 9 px lines). The status
+     * rows and the selected item name sit at h-59 and below. So at h-84 the glyphs (h-84..h-76) clear the action bar by
+     * 4 px and the four lowest chat lines. A band narrower than the screen (outer 30%) was rejected: at GUI 320 it
+     * leaves 96 px, too little for the left cluster, and it still overlaps the chat. The row rises 14 px, about one
+     * and a half chat lines, and stays in the bottom corners. Creative keeps its band: it already sits below the action
+     * bar and above the hotbar.
      */
-    private static final int ROW_BAND_SURVIVAL = 70;
+    private static final int ROW_BAND_SURVIVAL = 84;
     /**
      * Text top in creative, where there are no status rows. The selected item name sits at y = h-45 and the row's
      * bottom edge is 4 px above the hotbar top (h-22).
@@ -125,31 +130,40 @@ public final class FlightHud {
                 label("apoapsis.hud.label.vs"), gap(LABEL_GAP), value(Fmt.signedSpeed(vs), Palette.INK), gap(READOUT_GAP),
                 label("apoapsis.hud.label.twr"), gap(LABEL_GAP), value(Fmt.ratio(twr), Palette.INK));
 
-        float scale = rowScale(c, left, right);
-        int rightWidth = width(c, right, scale);
-        layout(c, left, PAD, top, scale);
-        layout(c, right, c.width - PAD - rightWidth, top, scale);
+        double[] lw = measure(c, left);
+        double[] rw = measure(c, right);
+        float scale = rowScale(c, lw, rw);
+        int rightWidth = width(rw, scale);
+        layout(c, left, lw, PAD, top, scale);
+        layout(c, right, rw, c.width - PAD - rightWidth, top, scale);
     }
 
     /**
-     * The row's text scale: one step down below {@link #NARROW_GUI}, and smaller only as far as the widest cluster needs
-     * to fit {@link #CLUSTER_MAX_FRACTION} of the GUI width.
+     * The row's text scale: min(1, budget / widest cluster), where the budget is {@link #CLUSTER_MAX_FRACTION} of the GUI
+     * width. Below {@link #NARROW_GUI} the cap is {@link #NARROW_SCALE}. Floored at {@link #MIN_SCALE}. The widths are
+     * at scale 1, so the scale is arithmetic and nothing is re-measured. Rounding each part may add a few px.
      */
-    private static float rowScale(Canvas c, List<Part> left, List<Part> right) {
+    private static float rowScale(Canvas c, double[] left, double[] right) {
         double budget = c.width * CLUSTER_MAX_FRACTION;
-        double widest = Math.max(width(c, left, 1f), width(c, right, 1f));
-        double wanted = Math.min(c.width < NARROW_GUI ? NARROW_SCALE : 1.0, budget / widest);
-        float scale = (float) Math.max(MIN_SCALE, wanted);
-        while (scale > MIN_SCALE && Math.max(width(c, left, scale), width(c, right, scale)) > budget) {
-            scale -= 0.01f;
+        double widest = Math.max(sum(left), sum(right));
+        double cap = c.width < NARROW_GUI ? NARROW_SCALE : 1.0;
+        return (float) Math.max(MIN_SCALE, Math.min(cap, budget / widest));
+    }
+
+    /** Each part's width at scale 1, measured once per frame. Gaps and bars are fixed. */
+    private static double[] measure(Canvas c, List<Part> parts) {
+        double[] w = new double[parts.size()];
+        for (int i = 0; i < w.length; i++) {
+            w[i] = partWidth(c, parts.get(i));
         }
-        return scale;
+        return w;
     }
 
     /** Lays a cluster out from ({@code x}, {@code y}) to the right. Label and value sit together, no slots. */
-    private static void layout(Canvas c, List<Part> parts, int x, int y, float scale) {
-        for (Part part : parts) {
-            int w = (int) Math.round(partWidth(c, part) * scale);
+    private static void layout(Canvas c, List<Part> parts, double[] widths, int x, int y, float scale) {
+        for (int i = 0; i < widths.length; i++) {
+            Part part = parts.get(i);
+            int w = (int) Math.round(widths[i] * scale);
             if (part instanceof Text t) {
                 c.text(t.text(), x, y, scale, t.argb(), true);
             } else if (part instanceof Bar b) {
@@ -159,12 +173,20 @@ public final class FlightHud {
         }
     }
 
-    private static int width(Canvas c, List<Part> parts, float scale) {
+    private static int width(double[] widths, float scale) {
         int w = 0;
-        for (Part part : parts) {
-            w += (int) Math.round(partWidth(c, part) * scale);
+        for (double pw : widths) {
+            w += (int) Math.round(pw * scale);
         }
         return w;
+    }
+
+    private static double sum(double[] widths) {
+        double s = 0;
+        for (double pw : widths) {
+            s += pw;
+        }
+        return s;
     }
 
     private static double partWidth(Canvas c, Part part) {
@@ -189,6 +211,7 @@ public final class FlightHud {
 
     private static void drawTopRight(Canvas c, OrbitStatePayload p, CelestialBody body, boolean orbit, SasMode sas,
                                      NoseCue nose) {
+        // Each row has a fixed slot: an absent row leaves its slot empty, so the rows below never move.
         int right = c.width - PAD;
         int y = PAD;
         Component regime = Component.translatable("apoapsis.hud.regime",
@@ -197,16 +220,11 @@ public final class FlightHud {
         rightAligned(c, regime, right, y, Palette.INK_MUTED);
         y += LINE;
 
-        if (orbit) {
-            Elements el = Elements.of(body.mu, Bodies.stateOf(p));
-            if (el.eccentricity() < 1) {
-                Component apsides = Component.translatable("apoapsis.hud.apsides",
-                        Fmt.distance(el.apoapsisRadius() - body.radius),
-                        Fmt.distance(el.periapsisRadius() - body.radius));
-                rightAligned(c, apsides, right, y, Palette.INK_MUTED);
-                y += LINE;
-            }
+        Component apsides = apsides(p, body, orbit);
+        if (apsides != null) {
+            rightAligned(c, apsides, right, y, Palette.INK_MUTED);
         }
+        y += LINE;
 
         // The SAS mode, with the warp factor to its left when time is running fast.
         Component sasText = Component.translatable(sasKey(sas));
@@ -225,6 +243,27 @@ public final class FlightHud {
                     Fmt.degrees(nose.degrees()));
             rightAligned(c, line, right, y, Palette.INK_MUTED);
         }
+    }
+
+    /**
+     * The apsides line for an orbit, or null outside one. "Ap  Pe" while the orbit is bound and its apoapsis lies inside
+     * the body's sphere of influence (Verdance's is unbounded, so always). Otherwise "Pe" and "Escape": the ship leaves
+     * the sphere, so the apoapsis is not a useful number. Radii are from the central body's centre, as the SOI is.
+     */
+    private static Component apsides(OrbitStatePayload p, CelestialBody body, boolean orbit) {
+        if (!orbit) {
+            return null;
+        }
+        Elements el = Elements.of(body.mu, Bodies.stateOf(p));
+        boolean bound = el.eccentricity() < 1;
+        if (bound && el.apoapsisRadius() < body.soiRadius()) {
+            return Component.translatable("apoapsis.hud.apsides",
+                    Fmt.distance(el.apoapsisRadius() - body.radius),
+                    Fmt.distance(el.periapsisRadius() - body.radius));
+        }
+        return Component.translatable("apoapsis.hud.pe", Fmt.distance(el.periapsisRadius() - body.radius))
+                .append("  ")
+                .append(Component.translatable("apoapsis.hud.escape"));
     }
 
     /**
