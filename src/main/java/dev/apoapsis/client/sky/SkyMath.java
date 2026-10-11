@@ -32,6 +32,11 @@ final class SkyMath {
         return new Vec3d(Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat));
     }
 
+    /** Inertial position, relative to the body centre, of a viewer {@code altitude} metres above surface point (lon, lat). */
+    static Vec3d surfaceViewer(double radius, double lon, double lat, double altitude) {
+        return upAt(lon, lat).scale(radius + altitude);
+    }
+
     /** The surface axes (x east, y up, z south) at (lon, lat), as rows over inertial vectors. */
     static Axes surfaceAxes(double lon, double lat) {
         Vec3d east = new Vec3d(-Math.sin(lon), Math.cos(lon), 0);

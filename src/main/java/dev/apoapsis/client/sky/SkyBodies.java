@@ -9,6 +9,7 @@ import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.OrbitNow;
 import dev.apoapsis.client.sky.SkyMath.Axes;
 import dev.apoapsis.flight.BodyId;
+import dev.apoapsis.flight.FlightDimensions;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.MeridianSystem;
@@ -25,6 +26,7 @@ import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
@@ -83,7 +85,7 @@ public final class SkyBodies {
      * the viewer's position relative to the body centre (inertial) with the axes that take inertial vectors to local.
      */
     private record Disc(CelestialBody body, double distance, Vec3d dir, double angle, double rimAngle, int rgb,
-            boolean lit, Vec3d viewer, Axes axes) {
+            boolean lit, Vec3d viewer, Axes axes, double alpha) {
     }
 
     /** Vertices (x, y, z per vertex), ARGB per vertex, and the vertex order for one draw. */
@@ -129,11 +131,11 @@ public final class SkyBodies {
             }
             discs = orbitDiscs(orbit, partialTick);
         } else if (Level.OVERWORLD.equals(level.dimension())) {
-            discs = surfaceDiscs(MeridianSystem.VERDANCE, MeridianSystem.PALE, time(orbit, level, partialTick),
-                    camera(event));
+            discs = surfaceDiscs(level.dimension(), MeridianSystem.VERDANCE, MeridianSystem.PALE,
+                    time(orbit, level, partialTick), camera(event));
         } else if (dim.equals(PALE_ID)) {
-            discs = surfaceDiscs(MeridianSystem.PALE, MeridianSystem.VERDANCE, time(orbit, level, partialTick),
-                    camera(event));
+            discs = surfaceDiscs(FlightDimensions.PALE, MeridianSystem.PALE, MeridianSystem.VERDANCE,
+                    time(orbit, level, partialTick), camera(event));
         } else {
             return;
         }
@@ -200,15 +202,36 @@ public final class SkyBodies {
         return out;
     }
 
-    /** The other body from a point on the surface of {@code local}, above its horizon. */
-    private static List<Disc> surfaceDiscs(CelestialBody local, CelestialBody other, double ut, Vec3 cam) {
+    /**
+     * The climb's share 0..1 for a camera at height {@code camY} (world y) in dimension {@code dim}: 0 up to 1 km over
+     * the surface, 1 at the transition altitude to orbit, 0 in every dimension that is not a surface one. Client only.
+     */
+    public static double climbShare(ResourceKey<Level> dim, double camY) {
+        if (!Level.OVERWORLD.equals(dim) && !FlightDimensions.PALE.equals(dim)) {
+            return 0;
+        }
+        double altitude = camY - FlightDimensions.seaLevel(dim);
+        return SkyClimb.share(altitude, FlightDimensions.transitionAltitude(FlightDimensions.surfaceBody(dim)));
+    }
+
+    /**
+     * The local body from the camera's real position, once the climb has started (it fades in with altitude), and the
+     * other body, above the local horizon. The local body is a textured cap like the orbit one, from the same sight lines.
+     */
+    private static List<Disc> surfaceDiscs(ResourceKey<Level> dim, CelestialBody local, CelestialBody other, double ut,
+            Vec3 cam) {
         double radius = local.radius;
         double lon = cam.x() / radius;
         double lat = -cam.z() / radius;
-        Vec3d p = SkyMath.upAt(lon, lat).scale(radius + cam.y() - seaLevel(local));
+        double altitude = cam.y() - seaLevel(local);
+        Vec3d p = SkyMath.surfaceViewer(radius, lon, lat, altitude);
+        List<Disc> out = new ArrayList<>(2);
+        double share = climbShare(dim, cam.y());
+        if (share > 0 && planetType(local) != null) {
+            out.add(disc(local, p, SkyMath.surfaceAxes(lon, lat), true, share));
+        }
         Vec3d toOther = SkyMath.systemPosition(other, ut).sub(SkyMath.systemPosition(local, ut)).sub(p);
         double d = toOther.length();
-        List<Disc> out = new ArrayList<>(1);
         if (d > other.radius) {
             Vec3d w = toOther.scale(1 / d);
             if (!SkyMath.belowHorizon(p, w, radius)) {
@@ -223,6 +246,11 @@ public final class SkyBodies {
      * {@code axes}. The direction and distance are the viewer's line to the body centre.
      */
     private static Disc disc(CelestialBody body, Vec3d viewer, Axes axes, boolean lit) {
+        return disc(body, viewer, axes, lit, 1);
+    }
+
+    /** As {@link #disc(CelestialBody, Vec3d, Axes, boolean)}, drawn at {@code alpha} 0..1. */
+    private static Disc disc(CelestialBody body, Vec3d viewer, Axes axes, boolean lit, double alpha) {
         double distance = viewer.length();
         Vec3d dir = axes.apply(viewer.scale(-1 / distance));
         double angle = Math.asin(Math.min(1, body.radius / distance));
@@ -234,7 +262,7 @@ public final class SkyBodies {
             }
         }
         int rgb = body == MeridianSystem.PALE ? PALE_RGB : VERDANCE_RGB;
-        return new Disc(body, distance, dir, angle, rimAngle, rgb, lit, viewer, axes);
+        return new Disc(body, distance, dir, angle, rimAngle, rgb, lit, viewer, axes, alpha);
     }
 
     private static int seaLevel(CelestialBody body) {
@@ -284,7 +312,7 @@ public final class SkyBodies {
             Vec3d limb = basis.limb(i);
             double lit = light(disc, limb.dot(SUN));
             put(xyz, i, basis.sightLine(disc.angle(), limb).scale(far));
-            argb[i] = argb((int) Math.round(255 * RIM_ALPHA * lit), ATMOSPHERE_RGB, 1);
+            argb[i] = argb((int) Math.round(255 * RIM_ALPHA * lit * disc.alpha()), ATMOSPHERE_RGB, 1);
             put(xyz, ring + i, basis.sightLine(disc.rimAngle(), limb).scale(far));
             argb[ring + i] = argb(0, ATMOSPHERE_RGB, 1);
         }
@@ -320,7 +348,7 @@ public final class SkyBodies {
     private static void submitCap(SubmitNodeCollector collector, PoseStack poseStack, Disc disc, RenderType type,
             double far) {
         PlanetCap cap = disc.body() == MeridianSystem.PALE ? PALE_CAP : VERDANCE_CAP;
-        cap.build(disc.body().radius, disc.viewer(), disc.axes(), far, SUN);
+        cap.build(disc.body().radius, disc.viewer(), disc.axes(), far, SUN, disc.alpha());
         collector.submitCustomGeometry(poseStack, type, (pose, buffer) -> cap.emit(pose, buffer));
     }
 }

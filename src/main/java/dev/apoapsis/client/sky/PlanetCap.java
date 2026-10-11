@@ -25,12 +25,16 @@ final class PlanetCap {
     private final int[] shade = new int[V * V];
     private final double[] cosPhi = new double[V], sinPhi = new double[V];
     private final double[] cosTheta = new double[V], sinTheta = new double[V];
+    /** Alpha of every vertex, 0..255, set by {@link #build}: the climb fades the planet in. */
+    private int alpha = 255;
 
     /**
      * Fills the grid for a sphere of {@code radius} seen from {@code viewer} (inertial, relative to its centre), placing
-     * vertices at {@code far} along the sight lines in the dimension's axes. Cells are finest at the limb.
+     * vertices at {@code far} along the sight lines in the dimension's axes. Cells are finest at the limb. {@code opacity}
+     * 0..1 sets the cap's alpha.
      */
-    void build(double radius, Vec3d viewer, SkyMath.Axes axes, double far, Vec3d sun) {
+    void build(double radius, Vec3d viewer, SkyMath.Axes axes, double far, Vec3d sun, double opacity) {
+        alpha = (int) Math.round(255 * Math.max(0, Math.min(1, opacity)));
         double d = viewer.length();
         double vx = viewer.x(), vy = viewer.y(), vz = viewer.z();
         Vec3d dir = viewer.scale(-1 / d);
@@ -103,7 +107,7 @@ final class PlanetCap {
         int l = shade[i];
         buffer.addVertex(pose, sky[3 * i], sky[3 * i + 1], sky[3 * i + 2])
                 .setUv((float) unwrap(u0, texU(i)), (float) v)
-                .setColor(l, l, l, 255);
+                .setColor(l, l, l, alpha);
     }
 
     private double texU(int i) {
