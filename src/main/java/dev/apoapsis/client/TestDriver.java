@@ -35,8 +35,13 @@ public final class TestDriver {
     private TestDriver() {}
 
     public static boolean enabled() {
-        return Boolean.getBoolean("apoapsis.testDriver");
+        String mode = System.getProperty("apoapsis.testDriver");
+        return mode != null && !mode.equals("false");
     }
+
+    /** "transfer" runs the Pale transfer script; anything else runs the short flight-and-map script. */
+    private static final TestDriverTransfer TRANSFER =
+            "transfer".equals(System.getProperty("apoapsis.testDriver")) ? new TestDriverTransfer() : null;
 
     public static void register() {
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> tick(Minecraft.getInstance()));
@@ -60,6 +65,15 @@ public final class TestDriver {
             return;
         }
         pilotTicks++;
+        if (TRANSFER != null) {
+            if (pilotTicks == 20) {
+                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+            }
+            if (!TRANSFER.tick(mc, ship)) {
+                finish(mc);
+            }
+            return;
+        }
         switch (pilotTicks) {
             case 20 -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
             case 100 -> {

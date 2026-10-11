@@ -53,6 +53,14 @@ neoForge {
             programArguments.addAll '--width', '1600', '--height', '900'
         }
 
+        // The Pale transfer by script: window, prograde burn to an encounter, coast across the SOI, map screenshots.
+        testTransfer {
+            client()
+            systemProperty 'apoapsis.testFlight', 'true'
+            systemProperty 'apoapsis.testDriver', 'transfer'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
         server {
             server()
             programArgument '--nogui'
