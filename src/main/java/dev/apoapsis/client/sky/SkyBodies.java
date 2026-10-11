@@ -1,9 +1,13 @@
 package dev.apoapsis.client.sky;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.OrbitNow;
+import dev.apoapsis.client.sky.SkyMath.Axes;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.orbit.CelestialBody;
@@ -11,9 +15,13 @@ import dev.apoapsis.orbit.MeridianSystem;
 import dev.apoapsis.orbit.Vec3d;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.resources.Identifier;
@@ -22,9 +30,10 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 
 /**
- * The bodies in the sky, drawn as flat discs and atmosphere rims through {@link SubmitCustomGeometryEvent}, so they
- * share the level's translucent feature pass and depth test. Orbit dimension: the central body and the other body
- * from the piloted ship. Overworld: Pale. Pale: Verdance. Client only.
+ * The bodies in the sky, drawn through {@link SubmitCustomGeometryEvent}, so they share the level's translucent feature
+ * pass and depth test. A body with a surface map is a textured, lit sphere cap ({@link PlanetCap}); otherwise a flat
+ * disc. Verdance keeps its atmosphere rim. Orbit dimension: the central body and the other body from the piloted ship.
+ * Overworld: Pale. Pale: Verdance. Client only.
  *
  * <p>Every vertex sits at {@code FAR_FRACTION * depthFar} from the camera, on the sight line of its angle, so the
  * image matches a flat disc of the same angular size while nothing is clipped by the far plane.
@@ -32,7 +41,7 @@ import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 public final class SkyBodies {
     private SkyBodies() {}
 
-    /** Segments per circle: the disc fan has this many triangles. */
+    /** Segments per circle: the disc fan and the rim have this many triangles. */
     private static final int SEGMENTS = 48;
     /** Share of the far plane at which the sky is drawn. */
     private static final double FAR_FRACTION = 0.9;
@@ -42,7 +51,7 @@ public final class SkyBodies {
     private static final double RIM_ALPHA = 0.35;
     /** Caps (R + top) / distance so the rim angle stays below 90 degrees. */
     private static final double RIM_LIMIT = 0.98;
-    /** Sun direction in orbit-dimension axes: inertial +X. */
+    /** Sun direction in inertial axes: +X. In the orbit dimension this is local +X too. */
     private static final Vec3d SUN = new Vec3d(1, 0, 0);
 
     private static final int VERDANCE_RGB = 0x2F6F63;
@@ -54,8 +63,27 @@ public final class SkyBodies {
     private static final Identifier ORBIT_ID = Identifier.fromNamespaceAndPath(Apoapsis.MODID, "orbit");
     private static final Identifier PALE_ID = Identifier.fromNamespaceAndPath(Apoapsis.MODID, "pale");
 
-    /** A body to draw: its direction and distance from the viewer point, angular radii, colour and lighting. */
-    private record Disc(double distance, Vec3d dir, double angle, double rimAngle, int rgb, boolean lit) {
+    /**
+     * Textured sphere pipeline: the GUI textured snippet (position, UV, colour; translucent blend) with the sky's depth
+     * test, reversed-Z as the flat discs use, and no culling.
+     */
+    private static final RenderPipeline PLANET_PIPELINE = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(Apoapsis.MODID, "pipeline/planet"))
+            .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+            .withCull(false)
+            .build();
+    private static final Map<String, RenderType> PLANET_TYPES = new HashMap<>();
+
+    /** One reusable cap per body, so the two bodies in a frame never share arrays. */
+    private static final PlanetCap VERDANCE_CAP = new PlanetCap();
+    private static final PlanetCap PALE_CAP = new PlanetCap();
+
+    /**
+     * A body to draw: its direction (local axes) and distance from the viewer, angular radii, colour and lighting, and
+     * the viewer's position relative to the body centre (inertial) with the axes that take inertial vectors to local.
+     */
+    private record Disc(CelestialBody body, double distance, Vec3d dir, double angle, double rimAngle, int rgb,
+            boolean lit, Vec3d viewer, Axes axes) {
     }
 
     /** Vertices (x, y, z per vertex), ARGB per vertex, and the vertex order for one draw. */
@@ -123,8 +151,23 @@ public final class SkyBodies {
             if (disc.rimAngle() > 0) {
                 submit(collector, poseStack, rimMesh(disc, basis, far));
             }
-            submit(collector, poseStack, discMesh(disc, basis, far));
+            RenderType planet = planetType(disc.body());
+            if (planet != null) {
+                submitCap(collector, poseStack, disc, planet, far);
+            } else {
+                submit(collector, poseStack, discMesh(disc, basis, far));
+            }
         }
+    }
+
+    /** The textured render type for a body's map, or null while the body has no map. */
+    private static RenderType planetType(CelestialBody body) {
+        Identifier map = PlanetTextures.texture(body.id);
+        if (map == null) {
+            return null;
+        }
+        return PLANET_TYPES.computeIfAbsent(body.id, id -> RenderType.create("apoapsis_planet",
+                RenderSetup.builder(PLANET_PIPELINE).withTexture("Sampler0", map).createRenderSetup()));
     }
 
     /** Universal time now: the piloted ship's, advanced to this frame, else the level's game time in seconds. */
@@ -146,13 +189,13 @@ public final class SkyBodies {
 
         double rl = r.length();
         if (rl > central.radius) {
-            out.add(disc(central, rl, SkyMath.inertialToLocal(r.scale(-1 / rl)), true));
+            out.add(disc(central, r, SkyMath.ORBIT, true));
         }
         Vec3d ship = SkyMath.systemPosition(central, ut).add(r);
         Vec3d toOther = SkyMath.systemPosition(other, ut).sub(ship);
         double dOther = toOther.length();
         if (dOther > other.radius) {
-            out.add(disc(other, dOther, SkyMath.inertialToLocal(toOther.scale(1 / dOther)), true));
+            out.add(disc(other, toOther.scale(-1), SkyMath.ORBIT, true));
         }
         return out;
     }
@@ -169,14 +212,19 @@ public final class SkyBodies {
         if (d > other.radius) {
             Vec3d w = toOther.scale(1 / d);
             if (!SkyMath.belowHorizon(p, w, radius)) {
-                out.add(disc(other, d, SkyMath.inertialToSurface(w, lon, lat), false));
+                out.add(disc(other, toOther.scale(-1), SkyMath.surfaceAxes(lon, lat), false));
             }
         }
         return out;
     }
 
-    /** A disc for {@code body} at {@code distance} along the unit direction {@code dir} (in local axes). */
-    private static Disc disc(CelestialBody body, double distance, Vec3d dir, boolean lit) {
+    /**
+     * A disc for {@code body} seen from {@code viewer} (inertial, relative to the body centre), in the dimension's
+     * {@code axes}. The direction and distance are the viewer's line to the body centre.
+     */
+    private static Disc disc(CelestialBody body, Vec3d viewer, Axes axes, boolean lit) {
+        double distance = viewer.length();
+        Vec3d dir = axes.apply(viewer.scale(-1 / distance));
         double angle = Math.asin(Math.min(1, body.radius / distance));
         double rimAngle = 0;
         if (body.atmosphereTop > 0) {
@@ -186,7 +234,7 @@ public final class SkyBodies {
             }
         }
         int rgb = body == MeridianSystem.PALE ? PALE_RGB : VERDANCE_RGB;
-        return new Disc(distance, dir, angle, rimAngle, rgb, lit);
+        return new Disc(body, distance, dir, angle, rimAngle, rgb, lit, viewer, axes);
     }
 
     private static int seaLevel(CelestialBody body) {
@@ -266,5 +314,13 @@ public final class SkyBodies {
                         .setColor((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, c >>> 24);
             }
         });
+    }
+
+    /** Rebuilds the body's reusable cap for this frame and hands it to the collector. */
+    private static void submitCap(SubmitNodeCollector collector, PoseStack poseStack, Disc disc, RenderType type,
+            double far) {
+        PlanetCap cap = disc.body() == MeridianSystem.PALE ? PALE_CAP : VERDANCE_CAP;
+        cap.build(disc.body().radius, disc.viewer(), disc.axes(), far, SUN);
+        collector.submitCustomGeometry(poseStack, type, (pose, buffer) -> cap.emit(pose, buffer));
     }
 }

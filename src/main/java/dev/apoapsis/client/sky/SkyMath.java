@@ -10,10 +10,17 @@ import dev.apoapsis.orbit.Vec3d;
 final class SkyMath {
     private SkyMath() {}
 
-    /** Body-inertial (X, Y, Z) to orbit-dimension local axes (x, y, z) = (X, Z, -Y). A proper rotation. */
-    static Vec3d inertialToLocal(Vec3d v) {
-        return new Vec3d(v.x(), v.z(), -v.y());
+    /**
+     * Three rows taking an inertial vector {@code w} to dimension-local axes: (a.w, b.w, c.w). Client only.
+     */
+    record Axes(Vec3d a, Vec3d b, Vec3d c) {
+        Vec3d apply(Vec3d w) {
+            return new Vec3d(a.dot(w), b.dot(w), c.dot(w));
+        }
     }
+
+    /** The orbit dimension: body-inertial (X, Y, Z) to local axes (x, y, z) = (X, Z, -Y). A proper rotation. */
+    static final Axes ORBIT = new Axes(new Vec3d(1, 0, 0), new Vec3d(0, 0, 1), new Vec3d(0, -1, 0));
 
     /** Position of {@code body} relative to Verdance (the system origin) at {@code ut}; zero for the root. */
     static Vec3d systemPosition(CelestialBody body, double ut) {
@@ -25,14 +32,11 @@ final class SkyMath {
         return new Vec3d(Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat));
     }
 
-    /**
-     * Inertial vector {@code w} expressed in surface axes (x east, y up, z south) at (lon, lat). The tangent map
-     * sends surface (x, y, z) to x*E + y*U - z*N, so the inverse is x = w.E, y = w.U, z = -w.N.
-     */
-    static Vec3d inertialToSurface(Vec3d w, double lon, double lat) {
+    /** The surface axes (x east, y up, z south) at (lon, lat), as rows over inertial vectors. */
+    static Axes surfaceAxes(double lon, double lat) {
         Vec3d east = new Vec3d(-Math.sin(lon), Math.cos(lon), 0);
         Vec3d north = new Vec3d(-Math.sin(lat) * Math.cos(lon), -Math.sin(lat) * Math.sin(lon), Math.cos(lat));
-        return new Vec3d(w.dot(east), w.dot(upAt(lon, lat)), -w.dot(north));
+        return new Axes(east, upAt(lon, lat), north.scale(-1));
     }
 
     /**
