@@ -50,6 +50,11 @@ public final class ChaseCamera {
 
     private ChaseCamera() {}
 
+    /** The chase distance in blocks the camera was last given, or a negative number when no chase camera has run. */
+    public static double shownDistance() {
+        return shown;
+    }
+
     /** The ship the local player's camera is following in third person, or null. */
     private static ShipEntity chasedShip(Minecraft mc) {
         if (mc.player == null || mc.getCameraEntity() != mc.player || mc.options.getCameraType().isFirstPerson()) {

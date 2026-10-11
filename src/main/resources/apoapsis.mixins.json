@@ -10,7 +10,8 @@
   "client": [
     "client.HudAccessor",
     "client.SkyRendererMixin",
-    "client.EntityTurnMixin"
+    "client.EntityTurnMixin",
+    "client.GameRendererMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

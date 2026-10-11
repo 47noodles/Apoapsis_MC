@@ -11,11 +11,8 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.block.MovingBlockRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
-import org.joml.Quaternionf;
-import org.joml.Quaternionfc;
 
 /**
  * Client render data per ship, keyed by entity id. Int keys hold no reference to the ship, so an entry never keeps its
@@ -24,8 +21,6 @@ import org.joml.Quaternionfc;
  */
 public final class ShipRenderCache {
     private static final Int2ObjectOpenHashMap<Entry> ENTRIES = new Int2ObjectOpenHashMap<>();
-    /** Client ticks so far. Orientation samples are taken on these boundaries. */
-    private static long clientTick;
 
     private ShipRenderCache() {}
 
@@ -39,9 +34,11 @@ public final class ShipRenderCache {
         return entry;
     }
 
-    /** Called once per client tick, after the tick has run. */
+    /**
+     * Called once per client tick, after the tick has run. The orientation used to be sampled on these boundaries; it is
+     * now smoothed by the ship itself ({@code ShipEntity#getRenderOrientation}), so there is nothing to do.
+     */
     public static void advanceClientTick() {
-        clientTick++;
     }
 
     /** Drops every entry whose id no longer names a ship in the level. */
@@ -59,18 +56,12 @@ public final class ShipRenderCache {
         ENTRIES.clear();
     }
 
-    /** One ship's block lists and its last two orientation samples. */
+    /** One ship's block lists. */
     public static final class Entry {
         /** Every block of the structure, in map order, for change detection. */
         private final List<ShipRenderState.ShipBlock> all = new ArrayList<>();
         /** The blocks that are drawn: every block except the fully enclosed ones. */
         private final List<ShipRenderState.ShipBlock> visible = new ArrayList<>();
-        /** Orientation at the last client tick boundary, and the latest synced orientation. */
-        private final Quaternionf previous = new Quaternionf();
-        private final Quaternionf current = new Quaternionf();
-        private final Quaternionf shortest = new Quaternionf();
-        private long sampleTick;
-        private boolean sampled;
 
         /**
          * The blocks to draw. Rebuilt only when the structure's blocks differ from the last frame's, and the fully
@@ -81,35 +72,6 @@ public final class ShipRenderCache {
                 rebuild(structure);
             }
             return visible;
-        }
-
-        /**
-         * The ship's orientation {@code partialTicks} of the way from its previous client-tick sample to the latest
-         * synced value: {@code slerp(previous, current, t)}. Each client tick the previous sample moves to the last
-         * synced value seen, and the current sample follows the synced value as it arrives. A ship that stops turning
-         * therefore settles on its last value, without snapping back to an older sample.
-         *
-         * @param synced        the synced body-to-dimension orientation
-         * @param partialTicks  the frame's fraction of the way through the client tick, 0 to 1
-         * @return a new quaternion, the interpolated orientation
-         */
-        public Quaternionf orientation(Quaternionfc synced, float partialTicks) {
-            long tick = clientTick;
-            if (!sampled) {
-                previous.set(synced);
-                sampled = true;
-            } else if (tick != sampleTick) {
-                previous.set(current);
-            }
-            sampleTick = tick;
-            current.set(synced);
-            // q and -q are the same rotation. Choose the sign that takes the short arc.
-            if (previous.dot(current) < 0.0F) {
-                shortest.set(-previous.x, -previous.y, -previous.z, -previous.w);
-            } else {
-                shortest.set(previous);
-            }
-            return shortest.slerp(current, Mth.clamp(partialTicks, 0.0F, 1.0F), new Quaternionf());
         }
 
         private boolean sameBlocks(ShipStructure structure) {

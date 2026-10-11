@@ -40,7 +40,7 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
     public void extractRenderState(ShipEntity ship, ShipRenderState state, float partialTicks) {
         super.extractRenderState(ship, state, partialTicks);
         ShipRenderCache.Entry cache = ShipRenderCache.entry(ship.getId());
-        state.orientation = cache.orientation(ship.getOrientation(), partialTicks);
+        state.orientation = ship.getRenderOrientation(partialTicks);
         state.centerOfMass = ship.getCenterOfMassLocal();
         state.blocks = cache.updateBlocks(ship.getStructure());
         if (ship.level() instanceof ClientLevel level) {
@@ -98,7 +98,7 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
         ShipStructure structure = ship.getStructure();
         AABB local = structure.localBounds();
         Vec3 com = ship.getCenterOfMassLocal();
-        Quaternionf q = ShipRenderCache.entry(ship.getId()).orientation(ship.getOrientation(), partialTicks);
+        Quaternionf q = ship.getRenderOrientation(partialTicks);
         Vec3 origin = ship.getPosition(partialTicks);
         double minX = Double.MAX_VALUE;
         double minY = Double.MAX_VALUE;

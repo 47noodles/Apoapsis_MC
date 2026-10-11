@@ -26,6 +26,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.InterpolationHandler;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
@@ -103,6 +104,12 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> LANDED =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.BOOLEAN);
+    /**
+     * The server tick that wrote the other synced values, the last field defined. It changes every tick the ship runs,
+     * so a data packet arrives every tick, and it stamps the sample the client smooths (see {@link ShipInterpolation}).
+     */
+    private static final EntityDataAccessor<Integer> SYNC_TICK =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
 
     private ShipStructure structure = new ShipStructure();
     private final Quaternionf orientation = new Quaternionf();
@@ -199,9 +206,69 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         return comLocal;
     }
 
-    /** A copy of the orientation (body to dimension axes). */
+    /**
+     * A copy of the orientation (body to dimension axes). On the server the physics value; on a client the smoothed one
+     * as of the latest client tick, which is the one the ship's pose, the rider and the engine plume follow.
+     */
     public Quaternionf getOrientation() {
-        return new Quaternionf(remote() ? entityData.get(ORIENTATION) : orientation);
+        if (remote()) {
+            ShipInterpolation motion = motion();
+            if (motion != null && motion.hasOrientation()) {
+                return motion.orientationNow(new Quaternionf());
+            }
+            return new Quaternionf(entityData.get(ORIENTATION));
+        }
+        return new Quaternionf(orientation);
+    }
+
+    /** The orientation to draw {@code partialTicks} into the client tick; on the server, the physics value. */
+    public Quaternionf getRenderOrientation(float partialTicks) {
+        if (remote()) {
+            ShipInterpolation motion = motion();
+            if (motion != null && motion.hasOrientation()) {
+                return motion.orientationAt(partialTicks, new Quaternionf());
+            }
+            return new Quaternionf(entityData.get(ORIENTATION));
+        }
+        return new Quaternionf(orientation);
+    }
+
+    /** How far, in server ticks, the client's drawn pose trails the newest sample; NaN on the server. For test logs. */
+    public double smoothingLagTicks() {
+        ShipInterpolation motion = remote() ? motion() : null;
+        return motion == null ? Double.NaN : motion.lagTicks();
+    }
+
+    /** Server tick of the newest sample the client has; -1 on the server or before the first. For test logs. */
+    public int smoothingNewestTick() {
+        ShipInterpolation motion = remote() ? motion() : null;
+        return motion == null ? -1 : motion.newestStamp();
+    }
+
+    /** The client-side smoothing of this ship, or null on the server. */
+    private ShipInterpolation motion() {
+        return getInterpolation() instanceof ShipInterpolation motion ? motion : null;
+    }
+
+    /** Only a client level smooths the pose; the server moves the ship itself. */
+    @Override
+    protected InterpolationHandler createInterpolationHandler() {
+        return level().isClientSide() ? new ShipInterpolation(this) : InterpolationHandler.NO_OP;
+    }
+
+    /** Every tick's data packet carries the tick stamp, last: that completes a sample for {@link ShipInterpolation}. */
+    @Override
+    public void onSyncedDataUpdated(List<SynchedEntityData.DataValue<?>> updatedItems) {
+        super.onSyncedDataUpdated(updatedItems);
+        if (!remote() || !(getInterpolation() instanceof ShipInterpolation motion)) {
+            return;
+        }
+        for (SynchedEntityData.DataValue<?> item : updatedItems) {
+            if (item.id() == SYNC_TICK.id()) {
+                motion.accept(entityData.get(SYNC_TICK), toVec3(entityData.get(VELOCITY)), entityData.get(ORIENTATION));
+                return;
+            }
+        }
     }
 
     public void setOrientation(Quaternionfc q) {
@@ -352,6 +419,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         builder.define(FUEL_KG, 0.0f);
         builder.define(SAS, SasMode.HOLD.ordinal());
         builder.define(LANDED, false);
+        builder.define(SYNC_TICK, 0);
     }
 
     /** The cube around the centre of mass that holds every block, so picking, culling and tracking see the whole ship. */
@@ -392,9 +460,44 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
     @Override
     protected void positionRider(Entity passenger, Entity.MoveFunction moveFunction) {
         double eyeHeight = passenger.getEyeHeight();
-        Vec3 eye = cockpitCentre().add(rotate(new Vec3(0, eyeHeight - 0.5, 0)));
+        Vec3 eye = cockpitEye(position(), getOrientation(), eyeHeight);
         Vec3 feet = eye.add(0, -eyeHeight, 0);
         moveFunction.accept(passenger, feet.x, feet.y, feet.z);
+    }
+
+    /**
+     * On a client, a player who is seated is put at the cockpit eye at once, with their previous position at the eye of
+     * the ship's previous tick, instead of at the next client tick. Without it the rider stays where they were (at
+     * the ship's centre after a dimension change) until the next tick, and then glides to the eye over that tick: a
+     * few frames with the camera away from the cockpit. Seating arrives between frames, so the first frame that draws
+     * the new ship already has the rider in place.
+     */
+    @Override
+    protected void addPassenger(Entity passenger) {
+        super.addPassenger(passenger);
+        if (level().isClientSide() && passenger instanceof Player) {
+            positionRider(passenger);
+            double eyeHeight = passenger.getEyeHeight();
+            Vec3 eyeBefore = cockpitEye(oldPosition(), getRenderOrientation(0.0F), eyeHeight);
+            passenger.setOldPosAndRot(eyeBefore.add(0, -eyeHeight, 0), passenger.getYRot(), passenger.getXRot());
+        }
+    }
+
+    /**
+     * The pilot's eye for a ship whose centre of mass is at {@code pos} with orientation {@code q}: the cockpit centre
+     * plus the body-frame offset (0, eyeHeight - 0.5, 0) turned into the world. The same on both sides, so the client
+     * seats the pilot where the server does (the client used to turn the offset by the server-only orientation, which is
+     * the identity there).
+     */
+    public Vec3 cockpitEye(Vec3 pos, Quaternionfc q, double eyeHeight) {
+        ensureStructureCache();
+        double[] m = ShipGeometry.matrix(q);
+        Vec3 local = Vec3.ZERO;
+        BlockPos c = cockpitLocal;
+        if (c != null) {
+            local = new Vec3(c.getX() + 0.5 - comLocal.x, c.getY() + 0.5 - comLocal.y, c.getZ() + 0.5 - comLocal.z);
+        }
+        return pos.add(ShipGeometry.apply(m, local)).add(ShipGeometry.apply(m, new Vec3(0, eyeHeight - 0.5, 0)));
     }
 
     /** A free spot beside the cockpit, at the cockpit's floor level (or one block up). */
@@ -1222,6 +1325,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         entityData.set(FUEL_KG, (float) structure.fuelKg());
         entityData.set(SAS, sasMode.ordinal());
         entityData.set(LANDED, landed);
+        entityData.set(SYNC_TICK, (int) level().getGameTime());
     }
 
     private static Vec3 toVec3(Vector3fc v) {

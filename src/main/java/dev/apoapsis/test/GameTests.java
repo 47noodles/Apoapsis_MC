@@ -68,6 +68,12 @@ public final class GameTests {
                 new ApoapsisGameTest("ship_climbs_with_thrust", environment, 120, GameTests::shipClimbsWithThrust));
         event.registerTest(TestSupport.id("orbit_spawn"),
                 new ApoapsisGameTest("orbit_spawn", environment, 40, GameTests::orbitSpawn));
+        event.registerTest(TestSupport.id("playback_ignores_arrival_jitter"),
+                new ApoapsisGameTest("playback_ignores_arrival_jitter", environment, 40,
+                        PlaybackTests::poseIgnoresArrivalJitter));
+        event.registerTest(TestSupport.id("playback_teleport_and_sleep"),
+                new ApoapsisGameTest("playback_teleport_and_sleep", environment, 40,
+                        PlaybackTests::teleportsAndSleepRestart));
         event.registerTest(TestSupport.id("start_age_three"),
                 new ApoapsisGameTest("start_age_three", environment, 40, GameTests::startAgeThree));
         event.registerTest(TestSupport.id("first_flight_needs_landing"),

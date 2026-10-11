@@ -37,6 +37,12 @@ public final class CockpitCamera {
     private static final long HOLD_TICKS = 60;
     /** Client ticks the last ridden orientation is kept in the same dimension after the pilot dismounts. */
     private static final long LINGER_TICKS = 10;
+    /**
+     * Client ticks after the last ridden frame during which a pilot who crossed between surface and orbit and is not yet
+     * seated in the new ship sees the last good frame instead of the new level (see {@link #holdFrame}). A second
+     * is far longer than the seat takes, and bounds the freeze if the pilot never gets one.
+     */
+    private static final long FREEZE_TICKS = 20;
 
     /**
      * The ship's orientation at its last ridden frame, with the frame anchor for the dimension it was in: the inertial
@@ -49,6 +55,8 @@ public final class CockpitCamera {
     private static Quaternionf held;
     /** True while the cockpit view is in use: riding, holding a transition, or lingering after a dismount. */
     private static boolean active;
+    /** True when the last call to {@link #holdFrame} held the frame. */
+    private static boolean frameHeld;
     /** The camera rotation applied on the last frame while active. */
     private static Quaternionf applied;
     /** The cockpit-relative look while riding, unclamped; the camera is the ship's orientation times this. */
@@ -66,8 +74,32 @@ public final class CockpitCamera {
         last = null;
         held = null;
         active = false;
+        frameHeld = false;
         applied = null;
         head = new Quaternionf();
+    }
+
+    /**
+     * True while the frame about to be drawn must be skipped, so the screen keeps the last frame. After a dimension change
+     * the server seats the pilot in the new ship a tick or two later; until then the client has the player in the new
+     * level at the ship's centre of mass, or at the old level's coordinates, with no ship or one they are not in. Any frame
+     * drawn then has the camera inside the hull or away from the cockpit eye. So a pilot who was riding across surface
+     * and orbit, and is not riding a ship now, gets no new frame, for at most {@link #FREEZE_TICKS} ticks. The mixin on
+     * GameRenderer.render calls this once per frame, before anything is drawn.
+     */
+    public static boolean holdFrame() {
+        Minecraft mc = Minecraft.getInstance();
+        boolean hold = active && last != null && mc.player != null && mc.level != null
+                && !(mc.player.getVehicle() instanceof ShipEntity)
+                && canHold(mc.level.dimension())
+                && ClientState.clientTicks - last.tick() <= FREEZE_TICKS;
+        frameHeld = hold;
+        return hold;
+    }
+
+    /** True when the frame just handled by {@link #holdFrame} was held back. For test logs. */
+    public static boolean wasFrameHeld() {
+        return frameHeld;
     }
 
     /** True while the cockpit view is in use. The Entity.turn mixin hands mouse turns to {@link #turn} only then. */
@@ -105,7 +137,7 @@ public final class CockpitCamera {
         ResourceKey<Level> dimension = mc.level.dimension();
 
         if (player.getVehicle() instanceof ShipEntity ship) {
-            Quaternionf q = ShipRenderCache.entry(ship.getId()).orientation(ship.getOrientation(), partialTick);
+            Quaternionf q = ship.getRenderOrientation(partialTick);
             if (!active) {
                 // Boarding: the player's angles are world angles. Make the head cockpit-relative once, keeping the view.
                 head = new Quaternionf(q).conjugate().mul(vanilla(player.getYRot(), player.getXRot()));
