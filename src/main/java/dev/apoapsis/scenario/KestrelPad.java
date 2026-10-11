@@ -23,9 +23,17 @@ public final class KestrelPad {
      * so its bottom sits on the pad. Returns false if the column has no room.
      */
     public static boolean place(ServerLevel level, int cx, int cz, Blueprint blueprint) {
+        return placeCockpit(level, cx, cz, blueprint) != null;
+    }
+
+    /**
+     * As {@link #place}, and returns the world position of the blueprint's cockpit (its origin), or null if the column
+     * has no room.
+     */
+    public static BlockPos placeCockpit(ServerLevel level, int cx, int cz, Blueprint blueprint) {
         int padY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz) - 1;
         if (padY <= level.getMinY() + MAX_SUPPORT_DEPTH || padY + CLEAR_HEIGHT >= level.getMaxY()) {
-            return false;
+            return null;
         }
         BlockState stone = Blocks.SMOOTH_STONE.defaultBlockState();
         BlockState air = Blocks.AIR.defaultBlockState();
@@ -59,7 +67,7 @@ public final class KestrelPad {
                 tank.setFuelKg(FuelTankBlockEntity.CAPACITY_KG);
             }
         }
-        return true;
+        return new BlockPos(cx, baseY, cz);
     }
 
     private static int minY(Blueprint blueprint) {

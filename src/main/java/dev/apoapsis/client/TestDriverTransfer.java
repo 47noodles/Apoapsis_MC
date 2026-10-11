@@ -1,11 +1,16 @@
 package dev.apoapsis.client;
 
+import static dev.apoapsis.client.TestDriverSupport.fmt;
+import static dev.apoapsis.client.TestDriverSupport.logOrbit;
+import static dev.apoapsis.client.TestDriverSupport.send;
+import static dev.apoapsis.client.TestDriverSupport.shot;
+import static dev.apoapsis.client.TestDriverSupport.steer;
+
 import com.mojang.logging.LogUtils;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.net.ShipInputPayload;
 import dev.apoapsis.orbit.CelestialBody;
-import dev.apoapsis.orbit.Elements;
 import dev.apoapsis.orbit.MeridianSystem;
 import dev.apoapsis.orbit.Patch;
 import dev.apoapsis.orbit.StateVector;
@@ -13,32 +18,44 @@ import dev.apoapsis.orbit.TrajectoryPredictor;
 import dev.apoapsis.orbit.Vec3d;
 import dev.apoapsis.ship.ShipEntity;
 import java.util.List;
+import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 import org.slf4j.Logger;
 
 /**
  * The transfer script for {@link TestDriver} ({@code apoapsis.testDriver=transfer}): from the test save's 16 km orbit,
  * warp to the Pale window, point prograde, burn until the predictor shows a Pale encounter, then coast with warp across
- * Pale's sphere of influence, with map screenshots and orbit logs before, at and after the crossing.
+ * Pale's sphere of influence, with map screenshots and orbit logs before, at and after the crossing. The Pale script
+ * runs these phases first, then {@link #isDone()} tells it the ship is in Pale's sphere.
  */
-final class TestDriverTransfer {
+final class TestDriverTransfer implements TestDriverSupport.Script {
     private static final Logger LOG = LogUtils.getLogger();
 
     private enum Phase { SETTLE, WAIT_WINDOW, ALIGN, BURN, COAST, AFTER_SOI, DONE }
 
     private Phase phase = Phase.SETTLE;
     private int phaseTicks;
+    private int totalTicks;
     private int afterSoiTicks;
     private byte lastBody = -1;
 
+    /** True once the script has finished: the ship is past the Pale SOI change (or the script gave up). */
+    boolean isDone() {
+        return phase == Phase.DONE;
+    }
+
     /** Advances the script one client tick; returns false when finished. */
-    boolean tick(Minecraft mc, ShipEntity ship) {
-        OrbitStatePayload p = ClientState.orbit;
+    @Override
+    public boolean tick(Minecraft mc, ShipEntity ship) {
+        if (ship == null) {
+            LOG.warn("[test driver] transfer: the pilot left the ship during {}", phase);
+            return false;
+        }
         phaseTicks++;
+        if (++totalTicks == 20) {
+            mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+        }
+        OrbitStatePayload p = ClientState.orbit;
         if (p == null) {
             return true;
         }
@@ -130,7 +147,7 @@ final class TestDriverTransfer {
             }
         }
         lastBody = p.body();
-        ClientPacketDistributor.sendToServer(new ShipInputPayload(ship.getId(), pitch, yaw, (byte) 0, throttle, flags));
+        send(ship, pitch, yaw, throttle, flags);
         return true;
     }
 
@@ -157,55 +174,11 @@ final class TestDriverTransfer {
         return Math.toDegrees(Math.abs(diff)) * (diff < 0 ? 10 : 1); // passed the window: report a large error
     }
 
-    /** Pitch and yaw inputs that turn the nose toward sign * velocity, and the error in degrees. */
-    private static double[] steer(ShipEntity ship, OrbitStatePayload p, int sign) {
-        // Velocity in orbit-dimension axes: (X, Z, -Y).
-        Vector3f d = new Vector3f((float) p.vx(), (float) p.vz(), (float) -p.vy()).normalize().mul(sign);
-        Quaternionf q = ship.getOrientation();
-        Vector3f dBody = q.conjugate(new Quaternionf()).transform(new Vector3f(d));
-        Vector3f nose = new Vector3f(0, 1, 0);
-        Vector3f forward = new Vector3f(0, 0, -1); // the Kestrel's cockpit faces north
-        Vector3f right = new Vector3f(forward).cross(nose).normalize();
-        Vector3f e = new Vector3f(nose).cross(dBody);
-        double angle = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, nose.dot(dBody)))));
-        double er = e.dot(right);
-        double ef = e.dot(forward);
-        double mag = Math.max(1e-6, Math.hypot(er, ef));
-        double deadband = angle < 2 ? 2 : 0.35;
-        byte pitch = (byte) (er / mag > deadband ? 1 : er / mag < -deadband ? -1 : 0);
-        byte yaw = (byte) (ef / mag > deadband ? 1 : ef / mag < -deadband ? -1 : 0);
-        return new double[] {pitch, yaw, angle};
-    }
-
     private static boolean encounterPredicted(OrbitStatePayload p) {
         CelestialBody body = BodyId.byOrdinal(p.body()) == BodyId.PALE ? MeridianSystem.PALE : MeridianSystem.VERDANCE;
         StateVector s = new StateVector(new Vec3d(p.rx(), p.ry(), p.rz()), new Vec3d(p.vx(), p.vy(), p.vz()));
         // Only an encounter on this half-orbit counts (a Hohmann arrival), not a grazing one orbits later.
         List<Patch> patches = TrajectoryPredictor.predict(body, s, p.ut(), 6 * 3600, 3);
         return patches.stream().anyMatch(pt -> pt.end() == Patch.EndReason.ENCOUNTER && pt.endUt() - p.ut() < 2000);
-    }
-
-    private static void logOrbit(OrbitStatePayload p, String when) {
-        CelestialBody body = BodyId.byOrdinal(p.body()) == BodyId.PALE ? MeridianSystem.PALE : MeridianSystem.VERDANCE;
-        StateVector s = new StateVector(new Vec3d(p.rx(), p.ry(), p.rz()), new Vec3d(p.vx(), p.vy(), p.vz()));
-        Elements e = Elements.of(body.mu, s);
-        List<Patch> patches = TrajectoryPredictor.predict(body, s, p.ut(), 6 * 3600, 3);
-        StringBuilder sb = new StringBuilder();
-        for (Patch pt : patches) {
-            sb.append(pt.body().id).append('/').append(pt.end()).append('@').append(fmt(pt.endUt() - p.ut())).append("s ");
-        }
-        LOG.info("[test driver] {}: ut {} body {} alt {} km speed {} m/s e {} Pe {} km Ap {} km warp x{}; patches: {}",
-                when, fmt(p.ut()), body.id, fmt((s.r().length() - body.radius) / 1000), fmt(s.v().length()),
-                String.format("%.3f", e.eccentricity()), fmt((e.periapsisRadius() - body.radius) / 1000),
-                fmt((e.apoapsisRadius() - body.radius) / 1000), fmt(p.warp()), sb);
-    }
-
-    private static void shot(Minecraft mc, String name) {
-        Screenshot.grab(mc.gameDirectory, name, mc.gameRenderer.mainRenderTarget(), 1,
-                message -> LOG.info("[test driver] screenshot {}", name));
-    }
-
-    private static String fmt(double v) {
-        return String.format("%.1f", v);
     }
 }

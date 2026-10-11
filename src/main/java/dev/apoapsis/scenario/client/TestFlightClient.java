@@ -63,13 +63,20 @@ public final class TestFlightClient {
     }
 
     private static void open(Minecraft mc, Screen title) {
-        if (mc.getLevelSource().levelExists(SAVE_NAME)) {
-            mc.createWorldOpenFlows().openWorld(SAVE_NAME, () -> mc.gui.setScreen(title));
+        String name = saveName();
+        if (mc.getLevelSource().levelExists(name)) {
+            mc.createWorldOpenFlows().openWorld(name, () -> mc.gui.setScreen(title));
             return;
         }
         LevelSettings settings = new LevelSettings(
-                SAVE_NAME, GameType.CREATIVE, LevelSettings.DifficultySettings.DEFAULT, true, WorldDataConfiguration.DEFAULT);
+                name, GameType.CREATIVE, LevelSettings.DifficultySettings.DEFAULT, true, WorldDataConfiguration.DEFAULT);
         mc.createWorldOpenFlows().createFreshLevel(
-                SAVE_NAME, settings, new WorldOptions(SEED, true, false), WorldPresets::createNormalWorldDimensions, title);
+                name, settings, new WorldOptions(SEED, true, false), WorldPresets::createNormalWorldDimensions, title);
+    }
+
+    /** The save to open: the {@link TestFlight#SAVE_PROPERTY} name when set (a run with its own fresh save), else SAVE_NAME. */
+    static String saveName() {
+        String own = System.getProperty(TestFlight.SAVE_PROPERTY);
+        return own != null && !own.isBlank() ? own : SAVE_NAME;
     }
 }

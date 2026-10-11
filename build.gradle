@@ -61,6 +61,36 @@ neoForge {
             programArguments.addAll '--width', '1600', '--height', '900'
         }
 
+        // A launch from the pad by script: SAS hold, full throttle straight up, climb shots, cut after the orbit transition.
+        testAscent {
+            client()
+            systemProperty 'apoapsis.testFlight', 'true'
+            systemProperty 'apoapsis.testDriver', 'ascent'
+            systemProperty 'apoapsis.testStart', 'pad'
+            systemProperty 'apoapsis.testSave', 'Apoapsis Ascent Test'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
+        // The same launch, recording render frames: 15 s first person, then 15 s third person (run/screenshots/rec-*).
+        testAscentRecord {
+            client()
+            systemProperty 'apoapsis.testFlight', 'true'
+            systemProperty 'apoapsis.testDriver', 'ascent'
+            systemProperty 'apoapsis.testStart', 'pad'
+            systemProperty 'apoapsis.testRecord', 'true'
+            systemProperty 'apoapsis.testSave', 'Apoapsis Ascent Test'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
+        // The Pale landing by script: the transfer, a retrograde burn, a coast, a suicide burn, and descent screenshots.
+        testPale {
+            client()
+            systemProperty 'apoapsis.testFlight', 'true'
+            systemProperty 'apoapsis.testDriver', 'pale'
+            systemProperty 'apoapsis.testSave', 'Apoapsis Pale Test'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
         server {
             server()
             programArgument '--nogui'
@@ -87,6 +117,13 @@ neoForge {
 
 dependencies {
     implementation project(':orbit')
+}
+
+// The scripted runs with their own save start from a fresh world: each deletes its save folder before it launches.
+def freshSaves = [runTestAscent: 'Apoapsis Ascent Test', runTestAscentRecord: 'Apoapsis Ascent Test',
+        runTestPale: 'Apoapsis Pale Test']
+tasks.matching { freshSaves.containsKey(it.name) }.configureEach { task ->
+    task.doFirst { file("run/saves/${freshSaves[task.name]}").deleteDir() }
 }
 
 // The orbit library ships inside the mod jar, so players install one file.

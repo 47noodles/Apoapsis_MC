@@ -1,35 +1,35 @@
 package dev.apoapsis.client;
 
+import static dev.apoapsis.client.TestDriverSupport.logOrbit;
+import static dev.apoapsis.client.TestDriverSupport.send;
+import static dev.apoapsis.client.TestDriverSupport.shot;
+
 import com.mojang.logging.LogUtils;
-import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.net.ShipInputPayload;
-import dev.apoapsis.orbit.CelestialBody;
-import dev.apoapsis.orbit.Elements;
-import dev.apoapsis.orbit.MeridianSystem;
-import dev.apoapsis.orbit.StateVector;
-import dev.apoapsis.orbit.Vec3d;
 import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 
 /**
  * A scripted client run for automated checks (plan item 0.23, first slice). Active only with the JVM property
- * {@code apoapsis.testDriver=true} (the gradle run {@code testDriver}). Once the player sits in a ship it takes
- * screenshots of the flight view, the map and a short engine burn into run/screenshots, logs the orbit before and
- * after the burn, then quits the game.
+ * {@code apoapsis.testDriver}. {@code true} runs the short flight-and-map script: once the player sits in a ship it
+ * takes screenshots of the flight view, the map and a short engine burn into run/screenshots, logs the orbit before and
+ * after the burn, then quits the game. The other values choose a named script: {@code transfer} (the Pale transfer),
+ * {@code ascent} (a launch from the pad) and {@code pale} (the transfer, then a landing on Pale).
  */
 public final class TestDriver {
     private static final Logger LOG = LogUtils.getLogger();
     private static final int NO_SHIP_TIMEOUT = 1200;
+    /** Ticks without a ship before a named script is told the pilot has left (two seconds, past any level change). */
+    private static final int LEFT_SHIP_TICKS = 40;
 
     private static int inWorldTicks;
     private static int pilotTicks;
+    private static int leftShipTicks;
     private static boolean done;
 
     private TestDriver() {}
@@ -39,12 +39,24 @@ public final class TestDriver {
         return mode != null && !mode.equals("false");
     }
 
-    /** "transfer" runs the Pale transfer script; anything else runs the short flight-and-map script. */
-    private static final TestDriverTransfer TRANSFER =
-            "transfer".equals(System.getProperty("apoapsis.testDriver")) ? new TestDriverTransfer() : null;
+    /** The named script for the property value, or null for the short flight-and-map script. */
+    private static final TestDriverSupport.Script SCRIPT = script(System.getProperty("apoapsis.testDriver"));
+
+    private static TestDriverSupport.Script script(String mode) {
+        if (mode == null) {
+            return null;
+        }
+        return switch (mode) {
+            case "transfer" -> new TestDriverTransfer();
+            case "ascent" -> new TestDriverAscent();
+            case "pale" -> new TestDriverPale();
+            default -> null;
+        };
+    }
 
     public static void register() {
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> tick(Minecraft.getInstance()));
+        TestDriverRecord.register();
     }
 
     private static void tick(Minecraft mc) {
@@ -57,6 +69,14 @@ public final class TestDriver {
             mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
         }
         if (!(mc.player.getVehicle() instanceof ShipEntity ship)) {
+            if (SCRIPT != null && pilotTicks > 0) {
+                // A crash or ejection ends a named script: it is told once the pilot has been gone for a while.
+                if (++leftShipTicks == LEFT_SHIP_TICKS) {
+                    SCRIPT.tick(mc, null);
+                    finish(mc);
+                }
+                return;
+            }
             if (inWorldTicks == NO_SHIP_TIMEOUT) {
                 shot(mc, "apoapsis-00-no-ship.png");
                 LOG.warn("[test driver] the player was not in a ship after {} ticks", NO_SHIP_TIMEOUT);
@@ -64,33 +84,31 @@ public final class TestDriver {
             }
             return;
         }
+        leftShipTicks = 0;
         pilotTicks++;
-        if (TRANSFER != null) {
-            if (pilotTicks == 20) {
-                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-            }
-            if (!TRANSFER.tick(mc, ship)) {
+        if (SCRIPT != null) {
+            if (!SCRIPT.tick(mc, ship)) {
                 finish(mc);
             }
             return;
         }
         // Throttle commands are sent on every tick of their window, so one lost packet cannot skip the burn.
         if (pilotTicks >= 240 && pilotTicks < 340) {
-            send(ship, ShipInputPayload.THROTTLE_FULL);
+            send(ship, (byte) 0, (byte) 0, ShipInputPayload.THROTTLE_FULL, (byte) 0);
         } else if (pilotTicks >= 340 && pilotTicks < 350) {
-            send(ship, ShipInputPayload.THROTTLE_CUT);
+            send(ship, (byte) 0, (byte) 0, ShipInputPayload.THROTTLE_CUT, (byte) 0);
         }
         switch (pilotTicks) {
             case 20 -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
             case 100 -> {
-                logOrbit("before burn");
+                logOrbitNow("before burn");
                 shot(mc, "apoapsis-01-flight.png");
             }
             case 120 -> MapClient.openMap();
             case 200 -> shot(mc, "apoapsis-02-map.png");
             case 220 -> mc.gui.setScreen(null);
             case 300 -> shot(mc, "apoapsis-03-burn.png");
-            case 340 -> logOrbit("after a 5 s burn");
+            case 340 -> logOrbitNow("after a 5 s burn");
             case 400 -> {
                 MapClient.openMap();
             }
@@ -100,36 +118,18 @@ public final class TestDriver {
         }
     }
 
-    private static void send(ShipEntity ship, byte throttle) {
-        ClientPacketDistributor.sendToServer(new ShipInputPayload(ship.getId(), (byte) 0, (byte) 0, (byte) 0, throttle, (byte) 0));
-    }
-
-    private static void shot(Minecraft mc, String name) {
-        Screenshot.grab(mc.gameDirectory, name, mc.gameRenderer.mainRenderTarget(), 1,
-                message -> LOG.info("[test driver] screenshot {}: {}", name, message.getString()));
-    }
-
-    private static void logOrbit(String when) {
+    private static void logOrbitNow(String when) {
         OrbitStatePayload p = ClientState.orbit;
         if (p == null) {
             LOG.warn("[test driver] {}: no orbit state received", when);
             return;
         }
-        CelestialBody body = BodyId.byOrdinal(p.body()) == BodyId.PALE ? MeridianSystem.PALE : MeridianSystem.VERDANCE;
-        StateVector s = new StateVector(new Vec3d(p.rx(), p.ry(), p.rz()), new Vec3d(p.vx(), p.vy(), p.vz()));
-        Elements e = Elements.of(body.mu, s);
-        LOG.info("[test driver] {}: body {} regime {} alt {} km speed {} m/s Ap {} km Pe {} km period {} s",
-                when, body.id, p.regime(), round((s.r().length() - body.radius) / 1000),
-                round(s.v().length()), round((e.apoapsisRadius() - body.radius) / 1000),
-                round((e.periapsisRadius() - body.radius) / 1000), round(e.period()));
-    }
-
-    private static String round(double v) {
-        return String.format("%.1f", v);
+        logOrbit(p, when);
     }
 
     private static void finish(Minecraft mc) {
         done = true;
+        TestDriverRecord.end();
         mc.gui.setScreen(null);
         LOG.info("[test driver] finished; stopping the game");
         mc.stop();
