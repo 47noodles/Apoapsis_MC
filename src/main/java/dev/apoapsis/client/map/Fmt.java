@@ -30,7 +30,7 @@ final class Fmt {
             return NONE;
         }
         if (Math.abs(m) < 1000) {
-            return String.format(Locale.ROOT, "%.0f m", m);
+            return String.format(Locale.ROOT, "%d m", Math.round(m));
         }
         return String.format(Locale.ROOT, "%.1f km", m / 1000.0);
     }
@@ -40,15 +40,19 @@ final class Fmt {
         if (!Double.isFinite(ms)) {
             return NONE;
         }
-        return String.format(Locale.ROOT, "%,.0f m/s", ms);
+        return String.format(Locale.ROOT, "%,d m/s", Math.round(ms));
     }
 
-    /** Vertical speed with a sign ("+81 m/s"). */
+    /** Vertical speed with a sign ("+81 m/s"). A value that rounds to zero is "0 m/s", never "-0 m/s". */
     static String signedSpeed(double ms) {
         if (!Double.isFinite(ms)) {
             return NONE;
         }
-        return String.format(Locale.ROOT, "%+,.0f m/s", ms);
+        long whole = Math.round(ms);
+        if (whole == 0) {
+            return "0 m/s";
+        }
+        return String.format(Locale.ROOT, "%+,d m/s", whole);
     }
 
     /** A 0..1 fraction as a whole percentage ("72%"). */
@@ -56,7 +60,15 @@ final class Fmt {
         if (!Double.isFinite(fraction)) {
             return NONE;
         }
-        return String.format(Locale.ROOT, "%.0f%%", fraction * 100.0);
+        return String.format(Locale.ROOT, "%d%%", Math.round(fraction * 100.0));
+    }
+
+    /** An angle in degrees, whole ("12°"). */
+    static String degrees(double deg) {
+        if (!Double.isFinite(deg)) {
+            return NONE;
+        }
+        return String.format(Locale.ROOT, "%d°", Math.round(deg));
     }
 
     /** A dimensionless ratio to one decimal ("1.8"). */

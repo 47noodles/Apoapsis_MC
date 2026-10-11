@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
  * Vector shapes on top of {@link GuiGraphicsExtractor}, which has no line or circle primitive in 26.3. Everything is
  * drawn as fills: a line is a run of horizontal or vertical spans (consecutive pixels in the same row or column
  * merge into one fill), a disc is one span per row. Coordinates are GUI pixels; lines are clipped to the view before
- * rasterising, so a far-off point costs nothing. Client only.
+ * rasterising, so a far-off point costs nothing. Counts its fills so the map can budget a frame. Client only.
  */
 final class Canvas {
     private static final int MIN_CIRCLE_POINTS = 48;
@@ -19,6 +19,7 @@ final class Canvas {
     final int width;
     final int height;
     final Font font;
+    private int fills;
 
     Canvas(GuiGraphicsExtractor g) {
         this.g = g;
@@ -27,9 +28,14 @@ final class Canvas {
         this.font = Minecraft.getInstance().font;
     }
 
+    /** Fills drawn through this canvas so far. */
+    int fills() {
+        return fills;
+    }
+
     /** A filled rectangle, x1 and y1 exclusive. */
     void rect(int x0, int y0, int x1, int y1, int argb) {
-        g.fill(x0, y0, x1, y1, argb);
+        fill(x0, y0, x1, y1, argb);
     }
 
     /** A one-pixel line between two points. Clips to the view and rasterises with merged runs. */
@@ -51,7 +57,7 @@ final class Canvas {
             // Walk columns; a run is consecutive columns sharing a row.
             int steps = Math.abs(dx);
             if (steps == 0) {
-                g.fill(x0, y0, x0 + 1, y0 + 1, argb);
+                fill(x0, y0, x0 + 1, y0 + 1, argb);
                 return;
             }
             int sx = Integer.signum(dx);
@@ -95,17 +101,24 @@ final class Canvas {
 
     /** A closed circle outline, one pixel thick. */
     void ring(double cx, double cy, double r, int argb) {
-        dashedRing(cx, cy, r, argb, 0);
+        dashedRing(cx, cy, r, argb, 0, MAX_CIRCLE_POINTS);
     }
 
-    /**
-     * A circle outline. With {@code dashPx} above zero it draws dashes of that length with equal gaps.
-     */
+    /** A closed circle outline with at most {@code maxSegments} segments. */
+    void ring(double cx, double cy, double r, int argb, int maxSegments) {
+        dashedRing(cx, cy, r, argb, 0, maxSegments);
+    }
+
+    /** A circle outline. With {@code dashPx} above zero it draws dashes of that length with equal gaps. */
     void dashedRing(double cx, double cy, double r, int argb, double dashPx) {
+        dashedRing(cx, cy, r, argb, dashPx, MAX_CIRCLE_POINTS);
+    }
+
+    private void dashedRing(double cx, double cy, double r, int argb, double dashPx, int maxSegments) {
         if (!(r > 0) || !Double.isFinite(r) || !Double.isFinite(cx) || !Double.isFinite(cy)) {
             return;
         }
-        int n = circlePoints(r);
+        int n = circlePoints(r, maxSegments);
         double segLen = 2 * Math.PI * r / n;
         double px = cx + r;
         double py = cy;
@@ -139,7 +152,7 @@ final class Canvas {
             int xa = Math.max(0, (int) Math.round(cx - half));
             int xb = Math.min(width - 1, (int) Math.round(cx + half));
             if (xa <= xb) {
-                g.fill(xa, y, xb + 1, y + 1, argb);
+                fill(xa, y, xb + 1, y + 1, argb);
             }
         }
     }
@@ -171,7 +184,7 @@ final class Canvas {
                 int a = Math.max(0, (int) Math.round(xl));
                 int b = Math.min(width - 1, (int) Math.round(xr));
                 if (a <= b) {
-                    g.fill(a, y, b + 1, y + 1, argb);
+                    fill(a, y, b + 1, y + 1, argb);
                 }
             }
         }
@@ -190,21 +203,28 @@ final class Canvas {
         g.pose().popMatrix();
     }
 
+    /** Width of a line of text at scale 1, GUI px. */
     int textWidth(Component c) {
         return font.width(c);
     }
 
+    private void fill(int x0, int y0, int x1, int y1, int argb) {
+        fills++;
+        g.fill(x0, y0, x1, y1, argb);
+    }
+
     private void span(int a, int b, int y, int argb) {
-        g.fill(Math.min(a, b), y, Math.max(a, b) + 1, y + 1, argb);
+        fill(Math.min(a, b), y, Math.max(a, b) + 1, y + 1, argb);
     }
 
     private void column(int a, int b, int x, int argb) {
-        g.fill(x, Math.min(a, b), x + 1, Math.max(a, b) + 1, argb);
+        fill(x, Math.min(a, b), x + 1, Math.max(a, b) + 1, argb);
     }
 
-    private static int circlePoints(double r) {
+    private static int circlePoints(double r, int maxSegments) {
         double want = Math.PI * r;
-        return (int) Math.min(MAX_CIRCLE_POINTS, Math.max(MIN_CIRCLE_POINTS, want));
+        int cap = Math.min(MAX_CIRCLE_POINTS, maxSegments);
+        return (int) Math.min(cap, Math.max(MIN_CIRCLE_POINTS, want));
     }
 
     /** Liang-Barsky clip to the view. Returns the clipped endpoints, or null when nothing is visible. */

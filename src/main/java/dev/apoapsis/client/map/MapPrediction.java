@@ -12,13 +12,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A ship's predicted trajectory for the map: patches, each sampled as a polyline in the root body's inertial XY
- * plane (metres), plus the marks on it (apsides, encounters, atmosphere entry, impact). Immutable after
- * {@link #compute}. Client only.
+ * A ship's predicted coast for the map: patches, each sampled as a polyline relative to the patch's body, plus the
+ * marks on it (apsides, encounters, atmosphere entry, impact), each relative to its patch's body too. The map places
+ * them at the current time (see {@link Bodies#placeNow}), so nothing here depends on the clock once computed.
+ * Immutable after {@link #compute} and {@link #resampled}. Client only.
  */
 final class MapPrediction {
     /** Upper bound on samples per patch. */
     static final int MAX_SAMPLES = 2000;
+    /** The longest coast predicted for the map, s. Keeps the predictor's work on the render thread bounded. */
+    static final double HORIZON_CAP_S = 6 * 3600.0;
     private static final int MIN_SAMPLES = 32;
     private static final int COARSE_SAMPLES = 64;
     private static final int MAX_PATCHES = 3;
@@ -31,26 +34,28 @@ final class MapPrediction {
     /**
      * A point of interest on the prediction.
      *
-     * @param ut    universal time of the mark, s
-     * @param x     root-frame position of the mark, m
-     * @param y     root-frame position of the mark, m
-     * @param cx    root-frame centre of the body the mark is measured from (apsides), m
-     * @param cy    root-frame centre of the body the mark is measured from (apsides), m
-     * @param altM  altitude above that body's surface (apsides), m
-     * @param body  id of the body entered (encounters), else empty
+     * @param kind   what the mark is
+     * @param ut     universal time of the mark, s
+     * @param anchor the body the mark's offset is measured from: the body of the patch it sits on
+     * @param x      offset of the mark from {@code anchor}'s centre in the inertial plane, m
+     * @param y      offset of the mark from {@code anchor}'s centre in the inertial plane, m
+     * @param altM   altitude above the anchor's surface (apsides), m
+     * @param body   id of the body entered (encounters), else empty
      */
-    record Mark(Kind kind, double ut, double x, double y, double cx, double cy, double altM, String body) {}
+    record Mark(Kind kind, double ut, CelestialBody anchor, double x, double y, double altM, String body) {}
 
     /** The payload this prediction was made from. */
     final OrbitStatePayload source;
+    private final double horizon;
     private final List<Patch> patches;
     private final double[][] xs;
     private final double[][] ys;
     private final List<Mark> marks;
 
-    private MapPrediction(OrbitStatePayload source, List<Patch> patches, double[][] xs, double[][] ys,
+    private MapPrediction(OrbitStatePayload source, double horizon, List<Patch> patches, double[][] xs, double[][] ys,
                           List<Mark> marks) {
         this.source = source;
+        this.horizon = horizon;
         this.patches = patches;
         this.xs = xs;
         this.ys = ys;
@@ -59,31 +64,23 @@ final class MapPrediction {
 
     /**
      * Predicts the ship's coast from {@code p} and samples it for a view at {@code pxPerMetre}. The horizon is 1.2
-     * periods for a closed orbit, otherwise four hours.
+     * periods for a closed orbit, otherwise four hours, and never more than {@link #HORIZON_CAP_S}.
      */
     static MapPrediction compute(OrbitStatePayload p, double pxPerMetre) {
         CelestialBody body = Bodies.of(p);
         StateVector s = Bodies.stateOf(p);
         Elements el = Elements.of(body.mu, s);
-        double horizon = isClosed(el) ? CLOSED_HORIZON_FACTOR * el.period() : OPEN_HORIZON_S;
+        double wanted = isClosed(el) ? CLOSED_HORIZON_FACTOR * el.period() : OPEN_HORIZON_S;
+        double horizon = Math.min(HORIZON_CAP_S, wanted);
         List<Patch> patches = TrajectoryPredictor.predict(body, s, p.ut(), horizon, MAX_PATCHES);
-        int n = patches.size();
-        double[][] xs = new double[n][];
-        double[][] ys = new double[n][];
-        for (int i = 0; i < n; i++) {
-            Patch patch = patches.get(i);
-            double t0 = patch.startUt();
-            double t1 = endUt(patch, horizon);
-            int count = sampleCount(patch, t0, t1, pxPerMetre);
-            xs[i] = new double[count + 1];
-            ys[i] = new double[count + 1];
-            for (int j = 0; j <= count; j++) {
-                Vec3d q = rootState(patch, t0 + (t1 - t0) * j / count).r();
-                xs[i][j] = q.x();
-                ys[i][j] = q.y();
-            }
-        }
-        return new MapPrediction(p, patches, xs, ys, marks(patches, horizon));
+        double[][][] samples = samplePatches(patches, horizon, pxPerMetre);
+        return new MapPrediction(p, horizon, patches, samples[0], samples[1], marks(patches, horizon));
+    }
+
+    /** The same prediction sampled again for a new view scale. Patches and marks are shared, not recomputed. */
+    MapPrediction resampled(double pxPerMetre) {
+        double[][][] samples = samplePatches(patches, horizon, pxPerMetre);
+        return new MapPrediction(source, horizon, patches, samples[0], samples[1], marks);
     }
 
     private static boolean isClosed(Elements el) {
@@ -95,12 +92,33 @@ final class MapPrediction {
         return Double.isFinite(t1) && t1 >= patch.startUt() ? t1 : patch.startUt() + horizon;
     }
 
+    /** Samples every patch relative to its body. Returns {xs, ys}, each indexed by patch. */
+    private static double[][][] samplePatches(List<Patch> patches, double horizon, double pxPerMetre) {
+        int n = patches.size();
+        double[][] xs = new double[n][];
+        double[][] ys = new double[n][];
+        for (int i = 0; i < n; i++) {
+            Patch patch = patches.get(i);
+            double t0 = patch.startUt();
+            double t1 = endUt(patch, horizon);
+            int count = sampleCount(patch, t0, t1, pxPerMetre);
+            xs[i] = new double[count + 1];
+            ys[i] = new double[count + 1];
+            for (int j = 0; j <= count; j++) {
+                Vec3d q = patch.stateAt(t0 + (t1 - t0) * j / count).r();
+                xs[i][j] = q.x();
+                ys[i][j] = q.y();
+            }
+        }
+        return new double[][][] {xs, ys};
+    }
+
     /** Samples about one per two screen pixels of arc, from a coarse pass over the patch. */
     private static int sampleCount(Patch patch, double t0, double t1, double pxPerMetre) {
         double length = 0;
         Vec3d prev = null;
         for (int j = 0; j <= COARSE_SAMPLES; j++) {
-            Vec3d q = rootState(patch, t0 + (t1 - t0) * j / COARSE_SAMPLES).r();
+            Vec3d q = patch.stateAt(t0 + (t1 - t0) * j / COARSE_SAMPLES).r();
             if (prev != null) {
                 length += Math.hypot(q.x() - prev.x(), q.y() - prev.y());
             }
@@ -150,21 +168,13 @@ final class MapPrediction {
     }
 
     private static Mark apsis(Kind kind, Patch patch, double ut, double altM) {
-        StateVector at = rootState(patch, ut);
-        Vec3d centre = Bodies.rootState(patch.body(), ut).r();
-        return new Mark(kind, ut, at.r().x(), at.r().y(), centre.x(), centre.y(), altM, "");
+        Vec3d at = patch.stateAt(ut).r();
+        return new Mark(kind, ut, patch.body(), at.x(), at.y(), altM, "");
     }
 
     private static Mark point(Kind kind, Patch patch, double ut, String body) {
-        StateVector at = rootState(patch, ut);
-        return new Mark(kind, ut, at.r().x(), at.r().y(), 0, 0, 0, body);
-    }
-
-    /** Position and velocity of a patch's ship at {@code ut}, relative to the root body. */
-    static StateVector rootState(Patch patch, double ut) {
-        StateVector rel = patch.stateAt(ut);
-        StateVector off = Bodies.rootState(patch.body(), ut);
-        return new StateVector(rel.r().add(off.r()), rel.v().add(off.v()));
+        Vec3d at = patch.stateAt(ut).r();
+        return new Mark(kind, ut, patch.body(), at.x(), at.y(), 0, body);
     }
 
     /** Index of the patch the ship is on at {@code ut}. */
@@ -178,21 +188,26 @@ final class MapPrediction {
         return index;
     }
 
-    /** Position and velocity of the ship at {@code ut} on patch {@code index}, relative to the root body. */
-    StateVector rootState(int index, double ut) {
-        return rootState(patches.get(index), ut);
+    /** The body patch {@code index} is around. */
+    CelestialBody bodyOf(int index) {
+        return patches.get(index).body();
+    }
+
+    /** The ship's position and velocity on patch {@code index} at {@code ut}, relative to that patch's body. */
+    StateVector relativeState(int index, double ut) {
+        return patches.get(index).stateAt(ut);
     }
 
     int patchCount() {
         return patches.size();
     }
 
-    /** Sample x coordinates of patch {@code index}, root frame, metres. Length is the sample count plus one. */
+    /** Sample x coordinates of patch {@code index}, relative to its body, metres. Length is the sample count plus one. */
     double[] xs(int index) {
         return xs[index];
     }
 
-    /** Sample y coordinates of patch {@code index}, root frame, metres. */
+    /** Sample y coordinates of patch {@code index}, relative to its body, metres. */
     double[] ys(int index) {
         return ys[index];
     }

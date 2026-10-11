@@ -1,7 +1,7 @@
 {
   "screen.apoapsis.map": "System map",
   "apoapsis.map.board": "Board a ship to see its orbit",
-  "apoapsis.map.hint": "Scroll zoom  Drag pan  1 Verdance  2 Pale  3 Ship  M close",
+  "apoapsis.map.hint": "Scroll zoom  Drag pan  1 Verdance  2 Pale  3 Ship  %1$s %2$s warp %3$s  %4$s close",
   "apoapsis.map.body.verdance": "VERDANCE",
   "apoapsis.map.body.pale": "PALE",
   "apoapsis.map.regime.orbit": "ORBIT",
@@ -27,5 +27,10 @@
   "apoapsis.hud.label.fuel": "FUEL",
   "apoapsis.hud.label.dv": "Δv",
   "apoapsis.hud.label.twr": "TWR",
-  "apoapsis.hud.label.sas": "SAS"
+  "apoapsis.hud.sas.off": "SAS OFF",
+  "apoapsis.hud.sas.hold": "SAS HOLD",
+  "apoapsis.hud.sas.prograde": "SAS PRO",
+  "apoapsis.hud.sas.retrograde": "SAS RETRO",
+  "apoapsis.hud.nose.prograde": "Nose %s from prograde",
+  "apoapsis.hud.nose.retrograde": "Nose %s from retrograde"
 }

@@ -36,6 +36,16 @@ final class Bodies {
         return new StateVector(r, v);
     }
 
+    /**
+     * Root-frame position of a point {@code x}, {@code y} metres from {@code anchor}'s centre, with the anchor at
+     * where it is at {@code ut}. The map draws every patch and mark this way at the current time (the frame rule in
+     * {@link MapScreen}): a Pale patch sits around Pale's disc as Pale is now.
+     */
+    static Vec3d placeNow(CelestialBody anchor, double ut, double x, double y) {
+        Vec3d c = rootState(anchor, ut).r();
+        return new Vec3d(c.x() + x, c.y() + y, 0);
+    }
+
     /** Air pressure as a fraction of sea level at altitude {@code altM} (metres): the engines' p/p0. */
     static double pressureFraction(CelestialBody body, double altM) {
         if (!(body.seaLevelDensity > 0)) {
