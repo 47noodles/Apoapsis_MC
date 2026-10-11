@@ -22,8 +22,9 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 
 /**
- * The flight HUD after the cockpit concept. In the bottom centre, a compact cluster: a telemetry column (ALT, AP, PE,
- * ORB or SPD, V/S), a navball, and throttle and fuel gauges. Above it at the left, status pills (SAS, warp, fuel) and
+ * The flight HUD after the cockpit concept. In the bottom centre in first person, or the bottom left in third person so
+ * the ship stays clear, a compact cluster: a telemetry column (ALT, AP, PE, ORB or SPD, V/S), a navball, and throttle
+ * and fuel gauges. Above it at the left, status pills (SAS, warp, fuel) and
  * keycap hints for the pilot controls. At the top right, the regime. In first person only, world-space markers: the
  * prograde and retrograde reticles, a horizon bracket, and a bracket around Pale with its distance. Drawn only while
  * the local player rides a ship, with no screen open and the HUD not hidden. Client only.
@@ -49,15 +50,18 @@ public final class FlightHud {
     private static final int TEL_W = 76;
     private static final int GAP = 8;
     private static final int BALL_R = 22;
-    private static final int GAUGE_W = 40;
+    private static final int GAUGE_W = 46;
     private static final int HEAD_H = 9;
     private static final int LABEL_H = 9;
     private static final int CLUSTER_W = TEL_W + GAP + 2 * BALL_R + GAP + GAUGE_W;
     private static final int CLUSTER_H = HEAD_H + 2 * BALL_R + LABEL_H;
     private static final int BAR_W = 6;
-    /** Gauge bars sit at these x offsets inside the gauge column, at scale 1. */
-    private static final int THR_BAR_X = 4;
-    private static final int FUEL_BAR_X = 22;
+    /**
+     * Gauge bars sit at these x offsets inside the gauge column, at scale 1. The bar centres are 28 px apart: the THR
+     * label is about 18 px wide and the FUEL label about 24 px, so their halves (9 + 12) leave 7 px between the labels.
+     */
+    private static final int THR_BAR_X = 2;
+    private static final int FUEL_BAR_X = 30;
 
     private static final int PILL_PAD = 4;
     private static final int PILL_H = 10;
@@ -122,13 +126,17 @@ public final class FlightHud {
         double[] vel = velocity(ship, s, orbit);
 
         boolean survival = mc.gameMode != null && mc.gameMode.canHurtPlayer();
-        int bottom = c.height - (survival ? BOTTOM_SURVIVAL : BOTTOM_CREATIVE);        double scale = clusterScale(c.width);
+        boolean firstPerson = mc.options.getCameraType().isFirstPerson();
+        int bottom = c.height - (survival ? BOTTOM_SURVIVAL : BOTTOM_CREATIVE);
+        double scale = clusterScale(c.width);
         int top = bottom - px(CLUSTER_H, scale);
-        drawCluster(c, ship, rd, up, vel, top, scale);
+        // First person: bottom centre. Third person: bottom left, clear of the ship at the centre of the view.
+        int left = firstPerson ? c.width / 2 - px(CLUSTER_W, scale) / 2 : PAD;
+        drawCluster(c, ship, rd, up, vel, left, top, scale);
         drawStatus(c, ship, p, rd, top, scale);
         drawTopRight(c, p, body);
 
-        if (mc.options.getCameraType().isFirstPerson()) {
+        if (firstPerson) {
             drawMarkers(c, mc, ship, p, body, orbit, s, partialTick, up, vel);
         }
     }
@@ -143,26 +151,36 @@ public final class FlightHud {
         return (int) Math.round(v * s);
     }
 
-    /** The bottom instruments: telemetry, navball and gauges, with the heading above the ball. */
-    private static void drawCluster(Canvas c, ShipEntity ship, Readout rd, double[] up, double[] vel, int top,
+    /** The bottom instruments: telemetry, navball and gauges, with the heading above the ball. x0 is the left edge. */
+    private static void drawCluster(Canvas c, ShipEntity ship, Readout rd, double[] up, double[] vel, int x0, int top,
                                     double s) {
-        int x0 = c.width / 2 - px(CLUSTER_W, s) / 2;
         int rowTop = top + px(HEAD_H, s);
         int telRight = x0 + px(TEL_W, s);
         float fs = (float) s;
+        // A faint dark backdrop keeps the muted labels readable over a lit planet limb.
+        c.rect(x0 - 3, rowTop - 1, telRight + 3, rowTop + 5 * px(LINE, s), PILL_FILL);
 
-        row(c, x0, telRight, rowTop, label("apoapsis.hud.label.alt"), Component.literal(Fmt.distance(rd.alt())), fs);
-        Component ap = rd.apsides() == null ? dash() : rd.apsides().apInside()
-                ? Component.literal(Fmt.distance(rd.apsides().apoapsisAlt()))
-                : Component.translatable("apoapsis.hud.escape");
+        row(c, x0, telRight, rowTop, label("apoapsis.hud.label.alt"), Component.literal(Fmt.distance(rd.alt())), fs,
+                Palette.INK);
+        // Outside the body's SOI, or on a hyperbola: an impact course is alarming, an escape is not.
+        Component ap = dash();
+        int apArgb = Palette.INK;
+        if (rd.apsides() != null && rd.apsides().apInside()) {
+            ap = Component.literal(Fmt.distance(rd.apsides().apoapsisAlt()));
+        } else if (rd.apsides() != null && rd.apsides().periapsisAlt() <= 0) {
+            ap = label("apoapsis.hud.impact");
+            apArgb = Palette.ALERT;
+        } else if (rd.apsides() != null) {
+            ap = Component.translatable("apoapsis.hud.escape");
+        }
         Component pe = rd.apsides() == null ? dash() : Component.literal(Fmt.distance(rd.apsides().periapsisAlt()));
-        row(c, x0, telRight, rowTop + px(LINE, s), label("apoapsis.hud.label.ap"), ap, fs);
-        row(c, x0, telRight, rowTop + 2 * px(LINE, s), label("apoapsis.hud.label.pe"), pe, fs);
+        row(c, x0, telRight, rowTop + px(LINE, s), label("apoapsis.hud.label.ap"), ap, fs, apArgb);
+        row(c, x0, telRight, rowTop + 2 * px(LINE, s), label("apoapsis.hud.label.pe"), pe, fs, Palette.INK);
         row(c, x0, telRight, rowTop + 3 * px(LINE, s),
                 label(rd.orbit() ? "apoapsis.hud.label.orb" : "apoapsis.hud.label.speed"),
-                Component.literal(Fmt.speed(rd.speed())), fs);
+                Component.literal(Fmt.speed(rd.speed())), fs, Palette.INK);
         row(c, x0, telRight, rowTop + 4 * px(LINE, s), label("apoapsis.hud.label.vs"),
-                Component.literal(Fmt.signedSpeed(rd.vs())), fs);
+                Component.literal(Fmt.signedSpeed(rd.vs())), fs, Palette.INK);
 
         // The navball: centre at the nose.
         int ballLeft = x0 + px(TEL_W + GAP, s);
@@ -232,11 +250,12 @@ public final class FlightHud {
         }
     }
 
-    /** One telemetry row: the label at the left, the value right-aligned to {@code right}. */
-    private static void row(Canvas c, int x, int right, int y, Component label, Component value, float s) {
+    /** One telemetry row: the label at the left, the value right-aligned to {@code right} in {@code valueArgb}. */
+    private static void row(Canvas c, int x, int right, int y, Component label, Component value, float s,
+                            int valueArgb) {
         c.text(label, x, y, s, Palette.INK_MUTED, true);
         int w = (int) Math.round(c.textWidth(value) * s);
-        c.text(value, right - w, y, s, Palette.INK, true);
+        c.text(value, right - w, y, s, valueArgb, true);
     }
 
     /** Text centred on {@code cx}, its top at {@code y}. */
@@ -316,7 +335,9 @@ public final class FlightHud {
         Component regime = Component.translatable("apoapsis.hud.regime",
                 Component.translatable(MapScreen.regimeKey(p.regime())),
                 Component.translatable("apoapsis.map.body." + body.id));
-        c.text(regime, c.width - PAD - c.textWidth(regime), PAD, 1f, Palette.INK_MUTED, true);
+        int left = c.width - PAD - c.textWidth(regime);
+        c.rect(left - 3, PAD - 2, c.width - PAD + 3, PAD + LINE - 1, PILL_FILL);
+        c.text(regime, left, PAD, 1f, Palette.INK_MUTED, true);
     }
 
     /**

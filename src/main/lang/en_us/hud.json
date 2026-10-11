@@ -1,6 +1,7 @@
 {
   "apoapsis.hud.pe": "Pe %s",
   "apoapsis.hud.escape": "Escape",
+  "apoapsis.hud.impact": "Impact",
   "apoapsis.hud.none": "--",
   "apoapsis.hud.label.ap": "AP",
   "apoapsis.hud.label.pe": "PE",
