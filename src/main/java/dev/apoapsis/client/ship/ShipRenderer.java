@@ -1,6 +1,8 @@
 package dev.apoapsis.client.ship;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import dev.apoapsis.grid.ShipParts;
+import dev.apoapsis.ship.DescentGear;
 import dev.apoapsis.ship.ShipEntity;
 import dev.apoapsis.ship.ShipStructure;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -9,6 +11,7 @@ import net.minecraft.client.renderer.block.MovingBlockRenderState;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.RenderShape;
@@ -43,6 +46,7 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
         state.orientation = ship.getRenderOrientation(partialTicks);
         state.centerOfMass = ship.getCenterOfMassLocal();
         state.blocks = cache.updateBlocks(ship.getStructure());
+        state.chuteInflation = ship.isLanded() ? 0f : (float) ship.chuteInflation(partialTicks);
         if (ship.level() instanceof ClientLevel level) {
             // Every block takes its light from the ship's position, as FallingBlockRenderer does for its block.
             // The light references are set every frame and never outlive the cache entry.
@@ -76,6 +80,24 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
             submitNodeCollector.submitMovingBlock(poseStack, block.moving(), state.outlineColor);
             poseStack.popPose();
         }
+        float inflation = state.chuteInflation;
+        if (inflation > 0) {
+            for (ShipRenderState.ShipBlock block : state.blocks) {
+                if (!ShipParts.isParachute(block.state())) {
+                    continue;
+                }
+                BlockPos p = block.pos();
+                double ax = p.getX() + 0.5 - com.x;
+                double ay = p.getY() + 0.5 - com.y;
+                double az = p.getZ() + 0.5 - com.z;
+                double hl = Math.hypot(ax, az);
+                double ux = hl < 0.3 ? 0.0 : ax / hl;
+                double uz = hl < 0.3 ? 0.0 : az / hl;
+                submitNodeCollector.submitCustomGeometry(poseStack, RenderTypes.debugQuads(),
+                    (pose, buffer) -> ParachuteCanopy.emit(pose, buffer, (float) ax, (float) ay, (float) az,
+                        (float) ux, (float) uz, inflation));
+            }
+        }
         poseStack.popPose();
         super.submit(state, poseStack, submitNodeCollector, camera);
     }
@@ -97,6 +119,10 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
     protected AABB getBoundingBoxForCulling(ShipEntity ship, float partialTicks) {
         ShipStructure structure = ship.getStructure();
         AABB local = structure.localBounds();
+        if (ship.getChuteState() > DescentGear.STOWED && !ship.isLanded()) {
+            // The canopies stand about 12 blocks above the pack and splay out about 6 blocks.
+            local = local.inflate(6.5, 0.0, 6.5).expandTowards(0.0, 13.0, 0.0);
+        }
         Vec3 com = ship.getCenterOfMassLocal();
         Quaternionf q = ship.getRenderOrientation(partialTicks);
         Vec3 origin = ship.getPosition(partialTicks);

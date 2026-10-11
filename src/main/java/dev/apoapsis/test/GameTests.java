@@ -128,6 +128,12 @@ public final class GameTests {
                 new ApoapsisGameTest("ship_boarding_checks_owner", environment, 40, GameTests::shipBoardingChecksOwner));
         event.registerTest(TestSupport.id("ship_owner_survives_rebuild"),
                 new ApoapsisGameTest("ship_owner_survives_rebuild", environment, 40, GameTests::shipOwnerSurvivesRebuild));
+        event.registerTest(TestSupport.id("chute_terminal_speed"),
+                new ApoapsisGameTest("chute_terminal_speed", environment, 200, LandingTests::chuteTerminalSpeed));
+        event.registerTest(TestSupport.id("chutes_shred_when_too_fast"),
+                new ApoapsisGameTest("chutes_shred_when_too_fast", environment, 40, LandingTests::chutesShredWhenTooFast));
+        event.registerTest(TestSupport.id("landing_legs_set_the_crash_limit"),
+                new ApoapsisGameTest("landing_legs_set_the_crash_limit", environment, 100, LandingTests::legsSetTheCrashLimit));
     }
 
     /** Scoreboard team names used by the ownership tests; each test removes its teams when it is done. */

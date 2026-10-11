@@ -21,9 +21,9 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * <p>Rate limits, per player: at most one payload is applied per server tick. Payloads that arrive within one tick
  * are merged: the latest rotation wins, and the newer throttle wins unless it is {@code THROTTLE_HOLD}, in which case
  * an older one-shot throttle command (full, cut) is kept, so a press is not lost to a later idle payload. One-shot
- * flags (SAS, assembly, warp) are merged by union. They are edge-triggered: a flag fires only if the previous applied
+ * flags (SAS, assembly, warp, parachutes) are merged by union. They are edge-triggered: a flag fires only if the previous applied
  * tick did not carry it, and each flag then has a cooldown ({@link #TAP_COOLDOWN_TICKS} for SAS and warp,
- * {@link #FLAG_COOLDOWN_TICKS} for assembly).
+ * {@link #FLAG_COOLDOWN_TICKS} for assembly and parachutes).
  */
 @EventBusSubscriber(modid = Apoapsis.MODID)
 public final class ShipControls {
@@ -35,7 +35,7 @@ public final class ShipControls {
     static final int TAP_COOLDOWN_TICKS = 2;
     /** The one-shot bits of {@link ShipInputPayload#flags}; other bits are ignored. */
     private static final int ONE_SHOT_MASK = ShipInputPayload.FLAG_TOGGLE_SAS | ShipInputPayload.FLAG_ASSEMBLY
-            | ShipInputPayload.FLAG_WARP_UP | ShipInputPayload.FLAG_WARP_DOWN;
+            | ShipInputPayload.FLAG_WARP_UP | ShipInputPayload.FLAG_WARP_DOWN | ShipInputPayload.FLAG_DEPLOY_CHUTES;
     /** Marks a flag that has never fired: far enough in the past that its cooldown has passed. */
     private static final long NEVER = Long.MIN_VALUE / 2;
 
@@ -54,7 +54,7 @@ public final class ShipControls {
         long lastTick = NEVER;
         int lastFlags;
         /** Last server tick each one-shot flag fired, indexed by bit position. */
-        final long[] firedAt = {NEVER, NEVER, NEVER, NEVER};
+        final long[] firedAt = {NEVER, NEVER, NEVER, NEVER, NEVER};
         /** True once a failure has been logged for this player, so a repeating fault logs once. */
         boolean warned;
     }
@@ -140,6 +140,9 @@ public final class ShipControls {
         }
         if (fire(gate, edges, ShipInputPayload.FLAG_WARP_DOWN, now, TAP_COOLDOWN_TICKS)) {
             FlightHooks.requestWarp(ship, -1);
+        }
+        if (fire(gate, edges, ShipInputPayload.FLAG_DEPLOY_CHUTES, now, FLAG_COOLDOWN_TICKS)) {
+            ship.deployParachutes();
         }
         if (fire(gate, edges, ShipInputPayload.FLAG_ASSEMBLY, now, FLAG_COOLDOWN_TICKS)) {
             Component error = ShipOwnership.mayDisassemble(ship, player)

@@ -35,6 +35,10 @@ def single(model):
     return {"variants": {"": {"model": model}}}
 
 
+def faces(texture, *names):
+    return {n: {"texture": texture} for n in (names or ("down", "up", "north", "south", "west", "east"))}
+
+
 def faced(property_name, table, model):
     variants = {}
     for facing in sorted(table):
@@ -57,6 +61,8 @@ BLOCKSTATES = {
     "nose_cone": faced("facing", BARREL_LIKE, f"{NS}:block/nose_cone"),
     "fin": faced("facing", FURNACE_LIKE, f"{NS}:block/fin"),
     "window": single(f"{NS}:block/window"),
+    "parachute": single(f"{NS}:block/parachute"),
+    "landing_leg": single(f"{NS}:block/landing_leg"),
 }
 
 MODELS = {
@@ -75,6 +81,32 @@ MODELS = {
             "faces": {face: {"texture": "#all", "cullface": face, "tintindex": 0}
                       for face in ("down", "up", "north", "south", "west", "east")},
         }],
+    },
+    "block/parachute": {
+        "parent": "minecraft:block/block",
+        # The housing wears the strapped steel texture, the folded canopy the red-striped one.
+        "textures": {"particle": tex("parachute_pack"), "side": tex("parachute_pack"), "base": tex("hull_plate"),
+                     "pack": tex("parachute_side"), "cap": tex("parachute_top")},
+        "elements": [
+            {"from": [1, 0, 1], "to": [15, 5, 15],
+             "faces": {"down": {"texture": "#base"}, "up": {"texture": "#base"}, "north": {"texture": "#side"},
+                       "south": {"texture": "#side"}, "west": {"texture": "#side"}, "east": {"texture": "#side"}}},
+            {"from": [3, 5, 3], "to": [13, 12, 13],
+             "faces": {"down": {"texture": "#pack"}, "up": {"texture": "#cap"}, "north": {"texture": "#pack"},
+                       "south": {"texture": "#pack"}, "west": {"texture": "#pack"}, "east": {"texture": "#pack"}}},
+        ],
+    },
+    "block/landing_leg": {
+        "parent": "minecraft:block/block",
+        "textures": {"particle": tex("landing_leg_strut"), "mount": tex("landing_leg_mount"),
+                     "strut": tex("landing_leg_strut"), "foot": tex("landing_leg_foot")},
+        "elements": [
+            {"from": [2, 12, 2], "to": [14, 16, 14], "faces": faces("#mount")},
+            {"from": [6, 6, 6], "to": [10, 12, 10], "faces": faces("#strut")},
+            {"from": [5, 5, 5], "to": [11, 7, 11], "faces": faces("#strut")},
+            {"from": [7, 2, 7], "to": [9, 6, 9], "faces": faces("#strut")},
+            {"from": [3, 0, 3], "to": [13, 2, 13], "faces": faces("#foot")},
+        ],
     },
     "block/gyroscope": {
         "parent": "minecraft:block/cube_column",
@@ -135,7 +167,7 @@ MODELS = {
 
 # Items that use their block model.
 BLOCK_ITEMS = ["hull_plate", "cockpit", "gyroscope", "fuel_tank", "fuel_refinery", "spark_thruster", "nose_cone", "fin", "window",
-               "regolith"]
+               "regolith", "parachute", "landing_leg"]
 ITEM_ONLY = ["hydrolox_canister", "pale_sample"]
 
 

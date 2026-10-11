@@ -29,6 +29,7 @@ public record ShipInputPayload(int shipId, byte pitch, byte yaw, byte roll, byte
     public static final byte FLAG_ASSEMBLY = 2;
     public static final byte FLAG_WARP_UP = 4;
     public static final byte FLAG_WARP_DOWN = 8;
+    public static final byte FLAG_DEPLOY_CHUTES = 16;
 
     public static final Type<ShipInputPayload> TYPE =
             new Type<>(Identifier.fromNamespaceAndPath(Apoapsis.MODID, "ship_input"));

@@ -24,6 +24,7 @@ public final class PilotKeys {
     public static final KeyMapping THROTTLE_CUT = key("throttle_cut", InputConstants.KEY_X);
     public static final KeyMapping SAS = key("sas", InputConstants.KEY_G);
     public static final KeyMapping DISASSEMBLE = key("disassemble", InputConstants.KEY_B);
+    public static final KeyMapping DEPLOY_PARACHUTES = key("deploy_parachutes", InputConstants.KEY_P);
     public static final KeyMapping SYSTEM_MAP = key("system_map", InputConstants.KEY_M);
     public static final KeyMapping WARP_UP = key("warp_up", InputConstants.KEY_PERIOD);
     public static final KeyMapping WARP_DOWN = key("warp_down", InputConstants.KEY_COMMA);
@@ -45,6 +46,7 @@ public final class PilotKeys {
         event.register(THROTTLE_CUT);
         event.register(SAS);
         event.register(DISASSEMBLE);
+        event.register(DEPLOY_PARACHUTES);
         event.register(SYSTEM_MAP);
         event.register(WARP_UP);
         event.register(WARP_DOWN);
@@ -64,12 +66,13 @@ public final class PilotKeys {
 
     /**
      * Discards the clicks of vanilla keys that clash with pilot controls while piloting: Q drop, E inventory,
-     * F swap-offhand, and G quick actions (SAS is on G). Must run before vanilla's key handling in the same tick.
+     * F swap-offhand, G quick actions (SAS is on G), and P social interactions (parachutes are on P). Must run before vanilla's key handling in the same tick.
      */
     public static void swallowVanillaClashes(Options options) {
         pressed(options.keyDrop);
         pressed(options.keyInventory);
         pressed(options.keySwapOffhand);
         pressed(options.keyQuickActions);
+        pressed(options.keySocialInteractions);
     }
 }

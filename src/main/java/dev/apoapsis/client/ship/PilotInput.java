@@ -22,6 +22,7 @@ public final class PilotInput {
         boolean cut = PilotKeys.pressed(PilotKeys.THROTTLE_CUT);
         boolean sas = PilotKeys.pressed(PilotKeys.SAS);
         boolean disassemble = PilotKeys.pressed(PilotKeys.DISASSEMBLE);
+        boolean chutes = PilotKeys.pressed(PilotKeys.DEPLOY_PARACHUTES);
         boolean warpUp = PilotKeys.pressed(PilotKeys.WARP_UP);
         boolean warpDown = PilotKeys.pressed(PilotKeys.WARP_DOWN);
 
@@ -52,6 +53,9 @@ public final class PilotInput {
             }
             if (disassemble) {
                 flags |= ShipInputPayload.FLAG_ASSEMBLY;
+            }
+            if (chutes) {
+                flags |= ShipInputPayload.FLAG_DEPLOY_CHUTES;
             }
             // Time warp is read only with no screen: vanilla clicks the warp keys only then.
             if (warpUp) {

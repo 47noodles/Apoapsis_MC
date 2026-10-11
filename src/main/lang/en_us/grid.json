@@ -8,6 +8,8 @@
   "block.apoapsis.nose_cone": "Nose Cone",
   "block.apoapsis.fin": "Swept Fin",
   "block.apoapsis.window": "Porthole Hull",
+  "block.apoapsis.parachute": "Parachute Pack",
+  "block.apoapsis.landing_leg": "Landing Leg",
   "block.apoapsis.regolith": "Regolith",
   "item.apoapsis.hydrolox_canister": "Hydrolox Canister",
   "message.apoapsis.tank_fuel": "Hydrolox tank: %1$s / %2$s kg",

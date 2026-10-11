@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -56,6 +57,18 @@ public final class ShipStructure {
             storeFuel(key, state, fuel.get(key));
         }
         return true;
+    }
+
+    /** Removes every block whose state matches, with its fuel. Returns how many were removed. */
+    public int removeIf(Predicate<BlockState> matches) {
+        int before = blocks.size();
+        blocks.values().removeIf(matches);
+        fuel.keySet().removeIf(pos -> !blocks.containsKey(pos));
+        int removed = before - blocks.size();
+        if (removed > 0) {
+            aggregates = null;
+        }
+        return removed;
     }
 
     public BlockState get(BlockPos local) {

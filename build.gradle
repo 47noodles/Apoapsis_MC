@@ -91,6 +91,16 @@ neoForge {
             programArguments.addAll '--width', '1600', '--height', '900'
         }
 
+        // A parachute landing by script: the Kestrel with chutes and legs dropped from 1,200 m, deploy, land, screenshots.
+        testLand {
+            client()
+            systemProperty 'apoapsis.testFlight', 'true'
+            systemProperty 'apoapsis.testDriver', 'land'
+            systemProperty 'apoapsis.testStart', 'pad'
+            systemProperty 'apoapsis.testSave', 'Apoapsis Land Test'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
         server {
             server()
             programArgument '--nogui'
@@ -121,7 +131,7 @@ dependencies {
 
 // The scripted runs with their own save start from a fresh world: each deletes its save folder before it launches.
 def freshSaves = [runTestAscent: 'Apoapsis Ascent Test', runTestAscentRecord: 'Apoapsis Ascent Test',
-        runTestPale: 'Apoapsis Pale Test']
+        runTestPale: 'Apoapsis Pale Test', runTestLand: 'Apoapsis Land Test']
 tasks.matching { freshSaves.containsKey(it.name) }.configureEach { task ->
     task.doFirst { file("run/saves/${freshSaves[task.name]}").deleteDir() }
 }

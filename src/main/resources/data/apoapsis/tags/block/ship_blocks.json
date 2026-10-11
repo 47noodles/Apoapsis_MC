@@ -8,6 +8,8 @@
     "apoapsis:nose_cone",
     "apoapsis:fin",
     "apoapsis:window",
+    "apoapsis:parachute",
+    "apoapsis:landing_leg",
     "minecraft:glass",
     "minecraft:glass_pane",
     "minecraft:white_stained_glass",

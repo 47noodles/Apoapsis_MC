@@ -19,7 +19,8 @@ import org.slf4j.Logger;
  * {@code apoapsis.testDriver}. {@code true} runs the short flight-and-map script: once the player sits in a ship it
  * takes screenshots of the flight view, the map and a short engine burn into run/screenshots, logs the orbit before and
  * after the burn, then quits the game. The other values choose a named script: {@code transfer} (the Pale transfer),
- * {@code ascent} (a launch from the pad) and {@code pale} (the transfer, then a landing on Pale).
+ * {@code ascent} (a launch from the pad), {@code pale} (the transfer, then a landing on Pale) and {@code land} (a drop
+ * from 1,200 m under parachutes).
  */
 public final class TestDriver {
     private static final Logger LOG = LogUtils.getLogger();
@@ -50,6 +51,7 @@ public final class TestDriver {
             case "transfer" -> new TestDriverTransfer();
             case "ascent" -> new TestDriverAscent();
             case "pale" -> new TestDriverPale();
+            case "land" -> new TestDriverLand();
             default -> null;
         };
     }

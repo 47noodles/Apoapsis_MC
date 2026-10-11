@@ -1,0 +1,171 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "apoapsis:block/landing_leg_strut",
+    "mount": "apoapsis:block/landing_leg_mount",
+    "strut": "apoapsis:block/landing_leg_strut",
+    "foot": "apoapsis:block/landing_leg_foot"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        12,
+        2
+      ],
+      "to": [
+        14,
+        16,
+        14
+      ],
+      "faces": {
+        "down": {
+          "texture": "#mount"
+        },
+        "up": {
+          "texture": "#mount"
+        },
+        "north": {
+          "texture": "#mount"
+        },
+        "south": {
+          "texture": "#mount"
+        },
+        "west": {
+          "texture": "#mount"
+        },
+        "east": {
+          "texture": "#mount"
+        }
+      }
+    },
+    {
+      "from": [
+        6,
+        6,
+        6
+      ],
+      "to": [
+        10,
+        12,
+        10
+      ],
+      "faces": {
+        "down": {
+          "texture": "#strut"
+        },
+        "up": {
+          "texture": "#strut"
+        },
+        "north": {
+          "texture": "#strut"
+        },
+        "south": {
+          "texture": "#strut"
+        },
+        "west": {
+          "texture": "#strut"
+        },
+        "east": {
+          "texture": "#strut"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5,
+        5
+      ],
+      "to": [
+        11,
+        7,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#strut"
+        },
+        "up": {
+          "texture": "#strut"
+        },
+        "north": {
+          "texture": "#strut"
+        },
+        "south": {
+          "texture": "#strut"
+        },
+        "west": {
+          "texture": "#strut"
+        },
+        "east": {
+          "texture": "#strut"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        2,
+        7
+      ],
+      "to": [
+        9,
+        6,
+        9
+      ],
+      "faces": {
+        "down": {
+          "texture": "#strut"
+        },
+        "up": {
+          "texture": "#strut"
+        },
+        "north": {
+          "texture": "#strut"
+        },
+        "south": {
+          "texture": "#strut"
+        },
+        "west": {
+          "texture": "#strut"
+        },
+        "east": {
+          "texture": "#strut"
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        0,
+        3
+      ],
+      "to": [
+        13,
+        2,
+        13
+      ],
+      "faces": {
+        "down": {
+          "texture": "#foot"
+        },
+        "up": {
+          "texture": "#foot"
+        },
+        "north": {
+          "texture": "#foot"
+        },
+        "south": {
+          "texture": "#foot"
+        },
+        "west": {
+          "texture": "#foot"
+        },
+        "east": {
+          "texture": "#foot"
+        }
+      }
+    }
+  ]
+}

@@ -1,7 +1,11 @@
 {
   "apoapsis.ownership.not_yours": "This ship belongs to %s.",
+  "message.apoapsis.ship.chutes_deployed": "Parachutes deployed",
+  "message.apoapsis.ship.chutes_torn": "Parachutes torn: too fast.",
   "message.apoapsis.ship.hard_landing": "Hard landing",
+  "message.apoapsis.ship.no_air": "No air to catch.",
   "message.apoapsis.ship.no_cockpit": "No cockpit here",
+  "message.apoapsis.ship.no_parachutes": "No parachutes on this ship",
   "message.apoapsis.ship.no_room": "No room to place the ship here",
   "message.apoapsis.ship.no_spacewalks": "No spacewalks in the prototype",
   "message.apoapsis.ship.not_landed": "Land and come to a stop before you leave the ship as blocks",

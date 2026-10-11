@@ -60,8 +60,6 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
     private static final int INPUT_TIMEOUT_TICKS = 5;
     /** Downward speed, m/s, above which a landing is hard (sound and warning). */
     private static final double HARD_LANDING_MPS = 10.0;
-    /** Vertical impact speed, m/s, above which the ship is destroyed. */
-    private static final double CRASH_VERTICAL_MPS = 12.0;
     /** Total speed, m/s, above which touching terrain destroys the ship. */
     private static final double CRASH_CONTACT_MPS = 30.0;
     /** Kinetic friction coefficient between the ship and terrain. */
@@ -104,6 +102,9 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> LANDED =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.BOOLEAN);
+    /** Chute state: {@link DescentGear#STOWED}, {@link DescentGear#TORN}, or the ticks since deployment (capped). */
+    private static final EntityDataAccessor<Integer> CHUTE =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
     /**
      * The server tick that wrote the other synced values, the last field defined. It changes every tick the ship runs,
      * so a data packet arrives every tick, and it stamps the sample the client smooths (see {@link ShipInterpolation}).
@@ -119,6 +120,8 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
     private SasMode sasMode = SasMode.HOLD;
     private boolean transferring;
     private boolean landed;
+    /** Parachute state: {@link DescentGear#STOWED}, {@link DescentGear#TORN}, or ticks since deployment (capped). */
+    private int chuteState;
     /** Centre of mass in local block coordinates; fixed at spawn so the blocks keep their pose as fuel burns. */
     private Vec3 comLocal = Vec3.ZERO;
     /** Half-size of the bounding cube, metres. */
@@ -149,6 +152,13 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
     private double fuelCapacity;
     /** Drag area, m^2. */
     private double crossSection;
+    /** Parachute blocks on the ship. */
+    private int chuteCount;
+    /** Landing-leg block centres relative to the centre of mass, body axes; the first {@code legCount} are used. */
+    private double[] legX = new double[0];
+    private double[] legY = new double[0];
+    private double[] legZ = new double[0];
+    private int legCount;
     /** Hull block centres relative to the centre of mass, body axes; the first {@code hullCount} entries are used. */
     private double[] hullX = new double[0];
     private double[] hullY = new double[0];
@@ -260,6 +270,15 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
     @Override
     public void onSyncedDataUpdated(List<SynchedEntityData.DataValue<?>> updatedItems) {
         super.onSyncedDataUpdated(updatedItems);
+        if (remote()) {
+            for (SynchedEntityData.DataValue<?> item : updatedItems) {
+                if (item.id() == CHUTE.id() && entityData.get(CHUTE) == DescentGear.TORN
+                        && structure.removeIf(ShipParts::isParachute) > 0) {
+                    invalidateStructureCache();
+                    updateBounds();
+                }
+            }
+        }
         if (!remote() || !(getInterpolation() instanceof ShipInterpolation motion)) {
             return;
         }
@@ -393,6 +412,82 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         return remote() ? entityData.get(LANDED) : landed;
     }
 
+    /** {@link DescentGear#STOWED}, {@link DescentGear#TORN}, or the ticks since the chutes were deployed. Synced. */
+    public int getChuteState() {
+        return remote() ? entityData.get(CHUTE) : chuteState;
+    }
+
+    /** Parachute blocks on the ship now. */
+    public int parachuteCount() {
+        ensureStructureCache();
+        return chuteCount;
+    }
+
+    /** Landing-leg blocks on the ship. */
+    public int landingLegCount() {
+        ensureStructureCache();
+        return legCount;
+    }
+
+    /** How open the chutes are, 0 to 1, smoothed by the partial tick. */
+    public double chuteInflation(float partialTicks) {
+        int state = getChuteState();
+        if (state <= DescentGear.STOWED) {
+            return 0.0;
+        }
+        return Math.min(state + partialTicks, DescentGear.INFLATE_TICKS) / (double) DescentGear.INFLATE_TICKS;
+    }
+
+    /**
+     * Deploys every parachute block on the ship, one way: the chutes stay open until the ship is landed and taken
+     * apart. Does nothing without air (the pilot is told), and shreds the chutes above
+     * {@link DescentGear#SHRED_SPEED_MPS}. Server only. Chutes act in the surface regime only.
+     */
+    public void deployParachutes() {
+        if (level().isClientSide() || chuteState != DescentGear.STOWED) {
+            return;
+        }
+        if (parachuteCount() == 0) {
+            tell("message.apoapsis.ship.no_parachutes");
+            return;
+        }
+        Environment env = FlightHooks.environment(this);
+        if (env.orbital() || env.airDensity() <= 0) {
+            tell("message.apoapsis.ship.no_air");
+            return;
+        }
+        if (velocity.length() > DescentGear.SHRED_SPEED_MPS) {
+            tearParachutes();
+            tell("message.apoapsis.ship.chutes_torn");
+            return;
+        }
+        chuteState = 1;
+        wake();
+        level().playSound(null, getX(), getY(), getZ(), SoundEvents.WOOL_PLACE, SoundSource.NEUTRAL, 2.0f, 0.7f);
+        tell("message.apoapsis.ship.chutes_deployed");
+    }
+
+    /** The chutes are shredded: removed from the ship, for good. */
+    private void tearParachutes() {
+        structure.removeIf(ShipParts::isParachute);
+        chuteState = DescentGear.TORN;
+        invalidateStructureCache();
+        updateBounds();
+        wake();
+        if (level() instanceof ServerLevel serverLevel) {
+            serverLevel.sendParticles(ParticleTypes.CLOUD, getX(), getY(), getZ(), 20, 1.5, 1.0, 1.5, 0.05);
+        }
+        level().playSound(null, getX(), getY(), getZ(), SoundEvents.WOOL_BREAK, SoundSource.NEUTRAL, 2.0f, 0.8f);
+    }
+
+    /** An action-bar line for the pilot, if there is one. */
+    private void tell(String key) {
+        Player pilot = getPilot();
+        if (pilot != null) {
+            pilot.sendOverlayMessage(Component.translatable(key));
+        }
+    }
+
     /** The pilot (first passenger that is a player), or null. */
     public Player getPilot() {
         return getFirstPassenger() instanceof Player p ? p : null;
@@ -419,13 +514,14 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         builder.define(FUEL_KG, 0.0f);
         builder.define(SAS, SasMode.HOLD.ordinal());
         builder.define(LANDED, false);
+        builder.define(CHUTE, DescentGear.STOWED);
         builder.define(SYNC_TICK, 0);
     }
 
     /** The cube around the centre of mass that holds every block, so picking, culling and tracking see the whole ship. */
     @Override
     protected AABB makeBoundingBox(Vec3 position) {
-        double h = halfExtent;
+        double h = halfExtent + (getChuteState() > DescentGear.STOWED && !isLanded() ? DescentGear.CANOPY_REACH_M : 0.0);
         return new AABB(position.x - h, position.y - h, position.z - h, position.x + h, position.y + h, position.z + h);
     }
 
@@ -555,6 +651,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         int mode = input.getIntOr("sasMode", -1);
         sasMode = mode >= 0 ? SasMode.byOrdinal(mode) : SasMode.HOLD;
         landed = input.getBooleanOr("landed", false);
+        chuteState = Mth.clamp(input.getIntOr("chute", DescentGear.STOWED), DescentGear.TORN, DescentGear.INFLATE_TICKS);
         updateBounds();
     }
 
@@ -577,6 +674,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         output.putFloat("throttle", throttle);
         output.putInt("sasMode", sasMode.ordinal());
         output.putBoolean("landed", landed);
+        output.putInt("chute", chuteState);
     }
 
     @Override
@@ -619,6 +717,9 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         // Step 1: environment.
         Environment env = FlightHooks.environment(this);
         terrainCollision = env.terrainCollision();
+        if (chuteState > DescentGear.STOWED && chuteState < DescentGear.INFLATE_TICKS) {
+            chuteState++;
+        }
         if (asleep) {
             if (shouldWake(env)) {
                 wake();
@@ -852,11 +953,12 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         int steps = (int) Mth.clamp(Math.ceil(speed0 * DT / MAX_STEP_M), MIN_SUBSTEPS, MAX_SUBSTEPS);
         double h = DT / steps;
         boolean blockedBelow = false;
+        double chuteArea = DescentGear.chuteDragAreaM2(chuteCount, chuteState);
 
         for (int i = 0; i < steps; i++) {
             // Speed at the start of the substep: a collision response may never leave the ship faster than this.
             double vStart = Math.sqrt(vx * vx + vy * vy + vz * vz);
-            double drag = 0.5 * rho * vStart * crossSection / mass;
+            double drag = 0.5 * rho * vStart * (crossSection + chuteArea) / mass;
             vx += (g.x + thrustAccel.x - drag * vx) * h;
             vy += (g.y + thrustAccel.y - drag * vy) * h;
             vz += (g.z + thrustAccel.z - drag * vz) * h;
@@ -866,7 +968,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
             double ny = y + vy * h;
             if (!clear && collidesWith(probes, x, ny, z)) {
                 double vContact = Math.sqrt(vx * vx + vy * vy + vz * vz);
-                if (vContact > CRASH_CONTACT_MPS || Math.abs(vy) > CRASH_VERTICAL_MPS) {
+                if (vContact > CRASH_CONTACT_MPS || Math.abs(vy) > verticalCrashLimit()) {
                     setPos(x, y, z);
                     return vContact;
                 }
@@ -943,6 +1045,31 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
     private static double clampFactor(double vx, double vy, double vz, double limit) {
         double s = Math.sqrt(vx * vx + vy * vy + vz * vz);
         return s > limit ? limit / s : 1.0;
+    }
+
+    /**
+     * The vertical impact speed, m/s, above which the ship is destroyed. Landing legs on the ship's lowest layer (at
+     * the current attitude) absorb the landing; fewer than {@link DescentGear#MIN_LEGS} of them do nothing.
+     */
+    private double verticalCrashLimit() {
+        if (legCount < DescentGear.MIN_LEGS) {
+            return DescentGear.BASE_CRASH_VERTICAL_MPS;
+        }
+        double[] m = ShipGeometry.matrix(orientation);
+        double lowest = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < hullCount; i++) {
+            lowest = Math.min(lowest, m[3] * hullX[i] + m[4] * hullY[i] + m[5] * hullZ[i]);
+        }
+        for (int i = 0; i < legCount; i++) {
+            lowest = Math.min(lowest, m[3] * legX[i] + m[4] * legY[i] + m[5] * legZ[i]);
+        }
+        int onLowest = 0;
+        for (int i = 0; i < legCount; i++) {
+            if (m[3] * legX[i] + m[4] * legY[i] + m[5] * legZ[i] <= lowest + DescentGear.LOWEST_LAYER_TOLERANCE) {
+                onLowest++;
+            }
+        }
+        return DescentGear.verticalCrashLimitMps(onLowest);
     }
 
     private void onHardLanding() {
@@ -1042,6 +1169,13 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         Direction facing = cockpitLocal == null ? null : ShipGeometry.facingOf(structure.get(cockpitLocal));
         forwardBody = cockpitForward(facing, noseBody);
 
+        chuteCount = 0;
+        legCount = 0;
+        if (legX.length < blocks.size()) {
+            legX = new double[blocks.size()];
+            legY = new double[blocks.size()];
+            legZ = new double[blocks.size()];
+        }
         dryMass = 0;
         fuelCapacity = 0;
         gyroTotal = 0;
@@ -1058,6 +1192,15 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
             double dx = p.getX() + 0.5 - comLocal.x;
             double dy = p.getY() + 0.5 - comLocal.y;
             double dz = p.getZ() + 0.5 - comLocal.z;
+            if (ShipParts.isParachute(state)) {
+                chuteCount++;
+            }
+            if (ShipParts.isLandingLeg(state)) {
+                legX[legCount] = dx;
+                legY[legCount] = dy;
+                legZ[legCount] = dz;
+                legCount++;
+            }
             dryInertia[0] += m * (dy * dy + dz * dz) + m / 6.0;
             dryInertia[1] += m * (dx * dx + dz * dz) + m / 6.0;
             dryInertia[2] += m * (dx * dx + dy * dy) + m / 6.0;
@@ -1325,6 +1468,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         entityData.set(FUEL_KG, (float) structure.fuelKg());
         entityData.set(SAS, sasMode.ordinal());
         entityData.set(LANDED, landed);
+        entityData.set(CHUTE, chuteState);
         entityData.set(SYNC_TICK, (int) level().getGameTime());
     }
 

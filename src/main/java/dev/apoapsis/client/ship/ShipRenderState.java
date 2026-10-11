@@ -16,6 +16,8 @@ public final class ShipRenderState extends EntityRenderState {
     public Vec3 centerOfMass = Vec3.ZERO;
     /** The ship's blocks, shared with the renderer's cache. */
     public List<ShipBlock> blocks = List.of();
+    /** How open the parachutes are, 0 to 1; 0 when stowed, torn or landed. */
+    public float chuteInflation;
 
     /** One block: its local position, state, and the reusable moving-block state that draws it. */
     public record ShipBlock(BlockPos pos, BlockState state, MovingBlockRenderState moving) {}

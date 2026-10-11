@@ -5,6 +5,7 @@
     "apoapsis:cockpit",
     "apoapsis:gyroscope",
     "apoapsis:fuel_tank",
-    "apoapsis:spark_thruster"
+    "apoapsis:spark_thruster",
+    "apoapsis:landing_leg"
   ]
 }

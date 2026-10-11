@@ -26,6 +26,8 @@ BLOCK_VARIANTS = {
     "fin": {f"facing={d}" for d in ("north", "east", "south", "west")},
     "window": {""},
     "regolith": {""},
+    "parachute": {""},
+    "landing_leg": {""},
 }
 ITEM_ONLY = ["hydrolox_canister", "pale_sample"]
 TEXTURES = {
@@ -35,6 +37,8 @@ TEXTURES = {
     "block/fuel_refinery_front_lit", "block/spark_thruster_exhaust", "block/spark_thruster_powerhead",
     "block/spark_thruster_side", "block/nose_cone_side", "block/nose_cone_tip", "block/fin",
     "block/window_side", "block/regolith", "item/hydrolox_canister", "item/pale_sample",
+    "block/parachute_side", "block/parachute_pack", "block/parachute_top",
+    "block/landing_leg_mount", "block/landing_leg_strut", "block/landing_leg_foot",
 }
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

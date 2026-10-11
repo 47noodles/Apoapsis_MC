@@ -69,6 +69,8 @@ REG_BASE = hexrgb("#9a9a96")
 REG_LIGHT = mix(REG_BASE, INK, 0.35)
 REG_DARK = mix(REG_BASE, STEEL_950, 0.3)
 REG_DEEP = mix(REG_BASE, STEEL_950, 0.5)
+CANVAS_RED = hexrgb("#b5382f")
+CANVAS_RED_DARK = mix(CANVAS_RED, STEEL_950, 0.4)
 
 
 class Canvas:
@@ -443,6 +445,77 @@ def fin():
     return c
 
 
+def parachute_side():
+    c = Canvas(STEEL_800)
+    c.bevel(STEEL_600, STEEL_950)
+    for x in range(2, 14, 3):                     # red canopy stripes folded in the pack
+        c.vline(x, 2, 13, CANVAS_RED)
+        c.vline(x + 1, 2, 13, CANVAS_RED_DARK)
+    c.hline(1, 14, 8, INK)                        # cord band
+    return c
+
+
+def parachute_pack():
+    c = Canvas(STEEL_700)
+    c.bevel(STEEL_600, STEEL_950)
+    c.hline(1, 14, 4, BRASS_DEEP)                 # strap bands
+    c.hline(1, 14, 11, BRASS_DEEP)
+    for x, y in ((2, 2), (12, 2), (2, 12), (12, 12)):
+        c.rivet(x, y, STEEL_400, STEEL_500, STEEL_950)
+    return c
+
+
+def parachute_top():
+    c = Canvas(STEEL_800)
+    c.bevel(STEEL_600, STEEL_950)
+
+    def canopy(d, dx, dy):
+        if d < 2.0:
+            return INK
+        if d < 5.0:
+            return CANVAS_RED
+        if d < 7.0:
+            return CANVAS_RED_DARK
+        return None
+
+    c.disc(8.0, 8.0, canopy)
+    return c
+
+
+def landing_leg_mount():
+    c = Canvas(STEEL_700)
+    c.bevel(STEEL_600, STEEL_950)
+    c.outline(4, 4, 11, 11, BRASS, BRASS_DEEP)    # hinge plate
+    c.fill(6, 6, 9, 9, BRASS_DEEP)
+    for x, y in ((2, 2), (12, 2), (2, 12), (12, 12)):
+        c.rivet(x, y, BRASS_LIGHT, BRASS, BRASS_DARK)
+    return c
+
+
+def landing_leg_strut():
+    c = Canvas(STEEL_800)
+    c.bevel(STEEL_600, STEEL_950)
+    c.fill(5, 1, 10, 14, STEEL_600)               # telescoping strut body
+    c.vline(5, 1, 14, STEEL_400)
+    c.vline(10, 1, 14, STEEL_950)
+    for y in (6, 7, 8):                           # hazard band mid-strut
+        for x in range(5, 11):
+            c.put(x, y, hazard(x, y, 2))
+    return c
+
+
+def landing_leg_foot():
+    c = Canvas(STEEL_800)
+    c.bevel(STEEL_600, STEEL_950)
+    for y in (11, 12, 13):                        # hazard striping on the pad
+        for x in range(1, 15):
+            c.put(x, y, hazard(x, y, 2))
+    c.hline(1, 14, 3, COPPER)                     # copper contact band
+    for x, y in ((2, 6), (12, 6)):
+        c.rivet(x, y, STEEL_400, STEEL_500, STEEL_950)
+    return c
+
+
 def window_side():
     """Hull side with a porthole: brass rim, translucent glass centre (alpha in the glass pixels)."""
     c = Canvas(STEEL_800)
@@ -534,6 +607,12 @@ TEXTURES = [
     ("block/spark_thruster_powerhead", spark_thruster_powerhead),
     ("block/spark_thruster_side", spark_thruster_side),
     ("block/regolith", regolith),
+    ("block/parachute_side", parachute_side),
+    ("block/parachute_pack", parachute_pack),
+    ("block/parachute_top", parachute_top),
+    ("block/landing_leg_mount", landing_leg_mount),
+    ("block/landing_leg_strut", landing_leg_strut),
+    ("block/landing_leg_foot", landing_leg_foot),
     ("item/hydrolox_canister", hydrolox_canister),
     ("item/pale_sample", pale_sample),
 ]

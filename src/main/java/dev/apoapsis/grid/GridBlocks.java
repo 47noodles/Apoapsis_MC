@@ -65,6 +65,13 @@ public final class GridBlocks {
     /** Hull block with a translucent glass porthole on its sides. Not occluding, so the glass shows the ship inside. */
     public static final DeferredBlock<Block> WINDOW = BLOCKS.registerSimpleBlock("window", p -> metal(p).noOcclusion());
 
+    /** Folded parachute pack for the hull; deployed from the cockpit, one way. Not a full cube. */
+    public static final DeferredBlock<Block> PARACHUTE = BLOCKS.registerSimpleBlock("parachute",
+            p -> p.mapColor(MapColor.SNOW).strength(1.5f, 3.0f).sound(SoundType.WOOL).noOcclusion());
+
+    /** Strut with a foot, pointing down. Not a full cube. Legs at a ship's lowest layer raise the crash limit. */
+    public static final DeferredBlock<Block> LANDING_LEG = BLOCKS.registerSimpleBlock("landing_leg", p -> metal(p).noOcclusion());
+
     /** Pale ground: sand-like, light grey on maps. */
     public static final DeferredBlock<Block> REGOLITH = BLOCKS.registerSimpleBlock("regolith",
             p -> p.mapColor(MapColor.COLOR_LIGHT_GRAY).strength(0.5f).sound(SoundType.SAND));
@@ -78,6 +85,8 @@ public final class GridBlocks {
     public static final DeferredItem<BlockItem> NOSE_CONE_ITEM = ITEMS.registerSimpleBlockItem("nose_cone", NOSE_CONE);
     public static final DeferredItem<BlockItem> FIN_ITEM = ITEMS.registerSimpleBlockItem("fin", FIN);
     public static final DeferredItem<BlockItem> WINDOW_ITEM = ITEMS.registerSimpleBlockItem("window", WINDOW);
+    public static final DeferredItem<BlockItem> PARACHUTE_ITEM = ITEMS.registerSimpleBlockItem("parachute", PARACHUTE);
+    public static final DeferredItem<BlockItem> LANDING_LEG_ITEM = ITEMS.registerSimpleBlockItem("landing_leg", LANDING_LEG);
     public static final DeferredItem<BlockItem> REGOLITH_ITEM = ITEMS.registerSimpleBlockItem("regolith", REGOLITH);
 
     /** Stacks to 16. Right-click a fuel tank to add 300 kg of hydrolox. */
@@ -107,6 +116,8 @@ public final class GridBlocks {
                 output.accept(NOSE_CONE_ITEM.get());
                 output.accept(FIN_ITEM.get());
                 output.accept(WINDOW_ITEM.get());
+                output.accept(PARACHUTE_ITEM.get());
+                output.accept(LANDING_LEG_ITEM.get());
                 output.accept(REGOLITH_ITEM.get());
                 output.accept(HYDROLOX_CANISTER.get());
             })

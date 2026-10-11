@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "P": "minecraft:piston",
+    "B": "minecraft:iron_block"
+  },
+  "pattern": [
+    " I ",
+    " P ",
+    "IBI"
+  ],
+  "result": {
+    "id": "apoapsis:landing_leg"
+  }
+}

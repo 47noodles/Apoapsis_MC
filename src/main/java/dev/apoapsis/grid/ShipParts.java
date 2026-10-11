@@ -25,6 +25,8 @@ public final class ShipParts {
     private static final double FIN_MASS_KG = 150.0;
     /** Hull block with a porthole: lighter than a plate, about the weight of the glass it holds. */
     private static final double WINDOW_MASS_KG = 300.0;
+    private static final double PARACHUTE_MASS_KG = 100.0;
+    private static final double LANDING_LEG_MASS_KG = 200.0;
     private static final double METAL_BLOCK_MASS_KG = 2000.0;
     private static final double LAMP_MASS_KG = 200.0;
     private static final double DEFAULT_MASS_KG = 1000.0;
@@ -81,6 +83,12 @@ public final class ShipParts {
         if (state.is(GridBlocks.WINDOW.get())) {
             return WINDOW_MASS_KG;
         }
+        if (state.is(GridBlocks.PARACHUTE.get())) {
+            return PARACHUTE_MASS_KG;
+        }
+        if (state.is(GridBlocks.LANDING_LEG.get())) {
+            return LANDING_LEG_MASS_KG;
+        }
         if (isGlass(state)) {
             return GLASS_MASS_KG;
         }
@@ -95,6 +103,14 @@ public final class ShipParts {
 
     public static boolean isCockpit(BlockState state) {
         return state.is(GridBlocks.COCKPIT.get());
+    }
+
+    public static boolean isParachute(BlockState state) {
+        return state.is(GridBlocks.PARACHUTE.get());
+    }
+
+    public static boolean isLandingLeg(BlockState state) {
+        return state.is(GridBlocks.LANDING_LEG.get());
     }
 
     /** Propellant capacity in kg; 0 if the block is not a tank. */
