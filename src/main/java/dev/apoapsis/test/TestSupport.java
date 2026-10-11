@@ -92,6 +92,18 @@ final class TestSupport {
         return property.getName(state.getValue(property));
     }
 
+    /**
+     * The corner of the chunk under the test origin with the lowest x and z, as a position relative to the origin (x and
+     * z from 0 to -15, y 0). The runner starts every run at a random spot and waits only for the chunk under the
+     * one-block plot to tick, so the origin can sit anywhere in that chunk, and a ship in any other chunk never ticks.
+     * A test that builds or spawns anything wider than a block lays it out from this corner, inside the chunk's 16 by
+     * 16 columns.
+     */
+    static BlockPos chunkCorner(GameTestHelper helper) {
+        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+        return new BlockPos(-(origin.getX() & 15), 0, -(origin.getZ() & 15));
+    }
+
     /** Lays a 5 by 5 stone floor whose top surface is at relative y = 1. */
     static void stoneFloor(GameTestHelper helper) {
         BlockState stone = Blocks.STONE.defaultBlockState();

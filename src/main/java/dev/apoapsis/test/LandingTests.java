@@ -35,6 +35,24 @@ final class LandingTests {
         }
     }
 
+    /** Stone over the whole 16 by 16 chunk that holds the test origin, top surface at relative y = 1. */
+    private static void chunkFloor(GameTestHelper helper, BlockPos corner) {
+        BlockState stone = Blocks.STONE.defaultBlockState();
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                helper.setBlock(corner.offset(x, 0, z), stone);
+            }
+        }
+    }
+
+    /** Spawns {@code structure} at rest with its local origin at {@code at}, a position relative to the test origin. */
+    private static ShipEntity spawnAt(GameTestHelper helper, ShipCleanup ships, ShipStructure structure, BlockPos at) {
+        BlockPos origin = helper.absolutePos(at);
+        Vec3 com = structure.centerOfMassLocal();
+        Vec3 comPos = new Vec3(origin.getX() + com.x, origin.getY() + com.y, origin.getZ() + com.z);
+        return ships.track(ShipEntity.spawn(helper.getLevel(), structure, comPos, new Quaternionf()));
+    }
+
     /** Nine hull plates and four parachutes: 4,000 kg, no fuel. */
     private static ShipStructure chuteShip(GameTestHelper helper) {
         ShipStructure structure = new ShipStructure();
@@ -51,8 +69,9 @@ final class LandingTests {
      * {@link DescentGear#terminalSpeedMps} for the air density and gravity at the ship.
      */
     static void chuteTerminalSpeed(GameTestHelper helper, ShipCleanup ships) {
-        TestSupport.stoneFloor(helper);
-        ShipEntity ship = ships.track(TestSupport.spawnAboveFloor(helper, chuteShip(helper), 70));
+        BlockPos corner = TestSupport.chunkCorner(helper);
+        chunkFloor(helper, corner);
+        ShipEntity ship = spawnAt(helper, ships, chuteShip(helper), corner.offset(6, 71, 6));
         ship.setThrottle(0f);
         ship.setVelocity(new Vec3(0, -10, 0));
         ship.deployParachutes();
@@ -110,23 +129,18 @@ final class LandingTests {
         helper.assertTrue(DescentGear.verticalCrashLimitMps(3) == 24.0, "3 legs must give 24 m/s");
         helper.assertTrue(DescentGear.verticalCrashLimitMps(6) == 24.0, "6 legs must give the 24 m/s cap");
 
-        BlockState stone = Blocks.STONE.defaultBlockState();
-        for (int x = -5; x <= 8; x++) {
-            for (int z = -5; z <= 8; z++) {
-                helper.setBlock(new BlockPos(x, 0, z), stone);
-            }
-        }
-        // The ships stand in a plus, close to the test origin: chunks farther out are not loaded in a GameTest.
-        int[][] spots = {{0, 0}, {-4, 0}, {4, 0}, {0, -4}, {0, 4}};
+        // Every ship stands inside the chunk under the test origin, the one chunk the runner keeps ticking: a 3 by 3 ship
+        // whose centre fell in the next chunk would hang in the air and never reach the floor.
+        BlockPos corner = TestSupport.chunkCorner(helper);
+        chunkFloor(helper, corner);
+        // The ships stand in a plus; each entry is the ship's corner in the chunk, with a block between neighbours.
+        int[][] spots = {{6, 6}, {2, 6}, {10, 6}, {6, 2}, {6, 10}};
         // legs, impact speed in m/s, whether the ship survives
         int[][] cases = {{0, 15, 0}, {2, 15, 0}, {3, 15, 1}, {6, 22, 1}, {6, 26, 0}};
         ShipEntity[] spawned = new ShipEntity[cases.length];
         for (int i = 0; i < cases.length; i++) {
-            ShipStructure structure = legShip(helper, cases[i][0]);
-            BlockPos origin = helper.absolutePos(new BlockPos(spots[i][0], 2, spots[i][1]));
-            Vec3 com = structure.centerOfMassLocal();
-            Vec3 comPos = new Vec3(origin.getX() + com.x, origin.getY() + com.y, origin.getZ() + com.z);
-            ShipEntity ship = ships.track(ShipEntity.spawn(helper.getLevel(), structure, comPos, new Quaternionf()));
+            BlockPos at = corner.offset(spots[i][0], 2, spots[i][1]);
+            ShipEntity ship = spawnAt(helper, ships, legShip(helper, cases[i][0]), at);
             ship.setThrottle(0f);
             ship.setVelocity(new Vec3(0, -cases[i][1], 0));
             helper.assertTrue(ship.landingLegCount() == cases[i][0],
@@ -135,7 +149,16 @@ final class LandingTests {
         }
 
         helper.startSequence()
-                .thenExecuteAfter(15, () -> {
+                // Judge each ship only once it has met the floor, destroyed or landed: a ship still in the air is
+                // neither a survivor nor a wreck yet.
+                .thenWaitUntil(() -> {
+                    for (int i = 0; i < cases.length; i++) {
+                        helper.assertTrue(!spawned[i].isAlive() || spawned[i].isLanded(),
+                                cases[i][0] + " legs at " + cases[i][1] + " m/s: not on the floor yet, y "
+                                        + spawned[i].getY());
+                    }
+                })
+                .thenExecute(() -> {
                     StringBuilder wrong = new StringBuilder();
                     for (int i = 0; i < cases.length; i++) {
                         boolean survived = spawned[i].isAlive();

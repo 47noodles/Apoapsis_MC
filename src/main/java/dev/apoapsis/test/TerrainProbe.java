@@ -26,6 +26,9 @@ import net.minecraft.world.level.levelgen.presets.WorldPresets;
  * world flat and without datapack dimensions, so a test cannot take these from the level.
  */
 final class TerrainProbe {
+    /** Timed passes of the sampler in {@link #compare}; the fastest counts. */
+    private static final int SAMPLER_PASSES = 5;
+
     /** The seed of the "Apoapsis Test Flight" save. */
     static final long SEED = 26032026L;
 
@@ -66,7 +69,11 @@ final class TerrainProbe {
                 TerrainSampler.create(generator, randomState, heights, access), radius);
     }
 
-    /** Compares the sampler with getBaseHeight at {@code n} random columns and logs error and cost statistics. */
+    /**
+     * Compares the sampler with getBaseHeight at {@code n} random columns and logs error and cost statistics. The
+     * sampler's cost is the best of {@link #SAMPLER_PASSES} passes, so the 10x cost assertion fails for a sampler that
+     * is really slower and not for a machine that was busy for a few milliseconds.
+     */
     static Error compare(Body b, int n, long seed) {
         Random rnd = new Random(seed);
         int[] xs = new int[n];
@@ -86,11 +93,19 @@ final class TerrainProbe {
             exact[i] = b.sampler().exact(xs[i], zs[i]);
         }
         long t1 = System.nanoTime();
+        // The sampler pass is only milliseconds long, so one scheduling hiccup or GC pause in it would swamp the cost per
+        // sample on a busy machine. Time several passes, each on a fresh worker so its caches start cold, and keep the
+        // fastest: a pause only ever makes a pass slower, never faster.
         float[] fast = new float[n];
-        for (int i = 0; i < n; i++) {
-            fast[i] = w.ground(xs[i], zs[i]);
+        long samplerNanos = Long.MAX_VALUE;
+        for (int pass = 0; pass < SAMPLER_PASSES; pass++) {
+            TerrainSampler.Worker passWorker = b.sampler().worker();
+            long s0 = System.nanoTime();
+            for (int i = 0; i < n; i++) {
+                fast[i] = passWorker.ground(xs[i], zs[i]);
+            }
+            samplerNanos = Math.min(samplerNanos, System.nanoTime() - s0);
         }
-        long t2 = System.nanoTime();
         double[] err = new double[n];
         double sum = 0, sumSq = 0, max = 0;
         for (int i = 0; i < n; i++) {
@@ -103,10 +118,10 @@ final class TerrainProbe {
         Apoapsis.LOG.info("[terrain-probe] {} fast={} n={} exact {} us/sample, sampler {} us/sample;"
                         + " error vs getBaseHeight:"
                         + " bias {} rms {} median {} p95 {} max {} blocks",
-                b.name(), b.sampler().fast(), n, f((t1 - t0) / 1000.0 / n), f((t2 - t1) / 1000.0 / n),
+                b.name(), b.sampler().fast(), n, f((t1 - t0) / 1000.0 / n), f(samplerNanos / 1000.0 / n),
                 f(sum / n), f(Math.sqrt(sumSq / n)), f(abs[n / 2]), f(abs[(int) (n * 0.95)]), f(max));
         return new Error(sum / n, Math.sqrt(sumSq / n), abs[(int) (n * 0.95)], max, (t1 - t0) / 1000.0 / n,
-                (t2 - t1) / 1000.0 / n);
+                samplerNanos / 1000.0 / n);
     }
 
     /** Height error of the sampler against getBaseHeight, in blocks, and the cost per sample, microseconds. */
