@@ -21,6 +21,6 @@ public record Patch(CelestialBody body, double startUt, double endUt, StateVecto
 
     /** State relative to {@code body} at time {@code ut} (two-body propagation from startState). */
     public StateVector stateAt(double ut) {
-        return startState;
+        return Kepler.propagate(body.mu, startState, ut - startUt);
     }
 }

@@ -1,5 +1,7 @@
 package dev.apoapsis.orbit;
 
+import java.util.List;
+
 /**
  * The prototype's bodies, with the figures from tools/calc/system.py (g0 = 9.81). Owned by node ORB.
  * VERDANCE: R 64 km, 1.00 g (mu = 9.81 * 64000^2), atmosphere top 12 km, 1.225 kg/m^3, scale height 2 km.
@@ -20,5 +22,18 @@ public final class MeridianSystem {
             case "pale" -> PALE;
             default -> null;
         };
+    }
+
+    /** All bodies of the system, parents before children. */
+    public static List<CelestialBody> all() {
+        return List.of(VERDANCE, PALE);
+    }
+
+    /** Bodies whose parent is {@code b}; empty for null or a body with no moons. */
+    public static List<CelestialBody> children(CelestialBody b) {
+        if (b == null) {
+            return List.of();
+        }
+        return all().stream().filter(c -> c.parent == b).toList();
     }
 }

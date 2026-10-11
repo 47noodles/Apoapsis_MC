@@ -39,21 +39,41 @@ public final class CelestialBody {
 
     /** Sphere of influence radius (Laplace): orbitRadius * (mu / parent.mu)^0.4; +Infinity for the root. */
     public double soiRadius() {
-        return Double.POSITIVE_INFINITY;
+        if (parent == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return orbitRadius * Math.pow(mu / parent.mu, 0.4);
     }
 
     /** Orbit period around the parent, s; NaN for the root. */
     public double orbitPeriod() {
-        return Double.NaN;
+        if (parent == null) {
+            return Double.NaN;
+        }
+        return 2 * Math.PI * Math.sqrt(orbitRadius * orbitRadius * orbitRadius / parent.mu);
     }
 
-    /** Position and velocity relative to the parent at universal time {@code ut}. */
+    /** Position and velocity relative to the parent at universal time {@code ut}; the zero state for the root. */
     public StateVector stateAt(double ut) {
-        return new StateVector(Vec3d.ZERO, Vec3d.ZERO);
+        if (parent == null) {
+            return new StateVector(Vec3d.ZERO, Vec3d.ZERO);
+        }
+        double angle = orbitPhaseAtEpoch + 2 * Math.PI * ut / orbitPeriod();
+        double cos = Math.cos(angle);
+        double sin = Math.sin(angle);
+        double speed = Math.sqrt(parent.mu / orbitRadius);
+        return new StateVector(new Vec3d(orbitRadius * cos, orbitRadius * sin, 0),
+                new Vec3d(-speed * sin, speed * cos, 0));
     }
 
     /** Air density at altitude {@code h} metres: seaLevelDensity * exp(-h / scaleHeight), 0 above atmosphereTop. */
     public double density(double h) {
+        if (h < 0) {
+            return seaLevelDensity;
+        }
+        if (h <= atmosphereTop) {
+            return seaLevelDensity * Math.exp(-h / scaleHeight);
+        }
         return 0;
     }
 
