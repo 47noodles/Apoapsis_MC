@@ -47,7 +47,7 @@ public final class EngineParticles {
 
     private static void emit(ClientLevel level, ShipEntity ship, float throttle) {
         ShipStructure structure = ship.getStructure();
-        Vec3 com = structure.centerOfMassLocal();
+        Vec3 com = ship.getCenterOfMassLocal();
         Quaternionf q = ship.getOrientation();
         Vec3 origin = ship.position();
         ThreadLocalRandom rnd = ThreadLocalRandom.current();

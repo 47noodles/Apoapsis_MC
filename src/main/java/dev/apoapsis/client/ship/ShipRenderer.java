@@ -51,7 +51,7 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
         BlockCache cache = caches.computeIfAbsent(ship, k -> new BlockCache());
         cache.update(structure);
         state.orientation = ship.getOrientation();
-        state.centerOfMass = structure.centerOfMassLocal();
+        state.centerOfMass = ship.getCenterOfMassLocal();
         state.blocks = cache.blocks;
         if (ship.level() instanceof ClientLevel level) {
             // Every block takes its light from the ship's position, as FallingBlockRenderer does for its block.
@@ -106,7 +106,7 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
     protected AABB getBoundingBoxForCulling(ShipEntity ship, float partialTicks) {
         ShipStructure structure = ship.getStructure();
         AABB local = structure.localBounds();
-        Vec3 com = structure.centerOfMassLocal();
+        Vec3 com = ship.getCenterOfMassLocal();
         Quaternionf q = ship.getOrientation();
         Vec3 origin = ship.getPosition(partialTicks);
         double minX = Double.MAX_VALUE;
