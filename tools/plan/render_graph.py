@@ -90,7 +90,12 @@ def layout(nodes):
     if staged:
         stage_of = {i: by[i].get("stage", 0) for i in ids}
         start = 0
-        for s in sorted(set(stage_of.values()), key=lambda v: (str(type(v)), v)):
+        def stage_key(v):  # numeric stages sort by value (0.5 sits between 0 and 1); anything else after them
+            if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace(".", "", 1).isdigit()):
+                return (0, float(v))
+            return (1, str(v))
+
+        for s in sorted(set(stage_of.values()), key=stage_key):
             members = [i for i in ids if stage_of[i] == s]
             todo = list(members)
             while todo:

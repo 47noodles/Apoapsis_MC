@@ -1,7 +1,7 @@
 {
  "title": "Apoapsis: work graph to 1.0",
  "request": "Every piece of work from today (the Stage 0 prototype) to the 1.0 modpack: design gates, playtests, releases and version hops. Left to right by dependency; each stage is a band.",
- "updated": "2026-10-11 16:15:06",
+ "updated": "2026-10-11 18:18:07",
  "stages": {
   "0": "Foundations",
   "1": "Engineers",
@@ -11,7 +11,8 @@
   "5": "Together",
   "6": "Expanse",
   "7": "Beyond",
-  "8": "Launch"
+  "8": "Launch",
+  "0.5": "MVP slice"
  },
  "owners": {
   "agents": "Build agents (Haiku and Sonnet) under Opus review",
@@ -678,6 +679,399 @@
    "status": "pending",
    "exit": "",
    "ref": "02 §2.4"
+  },
+  {
+   "id": "0.33",
+   "stage": 0,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Planet maps and spheres",
+   "does": "Planet maps and spherical planets in the sky and on the system map",
+   "depends": [
+    "0.11"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.34",
+   "stage": 0,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Planet colours",
+   "does": "Per-planet colour palette across the sky, map and HUD",
+   "depends": [
+    "0.11"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.3,
+    0.5
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.35",
+   "stage": 0,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Moon terrain",
+   "does": "Moon surface terrain with height and colour variation",
+   "depends": [
+    "0.11"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.36",
+   "stage": 0,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Launch effects",
+   "does": "Launch exhaust, plume and liftoff particles",
+   "depends": [
+    "0.09"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.37",
+   "stage": 0,
+   "track": "grids",
+   "kind": "build",
+   "name": "New ship parts",
+   "does": "New ship block models for the prototype hull, tanks and fins",
+   "depends": [
+    "0.05"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.38",
+   "stage": 0,
+   "track": "ui",
+   "kind": "build",
+   "name": "Cockpit HUD",
+   "does": "Cockpit HUD with flight readouts at the screen edges",
+   "depends": [
+    "0.09"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.39",
+   "stage": 0,
+   "track": "ui",
+   "kind": "build",
+   "name": "Map restyle",
+   "does": "Restyled system map: cleaner orbit lines, clearer labels, colour per body",
+   "depends": [
+    "0.10"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.01",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "build",
+   "name": "Survival start for new worlds",
+   "does": "New worlds start at Age 3 with vanilla tech; ship parts craftable from vanilla materials",
+   "depends": [
+    "0.08",
+    "0.37"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.02",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "build",
+   "name": "First Flight to Age 4",
+   "does": "Reach 1,500 m in a craft you built and land it intact; split parts into Age 3 and Age 4 sets",
+   "depends": [
+    "M.01",
+    "0.07"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.03",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "build",
+   "name": "Age 4 firsts chain",
+   "does": "Suborbital, orbit, Pale flyby, Pale landing, crewed return: Custodian messages and toasts",
+   "depends": [
+    "M.02",
+    "0.36"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.04",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "build",
+   "name": "Pale regolith sample",
+   "does": "Mining Pale regolith can yield a sample; carrying it landed on Verdance grants Age 5",
+   "depends": [
+    "M.03",
+    "0.11"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.05",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "build",
+   "name": "Fuel refinery and canisters",
+   "does": "Fuel Refinery (Age 4) turns water and heat into hydrolox canisters; tanks refill from them",
+   "depends": [
+    "M.02"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.06",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "build",
+   "name": "Parachutes and landing legs",
+   "does": "Parachutes with large drag in atmosphere; landing legs with wider stance and shock absorption",
+   "depends": [
+    "M.02",
+    "0.06"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.07",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "build",
+   "name": "Landing aids and re-entry glow",
+   "does": "Radar altitude and suicide-burn cue on the HUD; re-entry glow and plasma particles",
+   "depends": [
+    "M.06",
+    "0.10"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.08",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "build",
+   "name": "One maneuver node",
+   "does": "Place one node on the orbit; adjust prograde, normal, radial; predicted path; burn time on the navball",
+   "depends": [
+    "M.03",
+    "0.10"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.09",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "test",
+   "name": "Return trip proven by script",
+   "does": "Scripted Pale landing, Pale ascent and Verdance re-entry with parachutes, then landing",
+   "depends": [
+    "M.04",
+    "M.05",
+    "M.06",
+    "M.07",
+    "M.08"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.10",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "build",
+   "name": "Multiplayer basics and ownership",
+   "does": "Ship ownership on assembly (closes SEC-5); boarding by owner or team; 2-5 player dedicated-server smoke test",
+   "depends": [
+    "M.02",
+    "0.05"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "2-5 player smoke test passes; the lead accepts the Minecraft EULA once",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.11",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "content",
+   "name": "In-game Custodian guide",
+   "does": "Short Custodian guide (book or chat steps) for the survival loop",
+   "depends": [
+    "M.09"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "M.12",
+   "stage": 0.5,
+   "track": "mvp",
+   "kind": "release",
+   "name": "MVP release",
+   "does": "Alpha jar on GitHub Releases, patch notes and the README play guide",
+   "depends": [
+    "M.10",
+    "M.11"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "Lead's go-ahead to publish",
+   "exit": "",
+   "ref": ""
   },
   {
    "id": "1.01",
@@ -1391,10 +1785,11 @@
    "stage": 1,
    "track": "release",
    "kind": "release",
-   "name": "Release 0.1 Engineers",
-   "does": "First playable: patch notes, Modrinth and CurseForge listing",
+   "name": "Stage 1 playable",
+   "does": "Stage 1 playable: patch notes, Modrinth and CurseForge listing; after the MVP slice (M.12)",
    "depends": [
-    "1.34"
+    "1.34",
+    "M.12"
    ],
    "model": "47noodles",
    "owner": "47noodles",
@@ -1425,6 +1820,26 @@
    "status": "pending",
    "exit": "",
    "ref": "12 §12.5"
+  },
+  {
+   "id": "1.37",
+   "stage": 1,
+   "track": "ui",
+   "kind": "build",
+   "name": "Map smooth restyle",
+   "does": "Anti-aliased vector lines and a crisp TTF font, moving the map toward concept 06",
+   "depends": [
+    "M.12"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
   },
   {
    "id": "2.01",
