@@ -3,6 +3,8 @@ package dev.apoapsis.client;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.client.map.FlightHud;
 import dev.apoapsis.client.map.MapScreen;
+import dev.apoapsis.client.map3d.Map3DPip;
+import dev.apoapsis.client.map3d.Map3DScreen;
 import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
@@ -22,12 +24,14 @@ import net.neoforged.neoforge.event.level.LevelEvent;
  */
 public final class MapClient {
     private static final Identifier FLIGHT_HUD = Identifier.fromNamespaceAndPath(Apoapsis.MODID, "flight_hud");
+    private static final String MAP3D_PROPERTY = "apoapsis.map3d";
 
     private MapClient() {}
 
     /** Called from {@code ApoapsisClient} with the mod event bus. */
     public static void register(IEventBus modBus) {
         modBus.addListener(MapClient::onRegisterGuiLayers);
+        modBus.addListener(Map3DPip::onRegisterPip);
         NeoForge.EVENT_BUS.addListener(MapClient::onClientTickPost);
         NeoForge.EVENT_BUS.addListener(MapClient::onEntityMount);
         NeoForge.EVENT_BUS.addListener(MapClient::onLoggingOut);
@@ -38,6 +42,13 @@ public final class MapClient {
     /** Opens the full-screen system map (SHIPC's system map key calls this). Shows a hint when not piloting. */
     public static void openMap() {
         Minecraft mc = Minecraft.getInstance();
+        // Temporary toggle: -Dapoapsis.map3d=true opens the 3D map (client/map3d) instead of the 2D map.
+        if (Boolean.getBoolean(MAP3D_PROPERTY)) {
+            if (!(mc.gui.screen() instanceof Map3DScreen)) {
+                mc.gui.setScreen(new Map3DScreen());
+            }
+            return;
+        }
         if (mc.gui.screen() instanceof MapScreen) {
             return;
         }

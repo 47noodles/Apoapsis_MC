@@ -1,0 +1,8 @@
+{
+  "apoapsis.map3d.key.rotate": "rotate",
+  "apoapsis.map3d.key.cut": "cut throttle",
+  "apoapsis.map3d.node.an": "AN",
+  "apoapsis.map3d.node.dn": "DN",
+  "apoapsis.map3d.rel_inc": "Rel. inc. %s",
+  "apoapsis.map3d.ship": "SHIP"
+}
