@@ -1,0 +1,14 @@
+{
+  "key.category.apoapsis.apoapsis": "Apoapsis",
+  "key.apoapsis.roll_left": "Roll left",
+  "key.apoapsis.roll_right": "Roll right",
+  "key.apoapsis.throttle_up": "Throttle up",
+  "key.apoapsis.throttle_down": "Throttle down",
+  "key.apoapsis.throttle_full": "Full throttle",
+  "key.apoapsis.throttle_cut": "Cut throttle",
+  "key.apoapsis.sas": "SAS (hold attitude)",
+  "key.apoapsis.disassemble": "Disassemble",
+  "key.apoapsis.system_map": "System map",
+  "key.apoapsis.warp_up": "Time warp up",
+  "key.apoapsis.warp_down": "Time warp down"
+}

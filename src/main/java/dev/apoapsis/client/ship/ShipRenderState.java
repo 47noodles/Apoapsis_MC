@@ -1,0 +1,22 @@
+package dev.apoapsis.client.ship;
+
+import java.util.List;
+import net.minecraft.client.renderer.block.MovingBlockRenderState;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Quaternionf;
+
+/** Per-frame data the ship renderer submits: pose, centre of mass and the ship's blocks. Client only. */
+public final class ShipRenderState extends EntityRenderState {
+    /** Body axes to dimension axes. */
+    public Quaternionf orientation = new Quaternionf();
+    /** Centre of mass in local block coordinates; the entity position is this point in the world. */
+    public Vec3 centerOfMass = Vec3.ZERO;
+    /** The ship's blocks, shared with the renderer's cache. */
+    public List<ShipBlock> blocks = List.of();
+
+    /** One block: its local position, state, and the reusable moving-block state that draws it. */
+    public record ShipBlock(BlockPos pos, BlockState state, MovingBlockRenderState moving) {}
+}
