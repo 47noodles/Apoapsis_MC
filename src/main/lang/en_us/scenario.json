@@ -1,0 +1,9 @@
+{
+  "apoapsis.scenario.blueprint.failed": "The Kestrel blueprint could not be read.",
+  "apoapsis.scenario.pad.blocked": "There is no room for the pad here.",
+  "apoapsis.scenario.pad.done": "Kestrel is on the pad, fuelled. Right-click the cockpit to board.",
+  "apoapsis.scenario.orbit.done": "Kestrel in a 16 km orbit around Verdance. Transfer window to Pale in about 2 minutes: burn about 190 m/s prograde. Press M for the map.",
+  "apoapsis.scenario.orbit.failed": "Could not place the Kestrel in orbit.",
+  "apoapsis.scenario.testflight.done": "Test flight ready. A second Kestrel is on a pad at spawn.",
+  "apoapsis.scenario.testflight.pad_failed": "No room for the spawn pad. The Kestrel in orbit is ready."
+}
