@@ -17,10 +17,12 @@ final class Palette {
     static final int GO = 0xFF74D465;
     static final int ALERT = 0xFFEC5B45;
 
-    /** Verdance's surface tone (muted blue-green). */
+    /** Verdance's surface tone on the shadow side (muted blue-green), and the lit side. */
     static final int VERDANCE_GROUND = 0xFF2F6F63;
-    /** Pale's surface tone (grey). */
-    static final int PALE_GROUND = 0xFF7D838A;
+    static final int VERDANCE_LIT = 0xFF6FBBA8;
+    /** Pale's surface tone on the shadow side (grey), and the lit side. */
+    static final int PALE_GROUND = 0xFF5C636B;
+    static final int PALE_LIT = 0xFFB8BEC4;
 
     /** The same colour with a new alpha (0..255). */
     static int alpha(int argb, int alpha) {

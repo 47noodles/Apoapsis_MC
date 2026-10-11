@@ -92,6 +92,43 @@ final class Fmt {
         return String.format(Locale.ROOT, "x%.1f", w);
     }
 
+    /** Surface gravity in g, two decimals ("1.00 g"). */
+    static String gees(double g) {
+        if (!Double.isFinite(g)) {
+            return NONE;
+        }
+        return String.format(Locale.ROOT, "%.2f g", g);
+    }
+
+    /** Universal time as a day and a clock ("D003 · 06:47:12"), a day being 86400 s from the epoch. */
+    static String universalTime(double ut) {
+        if (!Double.isFinite(ut)) {
+            return NONE;
+        }
+        long s = (long) Math.floor(ut);
+        long day = Math.floorDiv(s, 86_400L) + 1;
+        long secs = Math.floorMod(s, 86_400L);
+        return String.format(Locale.ROOT, "D%03d · %02d:%02d:%02d", day, secs / 3600, secs / 60 % 60, secs % 60);
+    }
+
+    /** Upper case with letters spaced apart ("P A L E"); a space in the text becomes a wider gap. */
+    static String spaced(String s) {
+        String up = s.toUpperCase(Locale.ROOT);
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < up.length(); i++) {
+            char ch = up.charAt(i);
+            if (ch == ' ') {
+                b.append("   ");
+                continue;
+            }
+            b.append(ch);
+            if (i + 1 < up.length() && up.charAt(i + 1) != ' ') {
+                b.append(' ');
+            }
+        }
+        return b.toString();
+    }
+
     /** A duration as m:ss, or h:mm:ss from an hour ("12:04", "1:05:09"). Negative values clamp to zero. */
     static String clock(double seconds) {
         if (!Double.isFinite(seconds)) {

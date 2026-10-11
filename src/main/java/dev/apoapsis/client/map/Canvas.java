@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
  * Vector shapes on top of {@link GuiGraphicsExtractor}, which has no line or circle primitive in 26.3. Everything is
@@ -86,10 +87,120 @@ final class Canvas {
         }
     }
 
-    /** Joins consecutive points of a polyline. {@code n} is the point count. */
-    void polyline(double[] xs, double[] ys, int n, int argb) {
+    /**
+     * A path with a soft glow: a faint halo one pixel off on each diagonal, then the one-pixel core on top. With
+     * {@code dashPx} above zero the path is dashed by arc length (the dashes and halo alike). {@code n} is the point count.
+     */
+    void glowPolyline(double[] xs, double[] ys, int n, double dashPx, int argb, int haloArgb) {
+        shifted(xs, ys, n, -1, -1, dashPx, haloArgb);
+        shifted(xs, ys, n, 1, 1, dashPx, haloArgb);
+        shifted(xs, ys, n, 0, 0, dashPx, argb);
+    }
+
+    /** Four corner brackets around the box x0..x1 by y0..y1, each arm {@code arm} px long. */
+    void corners(double x0, double y0, double x1, double y1, double arm, int argb) {
+        line(x0, y0, x0 + arm, y0, argb);
+        line(x0, y0, x0, y0 + arm, argb);
+        line(x1, y0, x1 - arm, y0, argb);
+        line(x1, y0, x1, y0 + arm, argb);
+        line(x0, y1, x0 + arm, y1, argb);
+        line(x0, y1, x0, y1 - arm, argb);
+        line(x1, y1, x1 - arm, y1, argb);
+        line(x1, y1, x1, y1 - arm, argb);
+    }
+
+    /** A disc lit from direction (lx, ly) in screen space: the part inside a circle offset toward the light is {@code lit}. */
+    void shadedDisc(double cx, double cy, double r, double lx, double ly, int lit, int dark) {
+        disc(cx, cy, r, dark);
+        double off = r * 0.35;
+        lune(cx, cy, r, cx + lx * off, cy + ly * off, r * 0.98, lit, true);
+    }
+
+    /**
+     * A surface texture as a disc: the central half of the map (longitudes covering a hemisphere, so the stretch
+     * stays near square), its corners masked to {@code background}, then the far side darkened with {@code shadow}.
+     */
+    void texturedDisc(Identifier texture, double cx, double cy, double r, double lx, double ly, int background,
+                      int shadow) {
+        if (!(r > 0) || !Double.isFinite(r) || !Double.isFinite(cx) || !Double.isFinite(cy)) {
+            return;
+        }
+        int x0 = (int) Math.round(cx - r);
+        int x1 = (int) Math.round(cx + r);
+        int y0 = (int) Math.round(cy - r);
+        int y1 = (int) Math.round(cy + r);
+        g.blit(texture, x0, y0, x1, y1, 0.25f, 0.75f, 0f, 1f);
+        int yFrom = Math.max(0, (int) Math.floor(cy - r));
+        int yTo = Math.min(height - 1, (int) Math.ceil(cy + r));
+        for (int y = yFrom; y <= yTo; y++) {
+            double dy = (y + 0.5) - cy;
+            double d2 = r * r - dy * dy;
+            if (d2 < 0) {
+                rowFill(x0, x1, y, background);
+                continue;
+            }
+            double half = Math.sqrt(d2);
+            rowFill(x0, cx - half, y, background);
+            rowFill(cx + half, x1, y, background);
+        }
+        double off = r * 0.35;
+        lune(cx, cy, r, cx + lx * off, cy + ly * off, r * 0.98, shadow, false);
+    }
+
+    /** Joins the points of a path, shifted by (dx, dy) pixels; dashed by arc length when {@code dashPx} is above zero. */
+    private void shifted(double[] xs, double[] ys, int n, double dx, double dy, double dashPx, int argb) {
+        double arc = 0;
         for (int k = 1; k < n; k++) {
-            line(xs[k - 1], ys[k - 1], xs[k], ys[k], argb);
+            if (dashPx <= 0 || ((int) (arc / dashPx)) % 2 == 0) {
+                line(xs[k - 1] + dx, ys[k - 1] + dy, xs[k] + dx, ys[k] + dy, argb);
+            }
+            arc += Math.hypot(xs[k] - xs[k - 1], ys[k] - ys[k - 1]);
+        }
+    }
+
+    /** The part of disc (cx, cy, r) inside (or, when not {@code inside}, outside) the circle (ox, oy, orad), one span per row. */
+    private void lune(double cx, double cy, double r, double ox, double oy, double orad, int argb, boolean inside) {
+        int yFrom = Math.max(0, (int) Math.floor(cy - r));
+        int yTo = Math.min(height - 1, (int) Math.ceil(cy + r));
+        for (int y = yFrom; y <= yTo; y++) {
+            double dy = (y + 0.5) - cy;
+            double d2 = r * r - dy * dy;
+            if (d2 < 0) {
+                continue;
+            }
+            double half = Math.sqrt(d2);
+            double xa = cx - half;
+            double xb = cx + half;
+            double ey = (y + 0.5) - oy;
+            double e2 = orad * orad - ey * ey;
+            if (e2 < 0) {
+                if (!inside) {
+                    rowFill(xa, xb, y, argb);
+                }
+                continue;
+            }
+            double oh = Math.sqrt(e2);
+            double la = ox - oh;
+            double lb = ox + oh;
+            if (inside) {
+                rowFill(Math.max(xa, la), Math.min(xb, lb), y, argb);
+            } else {
+                if (la > xa) {
+                    rowFill(xa, Math.min(la, xb), y, argb);
+                }
+                if (lb < xb) {
+                    rowFill(Math.max(lb, xa), xb, y, argb);
+                }
+            }
+        }
+    }
+
+    /** One row span from a to b (x, rounded and clipped to the view). */
+    private void rowFill(double a, double b, int y, int argb) {
+        int xa = Math.max(0, (int) Math.round(a));
+        int xb = Math.min(width - 1, (int) Math.round(b));
+        if (xa <= xb) {
+            fill(xa, y, xb + 1, y + 1, argb);
         }
     }
 
