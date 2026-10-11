@@ -18,5 +18,6 @@ public final class ApNetwork {
         r.playToServer(ShipInputPayload.TYPE, ShipInputPayload.STREAM_CODEC, ShipControls::handle);
         r.playToClient(OrbitStatePayload.TYPE, OrbitStatePayload.STREAM_CODEC);
         r.playToClient(AgeSyncPayload.TYPE, AgeSyncPayload.STREAM_CODEC);
+        r.playToClient(PlanetMapPayload.TYPE, PlanetMapPayload.STREAM_CODEC);
     }
 }

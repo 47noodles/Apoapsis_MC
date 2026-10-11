@@ -5,6 +5,7 @@ import dev.apoapsis.ages.Ages;
 import dev.apoapsis.flight.Flight;
 import dev.apoapsis.grid.GridBlocks;
 import dev.apoapsis.net.ApNetwork;
+import dev.apoapsis.planet.PlanetMaps;
 import dev.apoapsis.scenario.Scenarios;
 import dev.apoapsis.ship.ShipEntities;
 import net.neoforged.bus.api.IEventBus;
@@ -25,5 +26,6 @@ public final class Apoapsis {
         Flight.register(modBus);
         Scenarios.register(modBus);
         ApNetwork.register(modBus);
+        PlanetMaps.register();
     }
 }

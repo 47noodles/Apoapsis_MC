@@ -6,8 +6,10 @@ import dev.apoapsis.client.SeamlessTransitions;
 import dev.apoapsis.client.ShipClient;
 import dev.apoapsis.client.SkyClient;
 import dev.apoapsis.client.TestDriver;
+import dev.apoapsis.client.sky.PlanetTextures;
 import dev.apoapsis.net.AgeSyncPayload;
 import dev.apoapsis.net.OrbitStatePayload;
+import dev.apoapsis.net.PlanetMapPayload;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -31,5 +33,6 @@ public final class ApoapsisClient {
     private static void onClientPayloads(RegisterClientPayloadHandlersEvent event) {
         event.register(OrbitStatePayload.TYPE, (p, ctx) -> ClientState.accept(p));
         event.register(AgeSyncPayload.TYPE, (p, ctx) -> ClientState.accept(p));
+        event.register(PlanetMapPayload.TYPE, (p, ctx) -> PlanetTextures.accept(p));
     }
 }
