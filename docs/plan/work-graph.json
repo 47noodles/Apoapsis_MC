@@ -1,0 +1,3994 @@
+{
+ "title": "Apoapsis: work graph to 1.0",
+ "request": "Every piece of work from today (Stage 0 prototype) to the 1.0 modpack, with design gates, playtests, releases and version hops. Columns run left to right by dependency; stages are bands.",
+ "updated": "2026-10-11",
+ "stages": {
+  "0": "Foundations",
+  "1": "Engineers",
+  "2": "Orbits",
+  "3": "Round Worlds",
+  "4": "Landfall",
+  "5": "Together",
+  "6": "Expanse",
+  "7": "Beyond",
+  "8": "Launch"
+ },
+ "owners": {
+  "agents": "Build agents (Haiku and Sonnet) under Opus review",
+  "opus": "Opus: design, architecture, integration",
+  "47noodles": "Approvals: design gates, go/no-go, releases",
+  "CallMeCarlos": "Concept and block art",
+  "fable": "Legal and public claims",
+  "playtesters": "Playtests"
+ },
+ "nodes": [
+  {
+   "id": "0.01",
+   "stage": 0,
+   "track": "design",
+   "kind": "design",
+   "name": "Design draft 0.0.1",
+   "does": "Seventeen design docs, ten research reports, licences, CONTRIBUTING, the orbit calculator",
+   "depends": [],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": "docs/design"
+  },
+  {
+   "id": "0.02",
+   "stage": 0,
+   "track": "ui",
+   "kind": "design",
+   "name": "UI concept pack v1",
+   "does": "Nine draft screens in the Brassworks NASA-punk style (title, style tile, UI kit, helmet and cockpit HUD, system map, Ship Systems, comms, universe browser)",
+   "depends": [
+    "0.01"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": "Claude Design canvas"
+  },
+  {
+   "id": "0.03",
+   "stage": 0,
+   "track": "platform",
+   "kind": "build",
+   "name": "Build setup and contract",
+   "does": "NeoForge 26.3 build on Java 25, orbit subproject, payloads, stub APIs per module, the prototype contract",
+   "depends": [
+    "0.01"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": "docs/dev/prototype-contract.md"
+  },
+  {
+   "id": "0.04",
+   "stage": 0,
+   "track": "flight",
+   "kind": "build",
+   "name": "Orbit library v0",
+   "does": "Universal-variable Kepler, elements, SOI, patched-conic predictor, RK4, unit tests",
+   "depends": [
+    "0.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "running",
+   "exit": "",
+   "ref": "orbit/"
+  },
+  {
+   "id": "0.05",
+   "stage": 0,
+   "track": "grids",
+   "kind": "build",
+   "name": "Prototype ship blocks",
+   "does": "Hull plate, cockpit, gyroscope, hydrolox tank, Spark engine, regolith, canister, ShipParts",
+   "depends": [
+    "0.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "running",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.06",
+   "stage": 0,
+   "track": "grids",
+   "kind": "build",
+   "name": "Prototype ship physics",
+   "does": "Ship entity, assembly and disassembly, surface physics with terrain collision, pilot input",
+   "depends": [
+    "0.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    3
+   ],
+   "status": "running",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.07",
+   "stage": 0,
+   "track": "flight",
+   "kind": "build",
+   "name": "Prototype orbits and transitions",
+   "does": "Orbit and Pale dimensions, surface to orbit and back, SOI switching, warp, Pale gravity",
+   "depends": [
+    "0.03",
+    "0.04"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    3
+   ],
+   "status": "running",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.08",
+   "stage": 0,
+   "track": "progression",
+   "kind": "build",
+   "name": "Prototype Ages gating",
+   "does": "Per-player Age, item and recipe gates, milestones up to First Flight",
+   "depends": [
+    "0.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "running",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.09",
+   "stage": 0,
+   "track": "ui",
+   "kind": "build",
+   "name": "Prototype controls and renderer",
+   "does": "Key mappings, input sending, ship renderer, engine particles",
+   "depends": [
+    "0.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1.5
+   ],
+   "status": "running",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.10",
+   "stage": 0,
+   "track": "ui",
+   "kind": "build",
+   "name": "Prototype map and HUD",
+   "does": "Full-screen system map with predicted trajectory, flight HUD at the screen edges",
+   "depends": [
+    "0.03",
+    "0.04"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "running",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.11",
+   "stage": 0,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Prototype planets in sky",
+   "does": "Verdance and Pale drawn from orbit and from each other",
+   "depends": [
+    "0.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.12",
+   "stage": 0,
+   "track": "qa",
+   "kind": "build",
+   "name": "Prototype test scenarios",
+   "does": "Kestrel blueprint, /apoapsis scenario pad and orbit, the self-creating Apoapsis Test Flight save",
+   "depends": [
+    "0.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "running",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.13",
+   "stage": 0,
+   "track": "qa",
+   "kind": "build",
+   "name": "Prototype GameTests",
+   "does": "GameTests for Ages, assembly, physics and transitions",
+   "depends": [
+    "0.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.14",
+   "stage": 0,
+   "track": "release",
+   "kind": "build",
+   "name": "CI, README, patch notes",
+   "does": "GitHub Actions build with tests and artifacts, try-it README, changelog, REUSE",
+   "depends": [
+    "0.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.3,
+    0.5
+   ],
+   "status": "done",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.15",
+   "stage": 0,
+   "track": "qa",
+   "kind": "review",
+   "name": "Prototype integration and reviews",
+   "does": "Merge, smoke test, then UX, performance, security and 80-20 reviews with fixes",
+   "depends": [
+    "0.04",
+    "0.05",
+    "0.06",
+    "0.07",
+    "0.08",
+    "0.09",
+    "0.10",
+    "0.11",
+    "0.12",
+    "0.13",
+    "0.14"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.16",
+   "stage": 0,
+   "track": "release",
+   "kind": "release",
+   "name": "Release 0.0.2-alpha.1 prototype",
+   "does": "Final play-test on the pushed build, patch notes, branch merged",
+   "depends": [
+    "0.15"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.2,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "A player flies the test save from orbit to Pale and lands; the pad rocket reaches orbit",
+   "ref": ""
+  },
+  {
+   "id": "0.17",
+   "stage": 0,
+   "track": "flight",
+   "kind": "test",
+   "name": "Orbit accuracy check",
+   "does": "Go/no-go 1: state-elements round trip, SOI transitions, 10-orbit drift under 1 m",
+   "depends": [
+    "0.04"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.3,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "02 §2.4"
+  },
+  {
+   "id": "0.18",
+   "stage": 0,
+   "track": "worlds",
+   "kind": "research",
+   "name": "Cube-sphere seam spike",
+   "does": "Go/no-go 3: walk, build and fly across one cube face edge with mirrored chunks and no visible pop",
+   "depends": [
+    "0.03"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    3,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.2"
+  },
+  {
+   "id": "0.19",
+   "stage": 0,
+   "track": "physics",
+   "kind": "research",
+   "name": "APC physics spike (Jolt)",
+   "does": "Go/no-go 4: 500-block grid on jolt-jni with a player standing on it, moving and rotating, rendered on OpenGL and Vulkan",
+   "depends": [
+    "0.03"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    3,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.1"
+  },
+  {
+   "id": "0.20",
+   "stage": 0,
+   "track": "platform",
+   "kind": "research",
+   "name": "Native code benchmark",
+   "does": "Java vs FFM/JNI native kernels (Rust only if it wins 2x or more) for meshing and physics hot paths",
+   "depends": [
+    "0.19"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03"
+  },
+  {
+   "id": "0.21",
+   "stage": 0,
+   "track": "physics",
+   "kind": "decision",
+   "name": "Physics backend ADR",
+   "does": "Decide Jolt or Rapier from the spike and benchmark; record the ADR",
+   "depends": [
+    "0.19",
+    "0.20"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    0.2,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.22",
+   "stage": 0,
+   "track": "legal",
+   "kind": "build",
+   "name": "Licence gate in CI",
+   "does": "reuse lint, pack-manifest licence allow-list with override file, DCO check",
+   "depends": [
+    "0.14"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "09 §9.3"
+  },
+  {
+   "id": "0.23",
+   "stage": 0,
+   "track": "qa",
+   "kind": "build",
+   "name": "Client test driver",
+   "does": "A test-driver mod plus replay tests and golden-image screenshot tests, headless where possible",
+   "depends": [
+    "0.15"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "16 §16.7"
+  },
+  {
+   "id": "0.24",
+   "stage": 0,
+   "track": "platform",
+   "kind": "research",
+   "name": "Mekanism 26.3 status",
+   "does": "Check upstream Mekanism for 26.3; decide dependency or port fork",
+   "depends": [
+    "0.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.2,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "09 §9.7"
+  },
+  {
+   "id": "0.25",
+   "stage": 0,
+   "track": "community",
+   "kind": "build",
+   "name": "Contributor path",
+   "does": "Issue and PR templates, good-first-issue labels, code of conduct, RFC and ADR folders",
+   "depends": [
+    "0.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.3,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "16 §16.10"
+  },
+  {
+   "id": "0.26",
+   "stage": 0,
+   "track": "ui",
+   "kind": "design",
+   "name": "Brand identity finals",
+   "does": "Logo, wordmark, palette tokens, fonts, key art direction",
+   "depends": [
+    "0.02"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "13 §13.1"
+  },
+  {
+   "id": "0.27",
+   "stage": 0,
+   "track": "ui",
+   "kind": "design",
+   "name": "UI kit v1, every state",
+   "does": "All components with hover, focus, disabled, error, loading; motion and sound spec; Classic UI toggle",
+   "depends": [
+    "0.26"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "13 §13.2"
+  },
+  {
+   "id": "0.28",
+   "stage": 0,
+   "track": "ui",
+   "kind": "design",
+   "name": "Stage 1 screen prototypes",
+   "does": "Ship Systems, cockpit, inventories and machines as clickable prototypes covering every state",
+   "depends": [
+    "0.27"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    2,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "12 §12.3"
+  },
+  {
+   "id": "0.29",
+   "stage": 0,
+   "track": "ui",
+   "kind": "design",
+   "name": "Helmet and cockpit HUD finals",
+   "does": "Final HUD designs from the decluttered drafts, every state, accessibility variants",
+   "depends": [
+    "0.27"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "13 §13.4"
+  },
+  {
+   "id": "0.30",
+   "stage": 0,
+   "track": "art",
+   "kind": "design",
+   "name": "Block-model style guide",
+   "does": "Blockbench style rules, first functional block models (thrusters from Carlos's concept), damage states",
+   "depends": [
+    "0.26"
+   ],
+   "model": "CallMeCarlos",
+   "owner": "Carlos",
+   "est_weeks": [
+    2,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "13 §13.5"
+  },
+  {
+   "id": "0.31",
+   "stage": 0,
+   "track": "ui",
+   "kind": "gate",
+   "name": "Gate: Stage 1 designs",
+   "does": "47noodles approves the Stage 1 design pack (go/no-go 5)",
+   "depends": [
+    "0.28",
+    "0.29",
+    "0.30"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "0.32",
+   "stage": 0,
+   "track": "release",
+   "kind": "gate",
+   "name": "Gate: Stage 0 go/no-go",
+   "does": "Review checks 1 to 5; fall back to cylinder worlds or the VS2 port if 3 or 4 fails badly",
+   "depends": [
+    "0.16",
+    "0.17",
+    "0.18",
+    "0.21",
+    "0.31"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "02 §2.4"
+  },
+  {
+   "id": "1.01",
+   "stage": 1,
+   "track": "physics",
+   "kind": "build",
+   "name": "PhysicsBackend interface",
+   "does": "Backend-neutral physics API with the chosen backend behind it",
+   "depends": [
+    "0.32"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.1"
+  },
+  {
+   "id": "1.02",
+   "stage": 1,
+   "track": "physics",
+   "kind": "build",
+   "name": "Sub-level grid storage",
+   "does": "Grid block storage in section files, persistence, versioned format",
+   "depends": [
+    "1.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.03",
+   "stage": 1,
+   "track": "physics",
+   "kind": "build",
+   "name": "Collision meshing",
+   "does": "Collision shapes from block shapes, rebuilt incrementally on edits",
+   "depends": [
+    "1.02"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.04",
+   "stage": 1,
+   "track": "physics",
+   "kind": "build",
+   "name": "Block mass data map",
+   "does": "apoapsis:block_mass data map with tag defaults for every block",
+   "depends": [
+    "1.02"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.05",
+   "stage": 1,
+   "track": "physics",
+   "kind": "build",
+   "name": "Grid split and merge",
+   "does": "Connectivity, split on disconnect, merge blocks, duplication tests",
+   "depends": [
+    "1.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.06",
+   "stage": 1,
+   "track": "physics",
+   "kind": "build",
+   "name": "Joints: rotors, hinges, pistons",
+   "does": "Constraint-based joints between grids",
+   "depends": [
+    "1.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.07",
+   "stage": 1,
+   "track": "physics",
+   "kind": "build",
+   "name": "Impact damage and integrity",
+   "does": "Integrity, functional line, collision and explosion damage, crack overlays",
+   "depends": [
+    "1.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.08",
+   "stage": 1,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Grid netcode v1",
+   "does": "Server-authoritative snapshots, interpolation, interest management",
+   "depends": [
+    "1.02"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "15"
+  },
+  {
+   "id": "1.09",
+   "stage": 1,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Grid renderer",
+   "does": "Chunked grid meshes through Blaze3D pipelines on OpenGL and Vulkan",
+   "depends": [
+    "1.02"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.6"
+  },
+  {
+   "id": "1.10",
+   "stage": 1,
+   "track": "physics",
+   "kind": "build",
+   "name": "Walking on moving grids",
+   "does": "EntityGridMotion facade: players and mobs ride and walk on moving grids",
+   "depends": [
+    "1.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.11",
+   "stage": 1,
+   "track": "platform",
+   "kind": "build",
+   "name": "Mixin facades",
+   "does": "Per-subsystem facades over mixins: grid motion, render, storage, network",
+   "depends": [
+    "1.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.12",
+   "stage": 1,
+   "track": "industry",
+   "kind": "build",
+   "name": "Mekanism dependency",
+   "does": "Mekanism on 26.3 (upstream or our port fork)",
+   "depends": [
+    "0.24",
+    "0.32"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    8
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.13",
+   "stage": 1,
+   "track": "grids",
+   "kind": "build",
+   "name": "Grid power in Joules",
+   "does": "Cable-less grid power with a priority ladder, Mekanism energy",
+   "depends": [
+    "1.02",
+    "1.12"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.14",
+   "stage": 1,
+   "track": "grids",
+   "kind": "build",
+   "name": "Conveyor network",
+   "does": "Items, fluids and chemicals on one network with ports, sorters, filters, valves",
+   "depends": [
+    "1.13"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.15",
+   "stage": 1,
+   "track": "grids",
+   "kind": "build",
+   "name": "Welding and grinding",
+   "does": "Frames, construction models, welder and grinder tools, block kits",
+   "depends": [
+    "1.02",
+    "1.07"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.16",
+   "stage": 1,
+   "track": "grids",
+   "kind": "build",
+   "name": "Projector and .apbp",
+   "does": "Blueprint projector and the open .apbp format",
+   "depends": [
+    "1.15"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.17",
+   "stage": 1,
+   "track": "grids",
+   "kind": "build",
+   "name": "Thrusters, gyros, cockpits",
+   "does": "Atmospheric and hydrogen thrusters, gyroscopes, cockpits, production versions",
+   "depends": [
+    "1.03",
+    "1.13"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.18",
+   "stage": 1,
+   "track": "grids",
+   "kind": "build",
+   "name": "Connectors, gear, wheels",
+   "does": "Connectors and merge blocks, landing gear, wheels and suspension",
+   "depends": [
+    "1.05",
+    "1.06"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.19",
+   "stage": 1,
+   "track": "ui",
+   "kind": "build",
+   "name": "Ship Systems screen",
+   "does": "Grid terminal: naming, groups, toolbar bindings, per the approved design",
+   "depends": [
+    "0.31",
+    "1.13"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.20",
+   "stage": 1,
+   "track": "ui",
+   "kind": "build",
+   "name": "Cockpit HUD v1",
+   "does": "Cockpit HUD per the approved design",
+   "depends": [
+    "0.31",
+    "1.17"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.21",
+   "stage": 1,
+   "track": "ui",
+   "kind": "build",
+   "name": "Helmet HUD v1",
+   "does": "Helmet HUD per the approved design",
+   "depends": [
+    "0.31",
+    "1.22"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.22",
+   "stage": 1,
+   "track": "character",
+   "kind": "build",
+   "name": "6DOF jetpack and roll",
+   "does": "Orientation quaternion, camera roll, dampeners, mag-boots base",
+   "depends": [
+    "1.10"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "05 §5.5.1"
+  },
+  {
+   "id": "1.23",
+   "stage": 1,
+   "track": "character",
+   "kind": "build",
+   "name": "Suit and airtight rooms",
+   "does": "Suit O2, H2 and energy; event-driven airtight rooms, vents, airlocks",
+   "depends": [
+    "1.22",
+    "1.13"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.24",
+   "stage": 1,
+   "track": "grids",
+   "kind": "build",
+   "name": "Flight Computer v1",
+   "does": "Lua sandbox with budgets, block and nav API, LCDs",
+   "depends": [
+    "1.13"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "05"
+  },
+  {
+   "id": "1.25",
+   "stage": 1,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Space dimension",
+   "does": "Void space above the build limit, bubbles, floating origin",
+   "depends": [
+    "1.08",
+    "1.09"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.3"
+  },
+  {
+   "id": "1.26",
+   "stage": 1,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Asteroids and derelicts",
+   "does": "Procedural asteroid sub-grids and a derelict or two",
+   "depends": [
+    "1.25"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.27",
+   "stage": 1,
+   "track": "flight",
+   "kind": "build",
+   "name": "Gravity falloff",
+   "does": "SE-style gravity falloff near the world (R1 formula)",
+   "depends": [
+    "1.25"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.28",
+   "stage": 1,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Ownership and control locks",
+   "does": "Ownership, sharing modes, control locks per grid",
+   "depends": [
+    "1.08"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.29",
+   "stage": 1,
+   "track": "qa",
+   "kind": "build",
+   "name": "Performance budget in CI",
+   "does": "Benchmark scenario with frame and tick budgets in CI",
+   "depends": [
+    "1.09",
+    "1.08"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.7"
+  },
+  {
+   "id": "1.30",
+   "stage": 1,
+   "track": "art",
+   "kind": "content",
+   "name": "Stage 1 block art",
+   "does": "Models, textures and sounds for every Stage 1 block, connected-texture hull panels",
+   "depends": [
+    "0.30",
+    "0.31"
+   ],
+   "model": "CallMeCarlos",
+   "owner": "Carlos",
+   "est_weeks": [
+    6,
+    10
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.31",
+   "stage": 1,
+   "track": "audio",
+   "kind": "content",
+   "name": "Stage 1 sounds",
+   "does": "Thrusters, welding, grinding, UI sounds",
+   "depends": [
+    "0.27"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.32",
+   "stage": 1,
+   "track": "ui",
+   "kind": "design",
+   "name": "Stage 2 designs",
+   "does": "Navball, map view, maneuver nodes, staging UI, re-entry effects",
+   "depends": [
+    "0.31"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.33",
+   "stage": 1,
+   "track": "ui",
+   "kind": "gate",
+   "name": "Gate: Stage 2 designs",
+   "does": "47noodles approves the Stage 2 design pack",
+   "depends": [
+    "1.32"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.34",
+   "stage": 1,
+   "track": "qa",
+   "kind": "test",
+   "name": "Stage 1 exit playtest",
+   "does": "Survival: build a ship, fly to space, mine an asteroid, dock; 5 players at 20 TPS",
+   "depends": [
+    "1.05",
+    "1.14",
+    "1.16",
+    "1.17",
+    "1.18",
+    "1.19",
+    "1.20",
+    "1.21",
+    "1.23",
+    "1.24",
+    "1.26",
+    "1.27",
+    "1.28",
+    "1.29",
+    "1.30",
+    "1.31"
+   ],
+   "model": "playtesters",
+   "owner": "players",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.35",
+   "stage": 1,
+   "track": "release",
+   "kind": "release",
+   "name": "Release 0.1 Engineers",
+   "does": "First playable: patch notes, Modrinth and CurseForge listing",
+   "depends": [
+    "1.34"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "1.36",
+   "stage": 1,
+   "track": "platform",
+   "kind": "build",
+   "name": "Version hop after 0.1",
+   "does": "Move to the latest Minecraft drop with a tested save migration",
+   "depends": [
+    "1.35"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "12 §12.5"
+  },
+  {
+   "id": "2.01",
+   "stage": 2,
+   "track": "flight",
+   "kind": "build",
+   "name": "Orbit library v1",
+   "does": "Designer SOIs, scale presets (compact, classic, real), optional J2, hardening",
+   "depends": [
+    "0.17",
+    "1.35"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.02",
+   "stage": 2,
+   "track": "flight",
+   "kind": "build",
+   "name": "Rails and background burns",
+   "does": "On-rails and active switching, RK4 background burns for unloaded grids",
+   "depends": [
+    "2.01",
+    "1.25"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.4"
+  },
+  {
+   "id": "2.03",
+   "stage": 2,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Cylinder-world Verdance",
+   "does": "Equirectangular overworld the size of the planet, east-west wrap, polar storm walls",
+   "depends": [
+    "1.35"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.2.5"
+  },
+  {
+   "id": "2.04",
+   "stage": 2,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Pale v1 generator",
+   "does": "Pale's first small generator",
+   "depends": [
+    "1.35"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.05",
+   "stage": 2,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Transition and Imprint sphere",
+   "does": "Transition altitude and the Imprint orbit sphere from the planet's generator",
+   "depends": [
+    "2.02",
+    "2.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.3.2"
+  },
+  {
+   "id": "2.06",
+   "stage": 2,
+   "track": "ui",
+   "kind": "build",
+   "name": "Navball and flight HUD",
+   "does": "Navball and flight HUD per the approved design",
+   "depends": [
+    "1.33",
+    "1.20"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.07",
+   "stage": 2,
+   "track": "ui",
+   "kind": "build",
+   "name": "Map view and maneuvers",
+   "does": "Full-screen map view, maneuver nodes, comms coverage layer",
+   "depends": [
+    "1.33",
+    "2.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.08",
+   "stage": 2,
+   "track": "flight",
+   "kind": "build",
+   "name": "Staging and delta-v",
+   "does": "Stage Controller, separators, per-stage delta-v and TWR",
+   "depends": [
+    "1.17",
+    "1.05"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.09",
+   "stage": 2,
+   "track": "flight",
+   "kind": "build",
+   "name": "Engines with Isp curves",
+   "does": "Data-driven engine families, Isp by pressure, gimbal, spool, heat",
+   "depends": [
+    "1.17"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "06 §6.2"
+  },
+  {
+   "id": "2.10",
+   "stage": 2,
+   "track": "flight",
+   "kind": "build",
+   "name": "Aerodynamics",
+   "does": "Per-face drag, wings, control surfaces, stall curve",
+   "depends": [
+    "1.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.11",
+   "stage": 2,
+   "track": "flight",
+   "kind": "build",
+   "name": "Re-entry and parachutes",
+   "does": "Heating, heat limits, ablative shields, radiators, parachutes, aerobraking",
+   "depends": [
+    "2.10"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.12",
+   "stage": 2,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Comms v1",
+   "does": "Antennas, relays, planet occlusion, Ground Station, drone control",
+   "depends": [
+    "2.01",
+    "1.24"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.13",
+   "stage": 2,
+   "track": "flight",
+   "kind": "build",
+   "name": "Time warp and cryo-link",
+   "does": "Singleplayer rails and physics warp, consensus warp, cryo-link to Clone Bays",
+   "depends": [
+    "2.02"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.5"
+  },
+  {
+   "id": "2.14",
+   "stage": 2,
+   "track": "industry",
+   "kind": "build",
+   "name": "Propellants and cryo tanks",
+   "does": "Mekanism H2 and O2 as propellants, cryo tanks, boil-off toggle, crossfeed",
+   "depends": [
+    "1.12",
+    "1.14"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.15",
+   "stage": 2,
+   "track": "art",
+   "kind": "content",
+   "name": "Stage 2 art and effects",
+   "does": "Engines (Spark, Torrent, Colossus), staging and re-entry effects",
+   "depends": [
+    "1.33"
+   ],
+   "model": "CallMeCarlos",
+   "owner": "Carlos",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.16",
+   "stage": 2,
+   "track": "ui",
+   "kind": "design",
+   "name": "Stage 3 designs",
+   "does": "Skies, scattering, post-processing, planet survey map",
+   "depends": [
+    "1.33"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.17",
+   "stage": 2,
+   "track": "ui",
+   "kind": "gate",
+   "name": "Gate: Stage 3 designs",
+   "does": "47noodles approves the Stage 3 design pack",
+   "depends": [
+    "2.16"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.18",
+   "stage": 2,
+   "track": "qa",
+   "kind": "test",
+   "name": "Stage 2 exit playtest",
+   "does": "A new player reaches orbit and back unaided; 5-player Pale landing and return",
+   "depends": [
+    "2.04",
+    "2.05",
+    "2.06",
+    "2.07",
+    "2.08",
+    "2.09",
+    "2.11",
+    "2.12",
+    "2.13",
+    "2.14",
+    "2.15"
+   ],
+   "model": "playtesters",
+   "owner": "players",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.19",
+   "stage": 2,
+   "track": "release",
+   "kind": "release",
+   "name": "Release 0.2 Orbits",
+   "does": "The SE + KSP MVP",
+   "depends": [
+    "2.18"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "2.20",
+   "stage": 2,
+   "track": "platform",
+   "kind": "build",
+   "name": "Version hop after 0.2",
+   "does": "Latest Minecraft drop, tested save migration",
+   "depends": [
+    "2.19"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.01",
+   "stage": 3,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Cube-sphere topology",
+   "does": "Six faces per planet dimension, equal-angle mapping, 3D-noise continuity",
+   "depends": [
+    "0.18",
+    "2.19"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    6,
+    10
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "03 §3.2"
+  },
+  {
+   "id": "3.02",
+   "stage": 3,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Ghost-halo seams",
+   "does": "Mirrored halo chunks, write-through edits, block-entity proxies, entity transfer with rotation",
+   "depends": [
+    "3.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    6,
+    10
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.03",
+   "stage": 3,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Vertex Spires",
+   "does": "Landforms at all eight cube corners",
+   "depends": [
+    "3.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.04",
+   "stage": 3,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Curvature shader",
+   "does": "Planet curvature with a Sodium and Iris compatibility path",
+   "depends": [
+    "3.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.05",
+   "stage": 3,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Climate and solar time",
+   "does": "Latitude and altitude climate, local solar time for spawning, crops, beds, sky",
+   "depends": [
+    "3.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.06",
+   "stage": 3,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Planet Imprint Service",
+   "does": "Quadtree height and albedo tiles plus player imprints",
+   "depends": [
+    "2.05",
+    "3.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.07",
+   "stage": 3,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Our own DH LOD generator",
+   "does": "Distant Horizons LOD straight from planet noise, seed-private sub-seeds",
+   "depends": [
+    "3.01",
+    "3.06"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    8
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "17 §17.5"
+  },
+  {
+   "id": "3.08",
+   "stage": 3,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Scattering and sky bodies",
+   "does": "Orbital LOD sphere, atmospheric scattering, rings, sky bodies",
+   "depends": [
+    "3.06",
+    "2.17"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.09",
+   "stage": 3,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Planet and system JSON",
+   "does": "Data-driven planets and star systems with compact, classic and real presets",
+   "depends": [
+    "3.01",
+    "2.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.10",
+   "stage": 3,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Round Verdance",
+   "does": "Verdance on vanilla generation mapped to the cube-sphere",
+   "depends": [
+    "3.02",
+    "3.05"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.11",
+   "stage": 3,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Round Pale",
+   "does": "Pale on the cube-sphere with its full 50-biome set",
+   "depends": [
+    "3.02",
+    "3.13",
+    "3.14"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.12",
+   "stage": 3,
+   "track": "rendering",
+   "kind": "build",
+   "name": "Skies and post-processing",
+   "does": "Per-world skies, grading, bloom, vignette, exposure, G-force, heat haze, with sliders",
+   "depends": [
+    "2.17",
+    "3.08"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.13",
+   "stage": 3,
+   "track": "content",
+   "kind": "build",
+   "name": "Biome composer and CI report",
+   "does": "Biome composer (families x climate x elevation x weirdness) and the 50-biome coverage report",
+   "depends": [
+    "3.05"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "17"
+  },
+  {
+   "id": "3.14",
+   "stage": 3,
+   "track": "content",
+   "kind": "content",
+   "name": "Pale biomes and species",
+   "does": "Pale's 50 biomes, palettes, dust and micrometeorites",
+   "depends": [
+    "3.13"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    6,
+    10
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.15",
+   "stage": 3,
+   "track": "ui",
+   "kind": "design",
+   "name": "Stage 4 designs",
+   "does": "Title screen, universe browser, world wizard, Codex, Custodian Log, Kinetics machines",
+   "depends": [
+    "2.17"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.16",
+   "stage": 3,
+   "track": "ui",
+   "kind": "gate",
+   "name": "Gate: Stage 4 designs",
+   "does": "47noodles approves the Stage 4 design pack",
+   "depends": [
+    "3.15"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.17",
+   "stage": 3,
+   "track": "qa",
+   "kind": "test",
+   "name": "Stage 3 exit tests",
+   "does": "Walk, build and fly across every edge type; surface to orbit with no loading screen; DH matches the Imprint sphere",
+   "depends": [
+    "3.03",
+    "3.04",
+    "3.07",
+    "3.09",
+    "3.10",
+    "3.11",
+    "3.12"
+   ],
+   "model": "playtesters",
+   "owner": "players",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.18",
+   "stage": 3,
+   "track": "release",
+   "kind": "release",
+   "name": "Release 0.3 Round Worlds",
+   "does": "Round homeworld and moon, huge view distances",
+   "depends": [
+    "3.17"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "3.19",
+   "stage": 3,
+   "track": "platform",
+   "kind": "build",
+   "name": "Version hop after 0.3",
+   "does": "Latest Minecraft drop, tested save migration",
+   "depends": [
+    "3.18"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.01",
+   "stage": 4,
+   "track": "progression",
+   "kind": "build",
+   "name": "Ages gate engine",
+   "does": "Item, recipe, ore, dimension, machine-tier, mob and interaction gates; team-scoped store; JEI silhouettes",
+   "depends": [
+    "0.08",
+    "2.19"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "04 §4.4"
+  },
+  {
+   "id": "4.02",
+   "stage": 4,
+   "track": "progression",
+   "kind": "build",
+   "name": "Custodian Log quests",
+   "does": "JSON quest book with the Age 0 to 4 chains",
+   "depends": [
+    "4.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.03",
+   "stage": 4,
+   "track": "industry",
+   "kind": "build",
+   "name": "Apoapsis Kinetics",
+   "does": "Torque and RPM model, shafts, sources and machines",
+   "depends": [
+    "2.19"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    8,
+    12
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "08 §8.2"
+  },
+  {
+   "id": "4.04",
+   "stage": 4,
+   "track": "industry",
+   "kind": "build",
+   "name": "Kinetics to Joules bridge",
+   "does": "Motor and dynamo between Kinetics and Mekanism energy",
+   "depends": [
+    "4.03",
+    "1.12"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.05",
+   "stage": 4,
+   "track": "industry",
+   "kind": "build",
+   "name": "Component economy",
+   "does": "Components wired to Mekanism and Kinetics recipes",
+   "depends": [
+    "4.03",
+    "1.12"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "05 §5.6"
+  },
+  {
+   "id": "4.06",
+   "stage": 4,
+   "track": "progression",
+   "kind": "build",
+   "name": "Locked ores and surveyor",
+   "does": "Disguised ores with flecks, the Ore Surveyor reveal",
+   "depends": [
+    "4.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.07",
+   "stage": 4,
+   "track": "progression",
+   "kind": "build",
+   "name": "Arkwright wreck chain",
+   "does": "Wreck structures, salvage tiers 0 to 4, the orbiting forward section",
+   "depends": [
+    "4.01",
+    "3.10"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "04 §4.1"
+  },
+  {
+   "id": "4.08",
+   "stage": 4,
+   "track": "progression",
+   "kind": "build",
+   "name": "Science and Survey Points",
+   "does": "Experiments, Research Bench, tech tree within each Age",
+   "depends": [
+    "4.01",
+    "2.12"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "06 §6.7"
+  },
+  {
+   "id": "4.09",
+   "stage": 4,
+   "track": "progression",
+   "kind": "build",
+   "name": "KSP milestone firsts",
+   "does": "Suborbital, orbit, flyby, landing, return per body",
+   "depends": [
+    "4.02"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.10",
+   "stage": 4,
+   "track": "ui",
+   "kind": "build",
+   "name": "Holo-Manual",
+   "does": "Animated guides for every major system (our Ponder replacement)",
+   "depends": [
+    "3.16"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.11",
+   "stage": 4,
+   "track": "ui",
+   "kind": "build",
+   "name": "Front end v1",
+   "does": "Title screen with live orbital scene, universe browser, world wizard, Codex",
+   "depends": [
+    "3.16",
+    "3.08"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "13 §13.3"
+  },
+  {
+   "id": "4.12",
+   "stage": 4,
+   "track": "character",
+   "kind": "build",
+   "name": "Clone Bay and medbay",
+   "does": "Clone Bay, medbay, Ice Processor, revival sequence",
+   "depends": [
+    "1.23"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.13",
+   "stage": 4,
+   "track": "physics",
+   "kind": "build",
+   "name": "Buoyancy",
+   "does": "Buoyancy cells for boats, submarines and balloons",
+   "depends": [
+    "1.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.14",
+   "stage": 4,
+   "track": "story",
+   "kind": "content",
+   "name": "Story bible Ages 0 to 4",
+   "does": "Custodian arc and voice lines, logs, faction voices",
+   "depends": [
+    "0.01"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "16 §16.4"
+  },
+  {
+   "id": "4.15",
+   "stage": 4,
+   "track": "audio",
+   "kind": "content",
+   "name": "Audio v1",
+   "does": "Physics-aware audio (air, hull, vacuum), engine layers, ambiences, adaptive soundtrack",
+   "depends": [
+    "1.31"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "16 §16.3"
+  },
+  {
+   "id": "4.16",
+   "stage": 4,
+   "track": "release",
+   "kind": "build",
+   "name": "Modpack list (.mrpack)",
+   "does": "packwiz pack with exact versions and the manifest licence gate",
+   "depends": [
+    "0.22",
+    "1.12"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.17",
+   "stage": 4,
+   "track": "progression",
+   "kind": "build",
+   "name": "Sandbox mode and admin",
+   "does": "Sandbox switch and admin commands",
+   "depends": [
+    "4.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.18",
+   "stage": 4,
+   "track": "qa",
+   "kind": "test",
+   "name": "Pacing playtests",
+   "does": "Age pacing against the targets in 04",
+   "depends": [
+    "4.02",
+    "4.03",
+    "4.07",
+    "4.08"
+   ],
+   "model": "playtesters",
+   "owner": "players",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.19",
+   "stage": 4,
+   "track": "ui",
+   "kind": "design",
+   "name": "Stage 5 designs",
+   "does": "Comms networks, radio console, proxy link, hub interiors, crew consoles",
+   "depends": [
+    "3.16"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.20",
+   "stage": 4,
+   "track": "ui",
+   "kind": "gate",
+   "name": "Gate: Stage 5 designs",
+   "does": "47noodles approves the Stage 5 design pack",
+   "depends": [
+    "4.19"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.21",
+   "stage": 4,
+   "track": "qa",
+   "kind": "test",
+   "name": "Stage 4 exit playthrough",
+   "does": "A full playthrough from Landfall to Pale with no admin help",
+   "depends": [
+    "4.04",
+    "4.05",
+    "4.06",
+    "4.09",
+    "4.10",
+    "4.11",
+    "4.12",
+    "4.13",
+    "4.14",
+    "4.15",
+    "4.16",
+    "4.17",
+    "4.18"
+   ],
+   "model": "playtesters",
+   "owner": "players",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.22",
+   "stage": 4,
+   "track": "release",
+   "kind": "release",
+   "name": "Release 0.4 Landfall",
+   "does": "First full modpack, What's new screen",
+   "depends": [
+    "4.21"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "4.23",
+   "stage": 4,
+   "track": "platform",
+   "kind": "build",
+   "name": "Version hop after 0.4",
+   "does": "Latest Minecraft drop, tested save migration",
+   "depends": [
+    "4.22"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.01",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Owned comms networks",
+   "does": "Join, read, transmit and relay permissions, closed by default, subscribe, block, peering",
+   "depends": [
+    "2.12",
+    "4.20"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "15 §15.6"
+  },
+  {
+   "id": "5.02",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Radio voice add-on",
+   "does": "Plasmo Voice over the comms network: vacuum silence, static, helmet contact",
+   "depends": [
+    "5.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.03",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Text channels",
+   "does": "Team, faction, alliance, local and radio channels",
+   "depends": [
+    "5.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.04",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Link system and proxies",
+   "does": "Link Pod, Proxy Fabricator (Standard frame), Proxy Dock, Vacant Body",
+   "depends": [
+    "4.12",
+    "4.20"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "14 §14.1"
+  },
+  {
+   "id": "5.05",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Body swap",
+   "does": "Player, inventory and attribute swap with cross-dimension pre-warm",
+   "depends": [
+    "5.04"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.06",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Verdance hub station",
+   "does": "Market, missions, ship broker, proxy rental",
+   "depends": [
+    "5.04"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.07",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Claims and protection",
+   "does": "Open Parties and Claims, orbital claims, safe zones, action logs, rollback",
+   "depends": [
+    "1.28"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.08",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Crew consoles",
+   "does": "Pilot, engineer, navigator, gunner consoles; Mission Control; distress beacons",
+   "depends": [
+    "5.01",
+    "4.20"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.09",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Server profiles",
+   "does": "Friends, Community, Hardcore, Creative presets",
+   "depends": [
+    "5.07"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "15 §15.1"
+  },
+  {
+   "id": "5.10",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Netcode hardening",
+   "does": "Prediction, relative docking sync, bandwidth caps",
+   "depends": [
+    "1.08"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.11",
+   "stage": 5,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Planet sleep and perf",
+   "does": "Rails for far grids, ticket rate limits, /apoapsis perf",
+   "depends": [
+    "2.02"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.12",
+   "stage": 5,
+   "track": "release",
+   "kind": "build",
+   "name": "Server pack and Docker",
+   "does": "Server pack and the official Docker image",
+   "depends": [
+    "4.16",
+    "5.09"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.13",
+   "stage": 5,
+   "track": "ui",
+   "kind": "design",
+   "name": "Stage 6 designs",
+   "does": "Per-world HUD variants, transfer planner, discovery viewer, galaxy map",
+   "depends": [
+    "4.20"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    3,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.14",
+   "stage": 5,
+   "track": "ui",
+   "kind": "gate",
+   "name": "Gate: Stage 6 designs",
+   "does": "47noodles approves the Stage 6 design pack",
+   "depends": [
+    "5.13"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.15",
+   "stage": 5,
+   "track": "qa",
+   "kind": "test",
+   "name": "10-player playtest weekend",
+   "does": "Stage 5 exit: no blocking issues",
+   "depends": [
+    "5.02",
+    "5.03",
+    "5.05",
+    "5.06",
+    "5.08",
+    "5.10",
+    "5.11",
+    "5.12"
+   ],
+   "model": "playtesters",
+   "owner": "players",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.16",
+   "stage": 5,
+   "track": "release",
+   "kind": "release",
+   "name": "Release 0.5 Together",
+   "does": "The multiplayer layer",
+   "depends": [
+    "5.15"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "5.17",
+   "stage": 5,
+   "track": "platform",
+   "kind": "build",
+   "name": "Version hop after 0.5",
+   "does": "Latest Minecraft drop, tested save migration",
+   "depends": [
+    "5.16"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.01",
+   "stage": 6,
+   "track": "content",
+   "kind": "build",
+   "name": "Creature and flora kits",
+   "does": "Body plans, parts, behaviours; flora part grammars",
+   "depends": [
+    "3.13"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    6,
+    10
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "17 §17.4"
+  },
+  {
+   "id": "6.02",
+   "stage": 6,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Ochre, Rook and Pawn",
+   "does": "Generators, 50+ biomes, dust storms, Precursor ruins sites",
+   "depends": [
+    "3.11",
+    "6.01",
+    "5.14"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    10,
+    16
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.03",
+   "stage": 6,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Cinder",
+   "does": "Heat-budget mechanic, tidal lock, Ironglass Badlands",
+   "depends": [
+    "3.11",
+    "6.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    8,
+    12
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.04",
+   "stage": 6,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Thalassa",
+   "does": "Pressure and buoyancy, Drowned Plateaus, Leviathans",
+   "depends": [
+    "3.11",
+    "6.01",
+    "4.13"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    10,
+    16
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.05",
+   "stage": 6,
+   "track": "worlds",
+   "kind": "build",
+   "name": "The Shoals",
+   "does": "Asteroid classes C, S, M, U and derelicts",
+   "depends": [
+    "1.26",
+    "2.02"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.06",
+   "stage": 6,
+   "track": "content",
+   "kind": "content",
+   "name": "Species sets per world",
+   "does": "Species to the 17 §17.4 targets with drops, uses and registry entries",
+   "depends": [
+    "6.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    10,
+    16
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.07",
+   "stage": 6,
+   "track": "industry",
+   "kind": "build",
+   "name": "Age 5 industry",
+   "does": "ISRU intake, Sabatier, sifter; methalox, ion, nuclear thermal; fission",
+   "depends": [
+    "4.05",
+    "2.09"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    6,
+    10
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.08",
+   "stage": 6,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "Proxy frames and hubs",
+   "does": "Lifter, Scout, Diver, Furnace frames; Ochre hub; player hubs and alliances",
+   "depends": [
+    "5.04",
+    "5.06"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.09",
+   "stage": 6,
+   "track": "progression",
+   "kind": "build",
+   "name": "Discovery Registry",
+   "does": "Scanning, first-discovery naming, Survey Points, derelict boarding",
+   "depends": [
+    "4.08"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.10",
+   "stage": 6,
+   "track": "multiplayer",
+   "kind": "build",
+   "name": "NPC factions and weather",
+   "does": "Factions, economy, contracts, weather states with gameplay effects",
+   "depends": [
+    "5.06"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.11",
+   "stage": 6,
+   "track": "flight",
+   "kind": "build",
+   "name": "Transfer planner and autonomy",
+   "does": "Lambert solver with porkchop plots; autonomy cores",
+   "depends": [
+    "2.07",
+    "1.24"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.12",
+   "stage": 6,
+   "track": "story",
+   "kind": "build",
+   "name": "Precursor fragments",
+   "does": "Ruins on Ochre, Thalassa and Cinder; Decryption Array; Age 5 story",
+   "depends": [
+    "6.02",
+    "6.03",
+    "6.04",
+    "4.14"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.13",
+   "stage": 6,
+   "track": "ui",
+   "kind": "design",
+   "name": "Stage 7 designs",
+   "does": "Gas giant flight, jump drive, finale screens",
+   "depends": [
+    "5.14"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.14",
+   "stage": 6,
+   "track": "ui",
+   "kind": "gate",
+   "name": "Gate: Stage 7 designs",
+   "does": "47noodles approves the Stage 7 design pack",
+   "depends": [
+    "6.13"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.15",
+   "stage": 6,
+   "track": "qa",
+   "kind": "test",
+   "name": "Stage 6 exit",
+   "does": "Age 5 complete and all three Precursor fragments obtainable",
+   "depends": [
+    "6.05",
+    "6.06",
+    "6.07",
+    "6.08",
+    "6.09",
+    "6.10",
+    "6.11",
+    "6.12"
+   ],
+   "model": "playtesters",
+   "owner": "players",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.16",
+   "stage": 6,
+   "track": "release",
+   "kind": "release",
+   "name": "Release 0.6 Expanse (beta)",
+   "does": "The inner system",
+   "depends": [
+    "6.15"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "6.17",
+   "stage": 6,
+   "track": "platform",
+   "kind": "build",
+   "name": "Version hop after 0.6",
+   "does": "Latest Minecraft drop, tested save migration",
+   "depends": [
+    "6.16"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.01",
+   "stage": 7,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Tempest",
+   "does": "Altitude layers, aerostats, rings, radiation belts",
+   "depends": [
+    "6.16",
+    "3.08"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    8,
+    12
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.02",
+   "stage": 7,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Ember, Glacis, Murk",
+   "does": "Moon generators and signature mechanics, liquid methane",
+   "depends": [
+    "6.16",
+    "6.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    8,
+    12
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.03",
+   "stage": 7,
+   "track": "worlds",
+   "kind": "build",
+   "name": "The Wanderer comet",
+   "does": "Periodic comet, coma and tail render, comet season",
+   "depends": [
+    "6.16"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.04",
+   "stage": 7,
+   "track": "worlds",
+   "kind": "build",
+   "name": "Hollow",
+   "does": "The Breach, spin-gravity drum, Machine Strata, zero-g Core Lattice",
+   "depends": [
+    "6.16"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    8,
+    12
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.05",
+   "stage": 7,
+   "track": "industry",
+   "kind": "build",
+   "name": "Age 6 tech",
+   "does": "Fusion, antimatter, Fusion Torch, compact fusion cores",
+   "depends": [
+    "6.07"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.06",
+   "stage": 7,
+   "track": "flight",
+   "kind": "build",
+   "name": "Jump drives and gates",
+   "does": "Jump Drive rules and costs; Jump Gates",
+   "depends": [
+    "7.05"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.07",
+   "stage": 7,
+   "track": "physics",
+   "kind": "build",
+   "name": "Gravity generators",
+   "does": "Gravity generators, mass blocks, gravity drives",
+   "depends": [
+    "1.03"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    4
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.08",
+   "stage": 7,
+   "track": "flight",
+   "kind": "build",
+   "name": "Torch transfers",
+   "does": "Constant-thrust planner in the orbit library",
+   "depends": [
+    "6.11"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.09",
+   "stage": 7,
+   "track": "progression",
+   "kind": "build",
+   "name": "Megaprojects",
+   "does": "Orbital ring, skyhook, solar lens, jump gate pair",
+   "depends": [
+    "7.05",
+    "5.07"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    6,
+    10
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.10",
+   "stage": 7,
+   "track": "story",
+   "kind": "build",
+   "name": "The Heart finale",
+   "does": "Descent through Hollow, the Heart, the ending choice",
+   "depends": [
+    "7.04",
+    "6.12"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.11",
+   "stage": 7,
+   "track": "qa",
+   "kind": "build",
+   "name": "Server performance pass",
+   "does": "Meet server performance targets",
+   "depends": [
+    "7.01",
+    "7.04"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.12",
+   "stage": 7,
+   "track": "ui",
+   "kind": "design",
+   "name": "Stage 8 polish designs",
+   "does": "Final polish pass designs, credits, key art",
+   "depends": [
+    "6.14"
+   ],
+   "model": "opus",
+   "owner": "opus",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.13",
+   "stage": 7,
+   "track": "ui",
+   "kind": "gate",
+   "name": "Gate: Stage 8 designs",
+   "does": "47noodles approves the Stage 8 design pack",
+   "depends": [
+    "7.12"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.14",
+   "stage": 7,
+   "track": "qa",
+   "kind": "test",
+   "name": "Stage 7 exit",
+   "does": "The game can be finished",
+   "depends": [
+    "7.02",
+    "7.03",
+    "7.06",
+    "7.07",
+    "7.08",
+    "7.09",
+    "7.10",
+    "7.11"
+   ],
+   "model": "playtesters",
+   "owner": "players",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.15",
+   "stage": 7,
+   "track": "release",
+   "kind": "release",
+   "name": "Release 0.7 Beyond (RC)",
+   "does": "Release candidate",
+   "depends": [
+    "7.14"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "7.16",
+   "stage": 7,
+   "track": "platform",
+   "kind": "build",
+   "name": "Version hop after 0.7",
+   "does": "Latest Minecraft drop, tested save migration",
+   "depends": [
+    "7.15"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "8.01",
+   "stage": 8,
+   "track": "ui",
+   "kind": "build",
+   "name": "Final polish pass",
+   "does": "Every screen against the approved designs, golden-image coverage",
+   "depends": [
+    "7.13",
+    "7.15"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    4,
+    6
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "8.02",
+   "stage": 8,
+   "track": "ui",
+   "kind": "build",
+   "name": "Auto-generated credits",
+   "does": "Credits from contributor and asset records",
+   "depends": [
+    "7.15"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "8.03",
+   "stage": 8,
+   "track": "platform",
+   "kind": "build",
+   "name": "Save migration hardening",
+   "does": "Versioned grid files, orbital state and attachments with backups",
+   "depends": [
+    "7.16"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "8.04",
+   "stage": 8,
+   "track": "platform",
+   "kind": "build",
+   "name": "API freeze and SDK",
+   "does": "apoapsis-api semver freeze, SDK examples, generated docs site",
+   "depends": [
+    "7.15"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "16 §16.8"
+  },
+  {
+   "id": "8.05",
+   "stage": 8,
+   "track": "release",
+   "kind": "build",
+   "name": "Release kit",
+   "does": "Docs site, Docker image, website, trailer, press kit",
+   "depends": [
+    "8.04",
+    "5.12"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    3,
+    5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "8.06",
+   "stage": 8,
+   "track": "ui",
+   "kind": "build",
+   "name": "Accessibility pass",
+   "does": "Colour-blind HUD palette, full keybinding, difficulty presets",
+   "depends": [
+    "8.01"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    2,
+    3
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "8.07",
+   "stage": 8,
+   "track": "release",
+   "kind": "build",
+   "name": "Localisation pipeline",
+   "does": "en_us first, community translations",
+   "depends": [
+    "7.15"
+   ],
+   "model": "agents",
+   "owner": "agents",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "8.08",
+   "stage": 8,
+   "track": "legal",
+   "kind": "review",
+   "name": "Licence and IP read",
+   "does": "A qualified licence and IP read of the charter and pack manifest",
+   "depends": [
+    "8.05"
+   ],
+   "model": "fable",
+   "owner": "fable",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": "09"
+  },
+  {
+   "id": "8.09",
+   "stage": 8,
+   "track": "qa",
+   "kind": "test",
+   "name": "Release checklist",
+   "does": "The 16 §16.11 checklist passes",
+   "depends": [
+    "8.01",
+    "8.02",
+    "8.03",
+    "8.06",
+    "8.07",
+    "8.08"
+   ],
+   "model": "playtesters",
+   "owner": "players",
+   "est_weeks": [
+    1,
+    2
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "8.10",
+   "stage": 8,
+   "track": "release",
+   "kind": "gate",
+   "name": "Gate: 1.0 go",
+   "does": "47noodles signs off 1.0",
+   "depends": [
+    "8.09"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0,
+    0.5
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  },
+  {
+   "id": "8.11",
+   "stage": 8,
+   "track": "release",
+   "kind": "release",
+   "name": "Release 1.0",
+   "does": "Apoapsis 1.0",
+   "depends": [
+    "8.10"
+   ],
+   "model": "47noodles",
+   "owner": "47noodles",
+   "est_weeks": [
+    0.5,
+    1
+   ],
+   "status": "pending",
+   "exit": "",
+   "ref": ""
+  }
+ ]
+}
