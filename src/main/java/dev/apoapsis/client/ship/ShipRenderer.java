@@ -30,6 +30,8 @@ import org.joml.Vector3f;
 public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderState> {
     /** Ships farther than this from the camera are not drawn, in metres. */
     public static final double RENDER_RANGE = 256.0;
+    /** A block whose cube is nearer the camera than this is not drawn, in metres: twice the 0.05 m near plane. */
+    static final double CAMERA_CLEARANCE = 0.1;
     /** Lit canopy fill: vanilla has no minecraft:textures/misc/white.png in 26.x, so NeoForge's 16x16 white is used. */
     private static final RenderType CANOPY_TYPE = RenderTypes.entitySolid(
         Identifier.fromNamespaceAndPath("neoforge", "textures/white.png"));
@@ -77,6 +79,13 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
     @Override
     public void submit(ShipRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState camera) {
         Vec3 com = state.centerOfMass;
+        // The camera in block coordinates, to leave out the block it sits in. The pilot's eye is 0.62 m above the
+        // cockpit's top face, which is inside the block stacked on the cockpit; drawn, that block's inner box has its
+        // underside a hair above the lens, and the near plane cuts it into a brown bar across the middle of the view.
+        Vec3 cam = camera.pos;
+        Vector3f eye = new Quaternionf(state.orientation).conjugate()
+            .transform(new Vector3f((float) (cam.x - state.x), (float) (cam.y - state.y), (float) (cam.z - state.z)))
+            .add((float) com.x, (float) com.y, (float) com.z);
         poseStack.pushPose();
         // The pose origin is the centre of mass (the entity position); block p's corner sits at R * (p - com).
         poseStack.rotateAround(state.orientation, 0.0F, 0.0F, 0.0F);
@@ -85,6 +94,9 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
                 continue;
             }
             BlockPos p = block.pos();
+            if (isAtCamera(p, eye.x, eye.y, eye.z)) {
+                continue;
+            }
             poseStack.pushPose();
             poseStack.translate(p.getX() - com.x, p.getY() - com.y, p.getZ() - com.z);
             submitNodeCollector.submitMovingBlock(poseStack, block.moving(), state.outlineColor);
@@ -111,11 +123,21 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
         }
         poseStack.popPose();
         if (state.heat > 0.05f) {
-            Vec3 cam = camera.pos;
             ReentryGlow.submit(poseStack, submitNodeCollector, state.heat, state.heatWind, state.glowRadius,
                 new Vec3(cam.x - state.x, cam.y - state.y, cam.z - state.z));
         }
         super.submit(state, poseStack, submitNodeCollector, camera);
+    }
+
+    /**
+     * True when the camera, at ({@code ex}, {@code ey}, {@code ez}) in block coordinates, is inside the cube of block
+     * {@code p} or within {@link #CAMERA_CLEARANCE} of it. Such a block is not drawn: a lens in or against a block sees
+     * only slivers of its inner faces, cut by the near plane. Every other block of the ship is drawn as usual.
+     */
+    static boolean isAtCamera(BlockPos p, double ex, double ey, double ez) {
+        return ex > p.getX() - CAMERA_CLEARANCE && ex < p.getX() + 1 + CAMERA_CLEARANCE
+            && ey > p.getY() - CAMERA_CLEARANCE && ey < p.getY() + 1 + CAMERA_CLEARANCE
+            && ez > p.getZ() - CAMERA_CLEARANCE && ez < p.getZ() + 1 + CAMERA_CLEARANCE;
     }
 
     /** Culls against the whole ship, not the 1 m entity box: it is drawn while any part is in view. */
