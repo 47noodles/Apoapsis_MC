@@ -1,20 +1,25 @@
 package dev.apoapsis.client.map;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.apoapsis.client.OverlayMessages;
 import dev.apoapsis.client.ship.PilotKeys;
 import dev.apoapsis.flight.FlightRegime;
 import dev.apoapsis.net.OrbitStatePayload;
+import dev.apoapsis.net.ShipInputPayload;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Elements;
 import dev.apoapsis.orbit.MeridianSystem;
 import dev.apoapsis.orbit.StateVector;
 import dev.apoapsis.orbit.Vec3d;
+import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,8 +39,6 @@ public final class MapScreen extends Screen {
     /** Zoom change, as a ratio either way, that re-samples the polylines. */
     private static final double RESAMPLE_ZOOM_RATIO = 1.5;
     private static final int STAR_COUNT = 160;
-    /** Fills a frame may use; the star field is skipped when the next frame would go past this. */
-    private static final int MAX_FRAME_FILLS = 1200;
     private static final int PALE_ORBIT_SEGMENTS = 256;
     private static final int ATMOSPHERE_SEGMENTS = 256;
     private static final double SYSTEM_HALF_EXTENT_M = 360_000.0;
@@ -45,6 +48,10 @@ public final class MapScreen extends Screen {
     private static final float TITLE_SCALE = 1.5f;
     private static final int LINE_STEP = 12;
     private static final int LABEL_H = 9;
+    /** Within this many degrees of the Hohmann lead, the window is open now. */
+    private static final double WINDOW_NOW_DEG = 2;
+    /** Eccentricity below which the Pale window cue applies. */
+    private static final double WINDOW_MAX_ECC = 0.1;
     private static final long STAR_SEED = 0x41504F41L;
 
     private static final float[] STAR_X = new float[STAR_COUNT];
@@ -71,8 +78,6 @@ public final class MapScreen extends Screen {
     private long frame;
     private long lastComputeFrame = -RECOMPUTE_FRAMES;
     private long lastSampleFrame = -RECOMPUTE_FRAMES;
-    /** Fills the last frame drew, to decide whether this frame's stars fit the budget. */
-    private int lastFills;
 
     /** Opened by {@link dev.apoapsis.client.MapClient#openMap()}. */
     public MapScreen() {
@@ -90,12 +95,10 @@ public final class MapScreen extends Screen {
         int w = graphics.guiWidth();
         int h = graphics.guiHeight();
         graphics.fill(0, 0, w, h, Palette.STEEL_950);
-        if (lastFills + 1 + STAR_COUNT <= MAX_FRAME_FILLS) {
-            for (int i = 0; i < STAR_COUNT; i++) {
-                int x = (int) (STAR_X[i] * (w - 1));
-                int y = (int) (STAR_Y[i] * (h - 1));
-                graphics.fill(x, y, x + 1, y + 1, Palette.alpha(Palette.INK, STAR_ALPHA[i]));
-            }
+        for (int i = 0; i < STAR_COUNT; i++) {
+            int x = (int) (STAR_X[i] * (w - 1));
+            int y = (int) (STAR_Y[i] * (h - 1));
+            graphics.fill(x, y, x + 1, y + 1, Palette.alpha(Palette.INK, STAR_ALPHA[i]));
         }
         Minecraft.getInstance().gui.hud.extractDeferredSubtitles();
     }
@@ -107,7 +110,10 @@ public final class MapScreen extends Screen {
         view.setSize(c.width, c.height);
         Labels labels = new Labels();
         OrbitStatePayload p = OrbitClock.current();
-        drawHint(c, labels, p);
+        // The bottom line is claimed first so no label lands on it, and drawn last so it sits on the paths and marks.
+        Component bottom = bottomLine(p);
+        int bottomY = c.height - 16;
+        labels.reserve(16 - 2, bottomY - 2, 16 + c.textWidth(bottom) + 2, bottomY + LABEL_H + 2);
         if (p == null) {
             Component msg = Component.translatable("apoapsis.map.board");
             c.text(msg, (c.width - c.textWidth(msg)) / 2, c.height / 2 - 4, 1f, Palette.INK_MUTED, false);
@@ -120,14 +126,21 @@ public final class MapScreen extends Screen {
             drawTopLeft(c, labels, p, body, nowUt);
             drawSystem(c, labels, p, nowUt);
         }
-        lastFills = c.fills();
+        c.text(bottom, 16, bottomY, 1f, Palette.INK_MUTED, false);
     }
 
-    /** Escape closes (vanilla), the System map key closes, 1 2 3 choose what the view follows. */
+    /** Escape closes (vanilla), the System map key closes, 1 2 3 choose what the view follows, the warp keys warp. */
     @Override
     public boolean keyPressed(KeyEvent event) {
         if (PilotKeys.SYSTEM_MAP.matches(event)) {
             onClose();
+            return true;
+        }
+        // With a screen open vanilla does not click the warp keys, so the map sends the press itself.
+        if (PilotKeys.WARP_UP.matches(event) && sendWarp(ShipInputPayload.FLAG_WARP_UP)) {
+            return true;
+        }
+        if (PilotKeys.WARP_DOWN.matches(event) && sendWarp(ShipInputPayload.FLAG_WARP_DOWN)) {
             return true;
         }
         int key = event.input();
@@ -144,6 +157,18 @@ public final class MapScreen extends Screen {
             return true;
         }
         return super.keyPressed(event);
+    }
+
+    /** Sends one time-warp press to the ship the player rides. False when the player rides no ship. */
+    private static boolean sendWarp(byte flag) {
+        Minecraft mc = Minecraft.getInstance();
+        Entity vehicle = mc.player == null ? null : mc.player.getVehicle();
+        if (!(vehicle instanceof ShipEntity ship) || mc.getConnection() == null) {
+            return false;
+        }
+        ClientPacketDistributor.sendToServer(new ShipInputPayload(ship.getId(), (byte) 0, (byte) 0, (byte) 0,
+                ShipInputPayload.THROTTLE_HOLD, flag));
+        return true;
     }
 
     @Override
@@ -374,7 +399,7 @@ public final class MapScreen extends Screen {
                 double clear = Math.max(gr, soiPx);
                 Component label = Component.translatable("apoapsis.map.mark.encounter",
                         Component.translatable("apoapsis.map.body." + m.body()),
-                        Fmt.mono(Fmt.clock(m.ut() - nowUt)));
+                        Fmt.countdown(m.ut() - nowUt));
                 int lx = (int) Math.round(gx + clear + 4);
                 int ly = (int) Math.round(gy - 4);
                 if (!label(c, labels, label, lx, ly, Palette.INK_MUTED)) {
@@ -382,12 +407,20 @@ public final class MapScreen extends Screen {
                     label(c, labels, label, (int) Math.round(gx - c.textWidth(label) / 2.0), above, Palette.INK_MUTED);
                 }
             }
+            case ESCAPE -> {
+                c.rect((int) Math.round(mx) - 1, (int) Math.round(my) - 1,
+                        (int) Math.round(mx) + 2, (int) Math.round(my) + 2, Palette.INK);
+                Component label = Component.translatable("apoapsis.map.mark.escape",
+                        Component.translatable("apoapsis.map.body." + m.anchor().id),
+                        Fmt.countdown(m.ut() - nowUt));
+                label(c, labels, label, (int) Math.round(mx + 7), (int) Math.round(my - 4), Palette.INK_MUTED);
+            }
             case ATMOSPHERE, IMPACT -> {
                 c.rect((int) Math.round(mx) - 2, (int) Math.round(my) - 2,
                         (int) Math.round(mx) + 3, (int) Math.round(my) + 3, Palette.COPPER);
                 String key = m.kind() == MapPrediction.Kind.ATMOSPHERE
                         ? "apoapsis.map.mark.atmosphere" : "apoapsis.map.mark.impact";
-                Component label = Component.translatable(key, Fmt.mono(Fmt.clock(m.ut() - nowUt)));
+                Component label = Component.translatable(key, Fmt.countdown(m.ut() - nowUt));
                 label(c, labels, label, (int) Math.round(mx + 7), (int) Math.round(my - 4), Palette.COPPER);
             }
             default -> {
@@ -418,7 +451,10 @@ public final class MapScreen extends Screen {
         return true;
     }
 
-    /** Top left, no box, one font: body and regime, then altitude and speed, then apsides in orbit only. */
+    /**
+     * Top left, no box, one font: body and regime, then altitude and speed, then apsides for an orbit that stays in its
+     * sphere of influence (else periapsis), then an escape countdown, then the Pale window in orbit around Verdance.
+     */
     private void drawTopLeft(Canvas c, Labels labels, OrbitStatePayload p, CelestialBody body, double nowUt) {
         int x = 16;
         int y = 14;
@@ -437,7 +473,7 @@ public final class MapScreen extends Screen {
         lines.add(Component.translatable("apoapsis.map.top.speed", Fmt.speed(speed)));
         if (FlightRegime.byOrdinal(p.regime()) == FlightRegime.ORBIT) {
             Elements el = Elements.of(body.mu, Bodies.stateOf(p));
-            if (el.eccentricity() < 1) {
+            if (el.eccentricity() < 1 && el.apoapsisRadius() < body.soiRadius()) {
                 lines.add(Component.translatable("apoapsis.map.top.apsides",
                         Fmt.distance(el.apoapsisRadius() - body.radius),
                         Fmt.distance(el.periapsisRadius() - body.radius)));
@@ -447,6 +483,14 @@ public final class MapScreen extends Screen {
                 lines.add(Component.translatable("apoapsis.map.top.periapsis",
                         Fmt.distance(el.periapsisRadius() - body.radius)));
             }
+        }
+        int cur = prediction.indexAt(nowUt);
+        if (prediction.endsByEscape(cur)) {
+            lines.add(Component.translatable("apoapsis.map.top.escape", Fmt.clock(prediction.endUtOf(cur) - nowUt)));
+        }
+        Component window = paleWindowLine(p, body, nowUt);
+        if (window != null) {
+            lines.add(window);
         }
         int lineY = y + 22;
         int blockRight = right;
@@ -458,22 +502,62 @@ public final class MapScreen extends Screen {
         labels.reserve(x - 2, y - 2, blockRight + 2, lineY);
     }
 
+    /**
+     * The Hohmann window cue: on a near-circular orbit of Verdance with no encounter predicted, the time until Pale is
+     * where a transfer from this orbit meets it, or "now" within {@link #WINDOW_NOW_DEG}. Null when the cue does not apply.
+     */
+    private Component paleWindowLine(OrbitStatePayload p, CelestialBody body, double nowUt) {
+        if (body != MeridianSystem.VERDANCE || FlightRegime.byOrdinal(p.regime()) != FlightRegime.ORBIT
+                || prediction.patchCount() == 0 || encounterAfter(nowUt)) {
+            return null;
+        }
+        int cur = prediction.indexAt(nowUt);
+        StateVector s = prediction.relativeState(cur, nowUt);
+        if (!(Elements.of(body.mu, s).eccentricity() < WINDOW_MAX_ECC)) {
+            return null;
+        }
+        double r1 = Math.hypot(s.r().x(), s.r().y());
+        StateVector pale = Bodies.rootState(MeridianSystem.PALE, nowUt);
+        double lead = Math.atan2(pale.r().y(), pale.r().x()) - Math.atan2(s.r().y(), s.r().x());
+        double error = Math.IEEEremainder(lead - MapPrediction.hohmannLead(r1), 2 * Math.PI);
+        if (Math.abs(error) < Math.toRadians(WINDOW_NOW_DEG)) {
+            return Component.translatable("apoapsis.map.top.window_now");
+        }
+        double omegaShip = (s.r().x() * s.v().y() - s.r().y() * s.v().x()) / (r1 * r1);
+        double omegaPale = 2 * Math.PI / MeridianSystem.PALE.orbitPeriod();
+        double seconds = MapPrediction.windowSeconds(error, omegaPale - omegaShip);
+        return Component.translatable("apoapsis.map.top.window", Fmt.clock(seconds));
+    }
+
+    /** True when an encounter is predicted at or after {@code ut}. */
+    private boolean encounterAfter(double ut) {
+        for (MapPrediction.Mark m : prediction.marks()) {
+            if (m.kind() == MapPrediction.Kind.ENCOUNTER && m.ut() >= ut) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Lang key for a regime ordinal: ORBIT or SURFACE. */
     static String regimeKey(int ordinal) {
         return FlightRegime.byOrdinal(ordinal) == FlightRegime.ORBIT
                 ? "apoapsis.map.regime.orbit" : "apoapsis.map.regime.surface";
     }
 
-    /** Bottom left: the controls. The warp keys and the close key are named from the bindings. */
-    private void drawHint(Canvas c, Labels labels, OrbitStatePayload p) {
-        Component hint = Component.translatable("apoapsis.map.hint",
+    /**
+     * Bottom left: the controls, with the warp and close keys named from the bindings. While a vanilla overlay message
+     * is showing (warp refusals, sphere of influence entry, hard landing) that message takes the line instead.
+     */
+    private static Component bottomLine(OrbitStatePayload p) {
+        Component overlay = OverlayMessages.current(Minecraft.getInstance());
+        if (overlay != null) {
+            return overlay;
+        }
+        return Component.translatable("apoapsis.map.hint",
                 PilotKeys.WARP_UP.getTranslatedKeyMessage(),
                 PilotKeys.WARP_DOWN.getTranslatedKeyMessage(),
                 p == null ? "—" : Fmt.warp(p.warp()),
                 PilotKeys.SYSTEM_MAP.getTranslatedKeyMessage());
-        int x = 16;
-        int y = c.height - 16;
-        c.text(hint, x, y, 1f, Palette.INK_MUTED, false);
-        labels.reserve(x - 2, y - 2, x + c.textWidth(hint) + 2, y + LABEL_H + 2);
     }
 }

@@ -24,6 +24,11 @@ final class Fmt {
         return Component.literal(s).setStyle(MONO);
     }
 
+    /** A time until an event in the tabular font, the "T-" and the clock together ("T-12:04"). */
+    static Component countdown(double seconds) {
+        return mono("T-" + clock(seconds));
+    }
+
     /** Altitude or distance: metres below 1 km, otherwise kilometres to one decimal ("14.2 km"). */
     static String distance(double m) {
         if (!Double.isFinite(m)) {

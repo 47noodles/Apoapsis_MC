@@ -1,6 +1,5 @@
 package dev.apoapsis.client.ship;
 
-import dev.apoapsis.client.map.MapScreen;
 import dev.apoapsis.net.ShipInputPayload;
 import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.client.Minecraft;
@@ -16,7 +15,7 @@ public final class PilotInput {
     /**
      * Reads this tick's pilot keys and sends them to the server. Runs at the start of the client tick, before vanilla
      * handles keys. Presses are taken on every tick; the payload is sent only while the local player rides a ship.
-     * Key state is sent only with no screen open. The warp keys also work with the system map open, and nothing else.
+     * Key state, and the warp keys, are sent only with no screen open.
      */
     public static void tick(Minecraft mc) {
         boolean full = PilotKeys.pressed(PilotKeys.THROTTLE_FULL);
@@ -32,10 +31,10 @@ public final class PilotInput {
         }
         PilotKeys.swallowVanillaClashes(mc.options);
 
-        // While a screen (chat, inventory, pause) has focus, held keys send as at rest; presses were still taken above.
+        // While a screen (chat, inventory, pause, system map) has focus, held keys send as at rest; presses were still
+        // taken above. The system map sends its own warp presses (MapScreen.keyPressed).
         Screen screen = mc.gui.screen();
         boolean inGame = screen == null;
-        boolean mapOpen = screen instanceof MapScreen;
         Options options = mc.options;
 
         byte pitch = 0;
@@ -54,9 +53,7 @@ public final class PilotInput {
             if (disassemble) {
                 flags |= ShipInputPayload.FLAG_ASSEMBLY;
             }
-        }
-        // Time warp works with no screen and from the system map, so the map can warp without closing.
-        if (inGame || mapOpen) {
+            // Time warp is read only with no screen: vanilla clicks the warp keys only then.
             if (warpUp) {
                 flags |= ShipInputPayload.FLAG_WARP_UP;
             }

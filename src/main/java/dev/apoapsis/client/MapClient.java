@@ -32,6 +32,7 @@ public final class MapClient {
         NeoForge.EVENT_BUS.addListener(MapClient::onEntityMount);
         NeoForge.EVENT_BUS.addListener(MapClient::onLoggingOut);
         NeoForge.EVENT_BUS.addListener(MapClient::onLevelUnload);
+        NeoForge.EVENT_BUS.addListener(OverlayMessages::onScreenRender);
     }
 
     /** Opens the full-screen system map (SHIPC's system map key calls this). Shows a hint when not piloting. */

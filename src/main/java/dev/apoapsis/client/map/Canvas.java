@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
  * Vector shapes on top of {@link GuiGraphicsExtractor}, which has no line or circle primitive in 26.3. Everything is
  * drawn as fills: a line is a run of horizontal or vertical spans (consecutive pixels in the same row or column
  * merge into one fill), a disc is one span per row. Coordinates are GUI pixels; lines are clipped to the view before
- * rasterising, so a far-off point costs nothing. Counts its fills so the map can budget a frame. Client only.
+ * rasterising, so a far-off point costs nothing. Client only.
  */
 final class Canvas {
     private static final int MIN_CIRCLE_POINTS = 48;
@@ -19,18 +19,12 @@ final class Canvas {
     final int width;
     final int height;
     final Font font;
-    private int fills;
 
     Canvas(GuiGraphicsExtractor g) {
         this.g = g;
         this.width = g.guiWidth();
         this.height = g.guiHeight();
         this.font = Minecraft.getInstance().font;
-    }
-
-    /** Fills drawn through this canvas so far. */
-    int fills() {
-        return fills;
     }
 
     /** A filled rectangle, x1 and y1 exclusive. */
@@ -209,7 +203,6 @@ final class Canvas {
     }
 
     private void fill(int x0, int y0, int x1, int y1, int argb) {
-        fills++;
         g.fill(x0, y0, x1, y1, argb);
     }
 
