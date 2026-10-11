@@ -2,7 +2,8 @@ package dev.apoapsis.client.ship;
 
 import dev.apoapsis.grid.ShipParts;
 import dev.apoapsis.ship.ShipEntity;
-import dev.apoapsis.ship.ShipStructure;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import net.minecraft.client.Minecraft;
@@ -20,6 +21,9 @@ import org.joml.Vector3f;
 public final class EngineParticles {
     /** Ships within this distance of the local player emit exhaust, in metres. */
     public static final double RANGE = 128.0;
+
+    /** Most exhaust particles one ship spawns per client tick, shared across its thrusters. */
+    public static final int MAX_PARTICLES_PER_SHIP = 24;
 
     /** Exhaust speed at full throttle, in blocks per tick. */
     private static final double FLAME_SPEED = 0.7;
@@ -45,19 +49,41 @@ public final class EngineParticles {
         }
     }
 
+    /** One thruster block of a ship: where it is and how it exhausts. */
+    private record Thruster(BlockPos pos, ShipParts.ThrusterSpec spec) {}
+
+    /**
+     * Spawns the exhaust of one ship, at most {@link #MAX_PARTICLES_PER_SHIP} particles in all. The budget is split
+     * evenly across the thrusters; the remainder goes to a run of thrusters from a random start, so no thruster is
+     * always the one cut off when there are more thrusters than particles.
+     */
     private static void emit(ClientLevel level, ShipEntity ship, float throttle) {
-        ShipStructure structure = ship.getStructure();
+        List<Thruster> thrusters = new ArrayList<>();
+        for (Map.Entry<BlockPos, BlockState> e : ship.getStructure().blocks().entrySet()) {
+            ShipParts.ThrusterSpec spec = ShipParts.thruster(e.getValue());
+            if (spec != null) {
+                thrusters.add(new Thruster(e.getKey(), spec));
+            }
+        }
+        int n = thrusters.size();
+        if (n == 0) {
+            return;
+        }
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
         Vec3 com = ship.getCenterOfMassLocal();
         Quaternionf q = ship.getOrientation();
         Vec3 origin = ship.position();
-        ThreadLocalRandom rnd = ThreadLocalRandom.current();
-        for (Map.Entry<BlockPos, BlockState> e : structure.blocks().entrySet()) {
-            ShipParts.ThrusterSpec spec = ShipParts.thruster(e.getValue());
-            if (spec == null) {
+        int share = MAX_PARTICLES_PER_SHIP / n;
+        int extra = MAX_PARTICLES_PER_SHIP % n;
+        int start = rnd.nextInt(n);
+        for (int i = 0; i < n; i++) {
+            int budget = share + (i < extra ? 1 : 0);
+            if (budget == 0) {
                 continue;
             }
-            BlockPos p = e.getKey();
-            Direction exhaust = spec.exhaust();
+            Thruster thruster = thrusters.get((start + i) % n);
+            BlockPos p = thruster.pos();
+            Direction exhaust = thruster.spec().exhaust();
             double ex = exhaust.getStepX();
             double ey = exhaust.getStepY();
             double ez = exhaust.getStepZ();
@@ -71,19 +97,19 @@ public final class EngineParticles {
             double y = origin.y + face.y;
             double z = origin.z + face.z;
 
-            int flames = (int) (throttle * 2.0 + rnd.nextDouble());
-            for (int i = 0; i < flames; i++) {
-                double speed = FLAME_SPEED * (0.5 + 0.5 * throttle);
+            int flames = Math.min(budget, (int) (throttle * 2.0 + rnd.nextDouble()));
+            double flameSpeed = FLAME_SPEED * (0.5 + 0.5 * throttle);
+            for (int k = 0; k < flames; k++) {
                 level.addParticle(ParticleTypes.FLAME,
                         x + jitter(rnd), y + jitter(rnd), z + jitter(rnd),
-                        dir.x * speed, dir.y * speed, dir.z * speed);
+                        dir.x * flameSpeed, dir.y * flameSpeed, dir.z * flameSpeed);
             }
-            int smoke = (int) (throttle * 0.5 + rnd.nextDouble());
-            for (int i = 0; i < smoke; i++) {
-                double speed = SMOKE_SPEED * (0.5 + 0.5 * throttle);
+            int smoke = Math.min(budget - flames, (int) (throttle * 0.5 + rnd.nextDouble()));
+            double smokeSpeed = SMOKE_SPEED * (0.5 + 0.5 * throttle);
+            for (int k = 0; k < smoke; k++) {
                 level.addParticle(ParticleTypes.SMOKE,
                         x + jitter(rnd), y + jitter(rnd), z + jitter(rnd),
-                        dir.x * speed, dir.y * speed, dir.z * speed);
+                        dir.x * smokeSpeed, dir.y * smokeSpeed, dir.z * smokeSpeed);
             }
         }
     }

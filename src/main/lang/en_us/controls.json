@@ -6,7 +6,7 @@
   "key.apoapsis.throttle_down": "Throttle down",
   "key.apoapsis.throttle_full": "Full throttle",
   "key.apoapsis.throttle_cut": "Cut throttle",
-  "key.apoapsis.sas": "SAS (hold attitude)",
+  "key.apoapsis.sas": "Cycle SAS mode",
   "key.apoapsis.disassemble": "Disassemble",
   "key.apoapsis.system_map": "System map",
   "key.apoapsis.warp_up": "Time warp up",
