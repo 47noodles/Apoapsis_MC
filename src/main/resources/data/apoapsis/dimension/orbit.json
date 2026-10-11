@@ -1,0 +1,12 @@
+{
+  "type": "apoapsis:orbit",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "apoapsis:orbit_void",
+      "features": false,
+      "lakes": false,
+      "layers": []
+    }
+  }
+}

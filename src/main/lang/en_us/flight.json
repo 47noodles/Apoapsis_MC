@@ -1,0 +1,13 @@
+{
+  "apoapsis.flight.body.pale": "Pale",
+  "apoapsis.flight.body.verdance": "Verdance",
+  "apoapsis.flight.enter_atmosphere": "Entering the atmosphere",
+  "apoapsis.flight.enter_orbit": "Entering orbit around %s",
+  "apoapsis.flight.landed": "Landed on %s",
+  "apoapsis.flight.leave_orbit": "Leaving orbit",
+  "apoapsis.flight.soi.enter_pale": "Entering Pale's sphere of influence",
+  "apoapsis.flight.soi.enter_verdance": "Entering Verdance's sphere of influence",
+  "apoapsis.flight.warp.level": "Time warp x%s",
+  "apoapsis.flight.warp.need": "Warp needs engines off, clear of the atmosphere, singleplayer",
+  "apoapsis.flight.warp.off": "Real time"
+}

@@ -1,0 +1,64 @@
+package dev.apoapsis.flight;
+
+import dev.apoapsis.ages.Ages;
+import dev.apoapsis.ship.ShipEntity;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+
+/**
+ * End-of-tick flight rules for one ship: regime transitions, the First Flight and landing milestones, warp
+ * validation, and the orbit-state sync to the pilot every 5 ticks.
+ */
+final class FlightRules {
+    /** Airborne time before a landing counts as a landing (10 s at 0.05 s per tick). */
+    static final int LANDING_TICKS = 200;
+    /** Altitude for First Flight above Verdance, metres. */
+    static final double FIRST_FLIGHT_ALTITUDE_M = 1500.0;
+    /** Ticks between state sync packets. */
+    static final int SYNC_INTERVAL_TICKS = 5;
+
+    private FlightRules() {}
+
+    static void afterTick(ShipEntity ship) {
+        if (ship.isRemoved() || !(ship.level() instanceof ServerLevel level)) {
+            return;
+        }
+        MinecraftServer server = level.getServer();
+        FlightState st = FlightAttachments.state(ship);
+        ServerPlayer pilot = ship.getPilot() instanceof ServerPlayer p ? p : null;
+        FlightWarp.validate(ship);
+
+        if (st.regime == FlightRegime.SURFACE) {
+            st.body = FlightDimensions.surfaceBody(level.dimension());
+            double alt = ship.getY() - FlightDimensions.seaLevel(st.body);
+            if (alt >= FlightDimensions.transitionAltitude(st.body)) {
+                Transitions.up(ship, st, level);
+                return;
+            }
+            if (st.body == BodyId.VERDANCE && alt >= FIRST_FLIGHT_ALTITUDE_M && pilot != null && !st.firstFlight) {
+                st.firstFlight = true;
+                Ages.onFirstFlight(pilot);
+            }
+            if (ship.isLanded()) {
+                if (st.airborneTicks > LANDING_TICKS && pilot != null) {
+                    Ages.onLanded(pilot, st.body);
+                    FlightMessages.toPilot(ship, Component.translatable("apoapsis.flight.landed",
+                            FlightMessages.bodyName(st.body)));
+                }
+                st.airborneTicks = 0;
+            } else {
+                st.airborneTicks = Math.min(st.airborneTicks + 1, LANDING_TICKS + 1);
+            }
+        } else if (st.altitude() < FlightDimensions.transitionAltitude(st.body)
+                && st.r().dot(st.v()) < 0) {
+            Transitions.down(ship, st, level);
+            return;
+        }
+
+        if (pilot != null && ship.tickCount % SYNC_INTERVAL_TICKS == 0) {
+            FlightSync.send(pilot, ship, st, UniverseTime.get(server).ut(), FlightWarp.factorFor(ship));
+        }
+    }
+}

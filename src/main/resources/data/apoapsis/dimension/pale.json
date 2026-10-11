@@ -1,0 +1,25 @@
+{
+  "type": "apoapsis:pale",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "apoapsis:pale_maria",
+      "features": false,
+      "lakes": false,
+      "layers": [
+        {
+          "block": "minecraft:bedrock",
+          "height": 1
+        },
+        {
+          "block": "minecraft:basalt",
+          "height": 44
+        },
+        {
+          "block": "apoapsis:regolith",
+          "height": 3
+        }
+      ]
+    }
+  }
+}
