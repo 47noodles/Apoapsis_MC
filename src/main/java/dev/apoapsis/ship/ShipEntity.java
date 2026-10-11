@@ -167,6 +167,16 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         throttle = Math.max(0, Math.min(1, t));
     }
 
+    /** SAS mode. STUB from integration: node FIX-A1 stores and syncs it; HOLD when SAS is on, else OFF. */
+    public SasMode getSasMode() {
+        return isSasOn() ? SasMode.HOLD : SasMode.OFF;
+    }
+
+    /** Advances SAS to the next mode (G). STUB from integration: node FIX-A1 implements it. */
+    public void cycleSasMode() {
+        setSas(!isSasOn());
+    }
+
     public boolean isSasOn() {
         return remote() ? entityData.get(SAS) : sas;
     }

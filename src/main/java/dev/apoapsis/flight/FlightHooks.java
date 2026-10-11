@@ -60,6 +60,16 @@ public final class FlightHooks {
     }
 
     /** Current warp factor for this ship (1 in real time). Ships scale their per-tick physics by nothing; FLT owns warp. */
+    /**
+     * Unit velocity direction in the ship's current dimension axes (surface: relative to the ground; orbit dimension:
+     * the orbital velocity mapped to local axes), or Vec3.ZERO when nearly at rest. Used by SAS prograde/retrograde.
+     * STUB from integration: node FIX-D implements the orbit case.
+     */
+    public static Vec3 velocityDirection(ShipEntity ship) {
+        Vec3 v = ship.getVelocity();
+        return v.lengthSqr() < 1e-4 ? Vec3.ZERO : v.normalize();
+    }
+
     public static float warp(ShipEntity ship) {
         return FlightWarp.factorFor(ship);
     }
