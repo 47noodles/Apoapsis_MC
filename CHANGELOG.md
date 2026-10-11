@@ -17,6 +17,7 @@ Unreleased, on the `stage0-prototype` branch. Placeholder art and UI.
 - **Ages gating:** Ages 0 to 4 (Landfall, Hearth, Steam and Brass, Current, Ascent) with milestones. Ship parts are locked by Age, with tooltips and an action-bar line. *First Flight* (1,500 m in a ship) raises you to Age 4. `/apoapsis age` and a per-world sandbox flag.
 - **Test scenarios and test save:** `/apoapsis scenario pad` and `/apoapsis scenario orbit`, and `gradlew runTestFlight`, which opens the *Apoapsis Test Flight* save with a Kestrel in orbit and a second on a pad.
 - **CI:** GitHub Actions workflow that builds on every push and pull request, runs the GameTests, and uploads the mod jar as an `apoapsis-<short sha>` artifact.
+- **3D system map and maneuver node:** the map key now opens a 3D map with textured planets (Tab flips to the 2D map; `-Dapoapsis.map3d=false` makes the 2D map the default). Click the orbit line to place a node, drag one of six handles to set its delta-v, and read the orbit after the burn, its apoapsis and periapsis, the burn time and the time to ignition. Right click or Delete removes the node. Home and last-landing markers sit on the bodies. `gradlew runTestMap` drives the map by script.
 
 ## [Design draft 0.0.1] — 2026-10-11
 

@@ -8,7 +8,7 @@ import java.util.Locale;
  * Number formatting for the map and the HUD. Fixed locale so the decimal point never changes, and a dash for values
  * that do not exist (NaN, infinity). Client only.
  */
-final class Fmt {
+public final class Fmt {
     private static final String NONE = "—";
 
     private Fmt() {}
@@ -19,7 +19,7 @@ final class Fmt {
     }
 
     /** Altitude or distance: metres below 1 km, otherwise kilometres to one decimal ("14.2 km"). */
-    static String distance(double m) {
+    public static String distance(double m) {
         if (!Double.isFinite(m)) {
             return NONE;
         }
@@ -74,7 +74,7 @@ final class Fmt {
     }
 
     /** Time-warp factor: "x10", or "x2.5" when not whole. */
-    static String warp(float w) {
+    public static String warp(float w) {
         if (w == Math.rint(w)) {
             return "x" + (long) w;
         }
@@ -101,7 +101,7 @@ final class Fmt {
     }
 
     /** Upper case with letters spaced apart ("P A L E"); a space in the text becomes a wider gap. */
-    static String spaced(String s) {
+    public static String spaced(String s) {
         String up = s.toUpperCase(Locale.ROOT);
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < up.length(); i++) {
@@ -119,7 +119,7 @@ final class Fmt {
     }
 
     /** A duration as m:ss, or h:mm:ss from an hour ("12:04", "1:05:09"). Negative values clamp to zero. */
-    static String clock(double seconds) {
+    public static String clock(double seconds) {
         if (!Double.isFinite(seconds)) {
             return NONE;
         }

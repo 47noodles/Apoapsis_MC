@@ -134,6 +134,9 @@ public final class GameTests {
                 new ApoapsisGameTest("chutes_shred_when_too_fast", environment, 40, LandingTests::chutesShredWhenTooFast));
         event.registerTest(TestSupport.id("landing_legs_set_the_crash_limit"),
                 new ApoapsisGameTest("landing_legs_set_the_crash_limit", environment, 100, LandingTests::legsSetTheCrashLimit));
+        ManeuverTests.register(event, environment);
+        SiteTests.register(event, environment);
+        SphereTests.register(event, environment);
     }
 
     /** Scoreboard team names used by the ownership tests; each test removes its teams when it is done. */

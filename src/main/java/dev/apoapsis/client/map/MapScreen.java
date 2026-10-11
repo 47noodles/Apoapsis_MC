@@ -184,6 +184,10 @@ public final class MapScreen extends Screen {
             return true;
         }
         int key = event.input();
+        if (key == InputConstants.KEY_TAB) {
+            dev.apoapsis.client.MapClient.switchMap();
+            return true;
+        }
         if (key == InputConstants.KEY_1) {
             view.follow = MapView.Follow.VERDANCE;
             return true;

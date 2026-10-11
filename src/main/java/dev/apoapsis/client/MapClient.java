@@ -3,8 +3,10 @@ package dev.apoapsis.client;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.client.map.FlightHud;
 import dev.apoapsis.client.map.MapScreen;
+import dev.apoapsis.client.map3d.ManeuverEditor;
 import dev.apoapsis.client.map3d.Map3DPip;
 import dev.apoapsis.client.map3d.Map3DScreen;
+import dev.apoapsis.client.map3d.SiteMarkers;
 import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
@@ -25,6 +27,8 @@ import net.neoforged.neoforge.event.level.LevelEvent;
 public final class MapClient {
     private static final Identifier FLIGHT_HUD = Identifier.fromNamespaceAndPath(Apoapsis.MODID, "flight_hud");
     private static final String MAP3D_PROPERTY = "apoapsis.map3d";
+    /** Which map the map key opens: the 3D one unless {@code -Dapoapsis.map3d=false}; Tab in a map flips it. */
+    private static boolean use3d = Boolean.parseBoolean(System.getProperty(MAP3D_PROPERTY, "true"));
 
     private MapClient() {}
 
@@ -42,8 +46,7 @@ public final class MapClient {
     /** Opens the full-screen system map (SHIPC's system map key calls this). Shows a hint when not piloting. */
     public static void openMap() {
         Minecraft mc = Minecraft.getInstance();
-        // Temporary toggle: -Dapoapsis.map3d=true opens the 3D map (client/map3d) instead of the 2D map.
-        if (Boolean.getBoolean(MAP3D_PROPERTY)) {
+        if (use3d) {
             if (!(mc.gui.screen() instanceof Map3DScreen)) {
                 mc.gui.setScreen(new Map3DScreen());
             }
@@ -55,6 +58,21 @@ public final class MapClient {
         mc.gui.setScreen(new MapScreen());
     }
 
+    /**
+     * Swaps the open map for the other one (the Tab key in either), and makes it the one the map key opens from now on.
+     * The 3D map is the default; start the game with {@code -Dapoapsis.map3d=false} to open the 2D map instead.
+     */
+    public static void switchMap() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.gui.screen() instanceof Map3DScreen) {
+            use3d = false;
+            mc.gui.setScreen(new MapScreen());
+        } else if (mc.gui.screen() instanceof MapScreen) {
+            use3d = true;
+            mc.gui.setScreen(new Map3DScreen());
+        }
+    }
+
     private static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
         event.registerAbove(VanillaGuiLayers.HOTBAR, FLIGHT_HUD, FlightHud::render);
     }
@@ -64,6 +82,7 @@ public final class MapClient {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null && !mc.isPaused()) {
             ClientState.clientTicks++;
+            SiteMarkers.observe(mc);
         }
     }
 
@@ -74,16 +93,20 @@ public final class MapClient {
                 && event.getEntityMounting() == Minecraft.getInstance().player
                 && event.getEntityBeingMounted() instanceof ShipEntity) {
             ClientState.clearOrbit();
+            ManeuverEditor.forget();
         }
     }
 
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientState.clearOrbit();
+        ManeuverEditor.forget();
+        SiteMarkers.forget();
     }
 
     private static void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel().isClientSide()) {
             ClientState.clearOrbit();
+            ManeuverEditor.forget();
         }
     }
 }

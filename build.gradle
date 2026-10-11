@@ -101,6 +101,15 @@ neoForge {
             programArguments.addAll '--width', '1600', '--height', '900'
         }
 
+        // The 3D map by script: a node placed with a click, the prograde handle dragged, the node deleted, the site
+        // markers, and the 2D map through Tab; screenshots m08-*.png into run/screenshots, then quits.
+        testMap {
+            client()
+            systemProperty 'apoapsis.testFlight', 'true'
+            systemProperty 'apoapsis.testDriver', 'map'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
         server {
             server()
             programArgument '--nogui'

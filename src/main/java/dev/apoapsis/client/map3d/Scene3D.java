@@ -1,24 +1,31 @@
 package dev.apoapsis.client.map3d;
 
+import dev.apoapsis.client.map.Palette;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.MeridianSystem;
 import dev.apoapsis.orbit.Vec3d;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The 3D map's geometry for one frame, as screen-space quads (4 vertices each, pixels from the view's top left, ARGB
- * per vertex). Spheres are front-facing triangles, shaded from the sun on +X; the atmosphere is an annulus of fading
- * quads; orbits and the ship's coast are 2 px ribbons, hidden where a sphere is in front of them. Everything is
+ * per vertex). Spheres are front-facing triangles, shaded from the sun on +X, or, for a body whose surface map has
+ * arrived, a {@link TexturedSphere} mesh that {@link Map3DPip} draws in a layer of its own; the atmosphere is an
+ * annulus of fading quads; orbits, the ship's coast and the line after a planned burn are 2 px ribbons, hidden where a
+ * sphere is in front of them, and the coast's screen points are kept for picking. Everything is
  * computed in double precision relative to the focus, then rounded to float only for the screen. The sphere mesh is
  * built once; each frame only transforms it. Pure maths, no game state. Client only.
  */
 public final class Scene3D {
     /** Capacity in vertices. A frame uses about 26 thousand. */
     public static final int MAX_VERTS = 65536;
-    static final int SIGNAL = 0xFF3AD1C1;
-    static final int HYDROGEN_RGB = 0x5AA9F5;
-    static final int STEEL_500 = 0xFF56616D;
-    static final int VERDANCE_LIT = 0xFF6FBBA8;
-    static final int PALE_LIT = 0xFFB8BEC4;
+    static final int SIGNAL = Palette.SIGNAL;
+    static final int HYDROGEN_RGB = Palette.HYDROGEN & 0xFFFFFF;
+    static final int STEEL_500 = Palette.STEEL_500;
+    static final int VERDANCE_LIT = Palette.VERDANCE_LIT;
+    static final int PALE_LIT = Palette.PALE_LIT;
+    /** The planned burn's line, as the node marker (brass). */
+    static final int PLAN = Palette.BRASS;
+    static final int PLAN_RGB = Palette.BRASS & 0xFFFFFF;
     /** Brightness of the unlit side of a body, 0..1. */
     static final double AMBIENT = 0.10;
     /** Atmosphere haze at the inner edge, as alpha 0..255; it fades to zero at the outer edge. */
@@ -53,7 +60,16 @@ public final class Scene3D {
     /** Vertices in use; always a multiple of four. */
     public int count;
 
+    /** The textured bodies' meshes, by body (0 Verdance, 1 Pale), and the bodies to draw this frame, farthest first. */
+    final TexturedSphere[] texMesh = {new TexturedSphere(), new TexturedSphere()};
+    final int[] texOrder = new int[2];
+    int texCount;
+
     private final double[] screen = new double[2];
+    /** The current patch's samples on screen, for picking: valid where {@link #pickOk} is set. */
+    private final double[] pickX = new double[OrbitPlot.SAMPLES + 1];
+    private final double[] pickY = new double[OrbitPlot.SAMPLES + 1];
+    private final boolean[] pickOk = new boolean[OrbitPlot.SAMPLES + 1];
     private final double[] sx = new double[OrbitPlot.SAMPLES + 1];
     private final double[] sy = new double[OrbitPlot.SAMPLES + 1];
     private final boolean[] ok = new boolean[OrbitPlot.SAMPLES + 1];
@@ -96,9 +112,14 @@ public final class Scene3D {
     /**
      * Builds the frame for a {@code w} by {@code h} view centred on {@code focus} (root frame, m) at universal time
      * {@code nowUt}. {@code plot} is the predicted coast; its samples are reused, the bodies and ship are placed now.
+     * {@code predicted}, when not null, is the line after a planned burn. A body with {@code textured[k]} (0 Verdance,
+     * 1 Pale) is not drawn flat: its mesh goes in {@link #texMesh} for the textured layer, listed in {@link #texOrder}.
      */
-    public void build(OrbitCamera camera, OrbitPlot plot, double nowUt, double w, double h, Vec3d focus) {
+    public void build(OrbitCamera camera, OrbitPlot plot, @Nullable OrbitPlot predicted, double nowUt, double w,
+            double h, Vec3d focus, boolean[] textured) {
         count = 0;
+        texCount = 0;
+        java.util.Arrays.fill(pickOk, false);
         cam = camera;
         cx = w / 2;
         cy = h / 2;
@@ -120,11 +141,11 @@ public final class Scene3D {
         // The farther body first, so the nearer one draws over it.
         double dv = dist(verdance), dp = dist(pale);
         if (dv >= dp) {
-            body(verdance, MeridianSystem.VERDANCE, VERDANCE_LIT);
-            body(pale, MeridianSystem.PALE, PALE_LIT);
+            body(verdance, MeridianSystem.VERDANCE, VERDANCE_LIT, 0, textured[0]);
+            body(pale, MeridianSystem.PALE, PALE_LIT, 1, textured[1]);
         } else {
-            body(pale, MeridianSystem.PALE, PALE_LIT);
-            body(verdance, MeridianSystem.VERDANCE, VERDANCE_LIT);
+            body(pale, MeridianSystem.PALE, PALE_LIT, 1, textured[1]);
+            body(verdance, MeridianSystem.VERDANCE, VERDANCE_LIT, 0, textured[0]);
         }
 
         // Reference plane: the grid (faint) and Pale's orbit (a quiet ring).
@@ -142,6 +163,18 @@ public final class Scene3D {
         for (int i = plot.patches.size() - 1; i >= 0; i--) {
             int colour = i == plot.current ? SIGNAL : 0x90000000 | HYDROGEN_RGB;
             polyline(plot.x[i], plot.y[i], plot.z[i], OrbitPlot.SAMPLES + 1, colour, 1.0);
+            if (i == plot.current) {
+                System.arraycopy(sx, 0, pickX, 0, OrbitPlot.SAMPLES + 1);
+                System.arraycopy(sy, 0, pickY, 0, OrbitPlot.SAMPLES + 1);
+                System.arraycopy(ok, 0, pickOk, 0, OrbitPlot.SAMPLES + 1);
+            }
+        }
+        // The line after a planned burn, over the coast.
+        if (predicted != null) {
+            for (int i = predicted.patches.size() - 1; i >= 0; i--) {
+                int colour = i == 0 ? PLAN : 0x90000000 | PLAN_RGB;
+                polyline(predicted.x[i], predicted.y[i], predicted.z[i], OrbitPlot.SAMPLES + 1, colour, 1.0);
+            }
         }
 
         Vec3d ship = plot.shipRootAt(nowUt);
@@ -165,8 +198,33 @@ public final class Scene3D {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-    /** A body's haze, then its lit sphere, unless the eye is inside it. */
-    private void body(Vec3d centre, CelestialBody b, int rgb) {
+    /**
+     * The nearest point of the current patch's drawn line to the pointer ({@code mx}, {@code my}): {fractional sample
+     * index, distance in px}, or null when no visible part of the line is within {@code maxPx}. Points a body hides
+     * are not on the line.
+     */
+    public double @Nullable [] pickCurrent(double mx, double my, double maxPx) {
+        double best = maxPx;
+        double bestIndex = -1;
+        for (int k = 0; k < OrbitPlot.SAMPLES; k++) {
+            if (!pickOk[k] || !pickOk[k + 1]) {
+                continue;
+            }
+            double ax = pickX[k], ay = pickY[k];
+            double dx = pickX[k + 1] - ax, dy = pickY[k + 1] - ay;
+            double len2 = dx * dx + dy * dy;
+            double t = len2 > 1e-12 ? Math.max(0, Math.min(1, ((mx - ax) * dx + (my - ay) * dy) / len2)) : 0;
+            double d = Math.hypot(ax + t * dx - mx, ay + t * dy - my);
+            if (d < best) {
+                best = d;
+                bestIndex = k + t;
+            }
+        }
+        return bestIndex < 0 ? null : new double[] {bestIndex, best};
+    }
+
+    /** A body's haze, then its sphere (textured in its own layer, else flat), unless the eye is inside it. */
+    private void body(Vec3d centre, CelestialBody b, int rgb, int index, boolean textured) {
         double dx = centre.x() - fx, dy = centre.y() - fy, dz = centre.z() - fz;
         double d = Math.sqrt((dx - ex) * (dx - ex) + (dy - ey) * (dy - ey) + (dz - ez) * (dz - ez));
         if (d < b.radius * 1.02) {
@@ -175,7 +233,12 @@ public final class Scene3D {
         if (b.atmosphereTop > 0) {
             haze(dx, dy, dz, b.radius, b.radius + b.atmosphereTop, d);
         }
-        sphere(dx, dy, dz, b.radius, rgb);
+        if (textured) {
+            texMesh[index].build(cam, cx, cy, focal, dx, dy, dz, b.radius, ex, ey, ez);
+            texOrder[texCount++] = index;
+        } else {
+            sphere(dx, dy, dz, b.radius, rgb);
+        }
     }
 
     /** The lit sphere: front-facing triangles, each shaded by its normal's sun term. */

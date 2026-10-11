@@ -1,10 +1,26 @@
 package dev.apoapsis.client.map3d;
 
+import static dev.apoapsis.client.map.Palette.BRASS;
+import static dev.apoapsis.client.map.Palette.COPPER;
+import static dev.apoapsis.client.map.Palette.INK;
+import static dev.apoapsis.client.map.Palette.INK_MUTED;
+import static dev.apoapsis.client.map.Palette.SIGNAL;
+import static dev.apoapsis.client.map.Palette.SIGNAL_EDGE;
+import static dev.apoapsis.client.map.Palette.STEEL_500;
+import static dev.apoapsis.client.map.Palette.STEEL_700;
+import static dev.apoapsis.client.map.Palette.STEEL_950;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.OrbitNow;
+import dev.apoapsis.client.MapClient;
 import dev.apoapsis.client.OverlayMessages;
+import dev.apoapsis.client.map.Fmt;
+import dev.apoapsis.client.map.Labels;
+import dev.apoapsis.client.map.Palette;
+import dev.apoapsis.client.map.TransferMath;
 import dev.apoapsis.client.ship.PilotKeys;
+import dev.apoapsis.client.sky.PlanetTextures;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.FlightRegime;
 import dev.apoapsis.net.OrbitStatePayload;
@@ -24,6 +40,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jspecify.annotations.Nullable;
@@ -31,8 +48,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * The 3D system map: a view that orbits a focus (1 Verdance, 2 Pale, 3 the piloted ship) with free rotation, and zooms
  * with the wheel. The scene is drawn by {@link Scene3D} through a picture-in-picture ({@link Map3DPip}); labels and the
- * 2D overlays (readout, keys, warp, overlay messages, transfer card) are drawn after it as crisp text. Opened by the
- * {@code apoapsis.map3d} system property (see {@link dev.apoapsis.client.MapClient}). Does not pause the game. Client only.
+ * 2D overlays (readout, keys, warp, overlay messages, transfer card) are drawn after it as crisp text. The map key opens
+ * it by default (see {@link dev.apoapsis.client.MapClient}; Tab flips to the 2D map). It also holds the maneuver node
+ * ({@link ManeuverEditor}) and the site markers ({@link SiteMarkers}), and a click on a body or the ship focuses it.
+ * Does not pause the game. Client only.
  */
 public final class Map3DScreen extends Screen {
     private static final int RECOMPUTE_FRAMES = 10;
@@ -42,26 +61,25 @@ public final class Map3DScreen extends Screen {
     private static final double SYSTEM_DISTANCE_M = 4 * MeridianSystem.PALE.orbitRadius;
     private static final double MAX_DISTANCE_M = 1e8;
     private static final double MIN_DISTANCE_M = 2000;
-    /** Share of the gap closed each frame by the focus and by the distance: smooth changes. */
-    private static final double FOCUS_EASE = 0.2;
-    private static final double DISTANCE_EASE = 0.15;
+    /** Time constants, s, of the jump a focus change or a new prediction leaves in the view, and of the zoom. */
+    private static final double FOCUS_TAU_S = 0.12;
+    private static final double DISTANCE_TAU_S = 0.1;
+    /** A press that moves less than this is a click, px. */
+    private static final double CLICK_SLOP_PX = 4;
+    /** How close a click must be to the ship's mark to focus it, px, and the smallest disc a click on a body hits. */
+    private static final double SHIP_PICK_PX = 9;
+    private static final double MIN_BODY_PICK_PX = 6;
     private static final double MARGIN_PX = 24;
     private static final int LABEL_H = 9;
     private static final int LINE_STEP = 12;
-    private static final int KEYCAP_ROW_W = 560;
+    /** The controls are a column of keycaps, bottom left: its width, rows and row step, px. */
+    private static final int HINT_W = 150;
+    private static final int HINT_ROWS = 8;
+    private static final int HINT_STEP = 17;
     /** Half the side of a mark's square, px. */
     private static final int MARK_HALF_PX = 2;
 
-    private static final int STEEL_950 = 0xFF0D1013;
-    private static final int STEEL_700 = 0xFF2A323B;
-    private static final int STEEL_500 = 0xFF56616D;
-    private static final int INK = 0xFFE8E2D4;
-    private static final int INK_MUTED = 0xFFA39C8E;
-    private static final int BRASS = 0xFFC9A25A;
-    private static final int COPPER = 0xFFC46F3E;
-    private static final int SIGNAL = 0xFF3AD1C1;
-    private static final int SIGNAL_EDGE = 0xFF1F4F4A;
-    private static final int INK_RGB = 0xE8E2D4;
+    private static final int INK_RGB = Palette.INK & 0xFFFFFF;
 
     private static final float[] STAR_X = new float[STAR_COUNT];
     private static final float[] STAR_Y = new float[STAR_COUNT];
@@ -85,9 +103,22 @@ public final class Map3DScreen extends Screen {
     private boolean followChosen;
     /** The distance the camera eases toward; the wheel and the focus keys set it. */
     private double targetDistance = SYSTEM_DISTANCE_M;
-    /** The focus in the root frame, eased toward its target. */
+    /**
+     * The view's centre in the root frame: the followed point exactly, plus {@link #focusOffset}. The offset is what is
+     * left of a jump (a focus change, or the prediction being recomputed) and decays, so the focus is centred at rest
+     * and glides on a change, whatever the time warp.
+     */
     private Vec3d focus = Vec3d.ZERO;
+    private Vec3d focusOffset = Vec3d.ZERO;
     private boolean snapFocus = true;
+    private long lastFrameNanos;
+    private final ManeuverEditor editor = new ManeuverEditor();
+    private final boolean[] textured = new boolean[2];
+    private final Identifier[] mapIds = new Identifier[2];
+    private double pressX;
+    private double pressY;
+    private boolean pressMoved;
+    private @Nullable Follow pressTarget;
     private OrbitPlot plot;
     private OrbitStatePayload plotSource;
     private long frame;
@@ -130,7 +161,7 @@ public final class Map3DScreen extends Screen {
         Labels labels = new Labels();
         int bottomY = h - 22;
         // The bottom chrome claims its boxes first so no label lands on it, and is drawn last.
-        labels.reserve(8, bottomY - 6, 8 + KEYCAP_ROW_W, bottomY + LABEL_H + 6);
+        labels.reserve(8, bottomY - (HINT_ROWS - 1) * HINT_STEP - 6, 8 + HINT_W, bottomY + LABEL_H + 6);
         labels.reserve(w / 2 - 120, bottomY - 6, w / 2 + 120, bottomY + LABEL_H + 6);
         Component overlay = OverlayMessages.current(Minecraft.getInstance());
         OrbitStatePayload p = ClientState.orbit;
@@ -143,7 +174,12 @@ public final class Map3DScreen extends Screen {
         CelestialBody body = MeridianSystem.byId(BodyId.byOrdinal(p.body()).id);
         nowUt = OrbitNow.utNow(p, partialTick);
         if (plot == null || (plotSource != p && frame - lastComputeFrame >= RECOMPUTE_FRAMES)) {
+            // A new prediction moves the followed point a little: take that into the offset, so the view does not jump.
+            Vec3d before = plot == null ? null : focusTarget(follow);
             plot = OrbitPlot.compute(body, stateOf(p), p.ut(), nowUt);
+            if (before != null) {
+                focusOffset = focusOffset.add(before.sub(focusTarget(follow)));
+            }
             plotSource = p;
             lastComputeFrame = frame;
         }
@@ -156,34 +192,69 @@ public final class Map3DScreen extends Screen {
         clampTarget();
         easeView();
 
-        scene.build(camera, plot, nowUt, w, h, focus);
+        editor.begin(scene, plot, nowUt, orbit, this::screenOf, OrbitCamera.focal(h), shipBurn(), mouseX, mouseY);
+        for (int k = 0; k < 2; k++) {
+            mapIds[k] = PlanetTextures.texture(k == 0 ? MeridianSystem.VERDANCE.id : MeridianSystem.PALE.id);
+            textured[k] = mapIds[k] != null;
+        }
+        scene.build(camera, plot, editor.predicted(), nowUt, w, h, focus, textured);
+        // The textured bodies are a layer of their own, under the flat scene (haze, orbits, ship).
+        if (scene.texCount > 0) {
+            graphics.submitPictureInPictureRenderState(new Map3DPip.BodiesState(0, 0, w, h, scene, mapIds));
+        }
         graphics.submitPictureInPictureRenderState(new Map3DPip.State(0, 0, w, h, scene));
 
         drawTopLeft(graphics, labels, p, body, orbit);
         drawTime(graphics, labels, w);
-        drawBodyLabels(graphics, labels);
-        drawMarks(graphics, labels);
-        Card card = transferCard(p, body, orbit);
+        // The cards claim their boxes first, so no label lands under one. The node's sits lowest; the transfer's above.
+        ManeuverEditor.Box nodeBox = editor.cardBox(font(), w, h, 0);
+        int lift = nodeBox == null ? 0 : nodeBox.y1() - nodeBox.y0() + 6;
+        Card card = transferCard(p, body, orbit, lift);
+        if (nodeBox != null) {
+            labels.reserve(nodeBox.x0() - 2, nodeBox.y0() - 2, nodeBox.x1() + 2, nodeBox.y1() + 2);
+        }
         if (card != null) {
             labels.reserve(card.x0() - 2, card.y0() - 2, card.x1() + 2, card.y1() + 2);
         }
+        editor.draw(graphics, font(), labels, w, h);
+        drawBodyLabels(graphics, labels);
+        drawMarks(graphics, labels);
+        SiteMarkers.draw(graphics, font(), labels, w, h, nowUt, camera, focus, this::screenOf);
         drawBottom(graphics, overlay, bottomY, w, p);
+        if (nodeBox != null) {
+            editor.drawCard(graphics, font(), nodeBox);
+        }
         if (card != null) {
             drawCard(graphics, card);
         }
     }
 
-    /** Eases the focus toward the followed point, and the distance toward its target in log space. */
+    /** What the piloted ship can do, for the burn time; null when the player rides no ship. */
+    private static ManeuverEditor.@Nullable ShipBurn shipBurn() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && mc.player.getVehicle() instanceof ShipEntity ship) {
+            return new ManeuverEditor.ShipBurn(ship.massKg(), ship.ispSeconds(0), ship.maxThrustN(0), ship.deltaV(0));
+        }
+        return null;
+    }
+
+    /**
+     * Moves the offset toward zero and the distance toward its target in log space, by the time since the last frame,
+     * and puts the focus on the followed point plus what is left of the offset.
+     */
     private void easeView() {
-        Vec3d goal = focusTarget(follow);
+        long now = System.nanoTime();
+        double dt = lastFrameNanos == 0 ? 0 : Math.min(0.1, (now - lastFrameNanos) / 1e9);
+        lastFrameNanos = now;
         if (snapFocus) {
-            focus = goal;
+            focusOffset = Vec3d.ZERO;
             snapFocus = false;
         } else {
-            focus = focus.add(goal.sub(focus).scale(FOCUS_EASE));
+            focusOffset = focusOffset.scale(Math.exp(-dt / FOCUS_TAU_S));
         }
+        focus = focusTarget(follow).add(focusOffset);
         double d = camera.distance();
-        double logD = Math.log(d) + (Math.log(targetDistance) - Math.log(d)) * DISTANCE_EASE;
+        double logD = Math.log(d) + (Math.log(targetDistance) - Math.log(d)) * (1 - Math.exp(-dt / DISTANCE_TAU_S));
         camera.setDistance(Math.exp(logD));
     }
 
@@ -224,6 +295,8 @@ public final class Map3DScreen extends Screen {
         if (f == follow || plot == null) {
             return;
         }
+        // The view stays where it is and glides to the new focus: the offset is the way back.
+        focusOffset = focus.sub(focusTarget(f));
         follow = f;
         targetDistance = defaultDistance(f);
         clampTarget();
@@ -347,14 +420,20 @@ public final class Map3DScreen extends Screen {
 
     /** A label at (x, y) when it is on screen and clear of every label already placed. */
     private boolean label(GuiGraphicsExtractor g, Labels labels, Component text, int x, int y, int argb) {
-        int w = font().width(text);
+        return label(g, font(), labels, viewW, viewH, text, x, y, argb);
+    }
+
+    /** As {@link #label(GuiGraphicsExtractor, Labels, Component, int, int, int)}, for the overlays outside this screen. */
+    static boolean label(GuiGraphicsExtractor g, net.minecraft.client.gui.Font font, Labels labels, int viewW, int viewH,
+            Component text, int x, int y, int argb) {
+        int w = font.width(text);
         if (x + w < 0 || y + LABEL_H < 0 || x > viewW || y > viewH) {
             return false;
         }
         if (!labels.claim(x - 1, y - 1, x + w + 1, y + LABEL_H + 1)) {
             return false;
         }
-        g.text(font(), text, x, y, argb, false);
+        g.text(font, text, x, y, argb, false);
         return true;
     }
 
@@ -428,7 +507,7 @@ public final class Map3DScreen extends Screen {
      * The transfer card, on a predicted encounter: "TRANSFER · VERDANCE TO PALE", the countdown, and the burn's delta-v
      * for a Hohmann transfer to Pale's orbit. Null when there is no encounter or the ship is not orbiting Verdance.
      */
-    private @Nullable Card transferCard(OrbitStatePayload p, CelestialBody body, boolean orbit) {
+    private @Nullable Card transferCard(OrbitStatePayload p, CelestialBody body, boolean orbit, int lift) {
         if (body != MeridianSystem.VERDANCE || !orbit) {
             return null;
         }
@@ -444,7 +523,7 @@ public final class Map3DScreen extends Screen {
         }
         Component timer = Component.translatable("apoapsis.map.card.encounter", clock(encounter - nowUt));
         StateVector s = plot.shipStateAt(nowUt);
-        double dv = hohmannDeltaV(body.mu, s.r().length(), s.v().length(), MeridianSystem.PALE.orbitRadius);
+        double dv = TransferMath.hohmannDeltaV(body.mu, s.r().length(), s.v().length(), MeridianSystem.PALE.orbitRadius);
         Component burn = Double.isFinite(dv) ? Component.translatable("apoapsis.map.card.burn", speedText(dv)) : null;
         Component title = Component.translatable("apoapsis.map.card.title",
                 Component.translatable("apoapsis.map.body.verdance"), Component.translatable("apoapsis.map.body.pale"));
@@ -453,7 +532,7 @@ public final class Map3DScreen extends Screen {
             w = Math.max(w, font().width(burn));
         }
         int x1 = viewW - 16;
-        int y1 = viewH - 16;
+        int y1 = viewH - 16 - lift;
         int h = 3 * LINE_STEP + 10;
         return new Card(title, timer, burn, x1 - w - 20, y1 - h, x1, y1);
     }
@@ -470,37 +549,27 @@ public final class Map3DScreen extends Screen {
         }
     }
 
-    /** The Hohmann delta-v from radius r1 at speed v1 to a circular orbit of radius r2; NaN for an unbound orbit. */
-    static double hohmannDeltaV(double mu, double r1, double v1, double r2) {
-        if (!(mu > 0 && r1 > 0 && r2 > 0 && v1 >= 0) || !Double.isFinite(v1)) {
-            return Double.NaN;
-        }
-        double a = (r1 + r2) / 2;
-        double transferAtR1 = Math.sqrt(mu * (2 / r1 - 1 / a));
-        double transferAtR2 = Math.sqrt(mu * (2 / r2 - 1 / a));
-        double circularAtR2 = Math.sqrt(mu / r2);
-        return Math.abs(transferAtR1 - v1) + Math.abs(circularAtR2 - transferAtR2);
-    }
-
     /**
-     * Bottom: the controls as keycaps, bottom left; the warp strip bottom centre when piloting; an overlay message in
-     * the keycaps' place.
+     * Bottom: the controls as a column of keycaps, bottom left, the last row on {@code y}; the warp strip bottom centre
+     * when piloting; an overlay message in the bottom keycap row's place.
      */
     private void drawBottom(GuiGraphicsExtractor g, @Nullable Component overlay, int y, int w,
             @Nullable OrbitStatePayload p) {
         if (overlay != null) {
             g.text(font(), overlay, 16, y, INK, false);
         } else {
-            int x = 16;
-            x = hint(g, x, y, Component.translatable("apoapsis.map.key.zoom"), Component.literal("SCROLL"));
-            x = hint(g, x, y, Component.translatable("apoapsis.map3d.key.rotate"), Component.literal("DRAG"));
-            x = hint(g, x, y, Component.translatable("apoapsis.map.key.focus"),
+            int row = y - (HINT_ROWS - 1) * HINT_STEP;
+            hint(g, 16, row, Component.translatable("apoapsis.map.key.zoom"), Component.literal("SCROLL"));
+            hint(g, 16, row += HINT_STEP, Component.translatable("apoapsis.map3d.key.rotate"), Component.literal("DRAG"));
+            hint(g, 16, row += HINT_STEP, Component.translatable("apoapsis.map.key.focus"),
                     Component.literal("1"), Component.literal("2"), Component.literal("3"));
-            x = hint(g, x, y, Component.translatable("apoapsis.map.key.warp"),
+            hint(g, 16, row += HINT_STEP, Component.translatable("apoapsis.map3d.key.node"), Component.literal("CLICK"));
+            hint(g, 16, row += HINT_STEP, Component.translatable("apoapsis.map3d.key.warp"),
                     PilotKeys.WARP_UP.getTranslatedKeyMessage(), PilotKeys.WARP_DOWN.getTranslatedKeyMessage());
-            x = hint(g, x, y, Component.translatable("apoapsis.map3d.key.cut"),
+            hint(g, 16, row += HINT_STEP, Component.translatable("apoapsis.map3d.key.cut"),
                     PilotKeys.THROTTLE_CUT.getTranslatedKeyMessage());
-            hint(g, x, y, Component.translatable("apoapsis.map.key.close"),
+            hint(g, 16, row += HINT_STEP, Component.translatable("apoapsis.map3d.key.map2d"), Component.literal("TAB"));
+            hint(g, 16, y, Component.translatable("apoapsis.map.key.close"),
                     PilotKeys.SYSTEM_MAP.getTranslatedKeyMessage());
         }
         if (p != null) {
@@ -543,7 +612,7 @@ public final class Map3DScreen extends Screen {
     }
 
     /** A rectangle outline, one pixel wide, from (x0, y0) to (x1, y1). */
-    private static void frame(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, int argb) {
+    static void frame(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, int argb) {
         g.fill(x0, y0, x1 + 1, y0 + 1, argb);
         g.fill(x0, y1, x1 + 1, y1 + 1, argb);
         g.fill(x0, y0, x0 + 1, y1 + 1, argb);
@@ -555,11 +624,11 @@ public final class Map3DScreen extends Screen {
     }
 
     private static Component spaced(String s) {
-        return Component.literal(Fmt3d.spaced(s));
+        return Component.literal(Fmt.spaced(s));
     }
 
     private static Component distance(double m) {
-        return Component.literal(Fmt3d.distance(m));
+        return Component.literal(Fmt.distance(m));
     }
 
     private static Component clock(double seconds) {
@@ -571,10 +640,7 @@ public final class Map3DScreen extends Screen {
     }
 
     private static String warpText(float w) {
-        if (w == Math.rint(w)) {
-            return "x" + (long) w;
-        }
-        return String.format(Locale.ROOT, "x%.1f", w);
+        return Fmt.warp(w);
     }
 
     @Override
@@ -607,6 +673,13 @@ public final class Map3DScreen extends Screen {
             setFollow(Follow.SHIP);
             return true;
         }
+        if (key == InputConstants.KEY_DELETE || key == InputConstants.KEY_BACKSPACE) {
+            return editor.deleteNode();
+        }
+        if (key == InputConstants.KEY_TAB) {
+            MapClient.switchMap();
+            return true;
+        }
         return super.keyPressed(event);
     }
 
@@ -622,14 +695,112 @@ public final class Map3DScreen extends Screen {
         return true;
     }
 
-    /** A drag with the left button turns the view about the screen's axes: free rotation, no pole. */
+    /**
+     * A press. The maneuver editor goes first (a handle, the node, the orbit line); else a left press on the ship or a
+     * body is remembered, and focuses it on release if the pointer did not move.
+     */
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        pressX = event.x();
+        pressY = event.y();
+        pressMoved = false;
+        pressTarget = null;
+        if (editor.mousePressed(event.x(), event.y(), event.button())) {
+            return true;
+        }
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && plot != null) {
+            pressTarget = targetAt(event.x(), event.y());
+        }
+        return true;
+    }
+
+    /** A drag: the editor's (a handle or the node), else with the left button the view turns, free of any pole. */
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        if (editor.mouseDragged(dx, dy, event.hasShiftDown())) {
+            return true;
+        }
         if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
             return false;
         }
+        if (Math.hypot(event.x() - pressX, event.y() - pressY) > CLICK_SLOP_PX) {
+            pressMoved = true;
+        }
         camera.drag(dx, dy);
         return true;
+    }
+
+    @Override
+    public boolean mouseReleased(MouseButtonEvent event) {
+        boolean took = editor.mouseReleased(event.x(), event.y(), event.button());
+        if (!took && event.button() == InputConstants.MOUSE_BUTTON_LEFT && !pressMoved && pressTarget != null) {
+            setFollow(pressTarget);
+        }
+        pressTarget = null;
+        return true;
+    }
+
+    /** The ship's mark or the nearest body's disc under the pointer, or null. The ship wins; of two bodies the nearer. */
+    private @Nullable Follow targetAt(double mx, double my) {
+        double[] ship = screenOf(plot.shipRootAt(nowUt));
+        if (ship != null && Math.hypot(ship[0] - mx, ship[1] - my) <= SHIP_PICK_PX) {
+            return Follow.SHIP;
+        }
+        Follow best = null;
+        double bestDepth = Double.MAX_VALUE;
+        for (Follow f : new Follow[] {Follow.VERDANCE, Follow.PALE}) {
+            CelestialBody b = f == Follow.VERDANCE ? MeridianSystem.VERDANCE : MeridianSystem.PALE;
+            double[] s = screenOf(OrbitPlot.rootPosition(b, nowUt));
+            if (s == null) {
+                continue;
+            }
+            double radiusPx = Math.max(MIN_BODY_PICK_PX, OrbitCamera.focal(viewH) * b.radius / s[2]);
+            if (Math.hypot(s[0] - mx, s[1] - my) <= radiusPx && s[2] < bestDepth) {
+                best = f;
+                bestDepth = s[2];
+            }
+        }
+        return best;
+    }
+
+    /** The editor, for {@link Map3DScript}. */
+    ManeuverEditor editor() {
+        return editor;
+    }
+
+    /** The screen position of the ship's orbit {@code seconds} from now, or null: for {@link Map3DScript}. */
+    double @Nullable [] orbitPointAhead(double seconds) {
+        if (plot == null) {
+            return null;
+        }
+        StateVector st = plot.patches.get(plot.current).stateAt(nowUt + seconds);
+        return screenOf(OrbitPlot.rootPosition(plot.shipBody(), nowUt).add(st.r()));
+    }
+
+    /** The screen position of body 0 Verdance or 1 Pale, or null: for {@link Map3DScript}. */
+    double @Nullable [] bodyScreen(int which) {
+        if (plot == null) {
+            return null;
+        }
+        return screenOf(OrbitPlot.rootPosition(which == 0 ? MeridianSystem.VERDANCE : MeridianSystem.PALE, nowUt));
+    }
+
+    /** How far the followed point is from the middle of the view, px: zero once a focus change has settled. */
+    double centringErrorPx() {
+        double[] s = plot == null ? null : screenOf(focusTarget(follow));
+        return s == null ? Double.NaN : Math.hypot(s[0] - viewW / 2.0, s[1] - viewH / 2.0);
+    }
+
+    /** The followed focus's name: for {@link Map3DScript}. */
+    String followName() {
+        return follow.name();
+    }
+
+    /** Focuses 0 Verdance, 1 Pale or 2 the ship, at distance {@code metres} from it: for {@link Map3DScript}. */
+    void focusFor(int which, double metres) {
+        setFollow(Follow.values()[which]);
+        targetDistance = metres;
+        clampTarget();
     }
 
     /** The wheel zooms, exponentially: the target distance moves by a fixed factor per tick. */
@@ -638,24 +809,5 @@ public final class Map3DScreen extends Screen {
         targetDistance *= Math.exp(-scrollY * OrbitCamera.ZOOM_PER_TICK);
         clampTarget();
         return true;
-    }
-
-    /** A label box claim: each frame starts empty, a label is drawn only when its box meets none already claimed. */
-    static final class Labels {
-        private final java.util.List<int[]> boxes = new java.util.ArrayList<>();
-
-        boolean claim(int x0, int y0, int x1, int y1) {
-            for (int[] b : boxes) {
-                if (x0 < b[2] && b[0] < x1 && y0 < b[3] && b[1] < y1) {
-                    return false;
-                }
-            }
-            boxes.add(new int[] {x0, y0, x1, y1});
-            return true;
-        }
-
-        void reserve(int x0, int y0, int x1, int y1) {
-            boxes.add(new int[] {x0, y0, x1, y1});
-        }
     }
 }

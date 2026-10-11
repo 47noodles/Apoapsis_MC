@@ -52,6 +52,7 @@ public final class TestDriver {
             case "ascent" -> new TestDriverAscent();
             case "pale" -> new TestDriverPale();
             case "land" -> new TestDriverLand();
+            case "map" -> new TestDriverMap();
             default -> null;
         };
     }
