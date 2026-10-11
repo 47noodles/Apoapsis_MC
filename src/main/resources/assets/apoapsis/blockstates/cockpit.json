@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "apoapsis:block/cockpit",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "apoapsis:block/cockpit"
+    },
+    "facing=south": {
+      "model": "apoapsis:block/cockpit",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "apoapsis:block/cockpit",
+      "y": 270
+    }
+  }
+}

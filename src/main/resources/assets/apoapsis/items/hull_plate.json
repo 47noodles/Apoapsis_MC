@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "apoapsis:block/hull_plate"
+  }
+}

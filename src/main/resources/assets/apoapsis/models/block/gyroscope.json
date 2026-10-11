@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "apoapsis:block/gyroscope_top",
+    "side": "apoapsis:block/gyroscope_side"
+  }
+}

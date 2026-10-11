@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "apoapsis:block/spark_thruster_side",
+    "down": "apoapsis:block/spark_thruster_powerhead",
+    "up": "apoapsis:block/spark_thruster_exhaust",
+    "north": "apoapsis:block/spark_thruster_side",
+    "south": "apoapsis:block/spark_thruster_side",
+    "east": "apoapsis:block/spark_thruster_side",
+    "west": "apoapsis:block/spark_thruster_side"
+  }
+}

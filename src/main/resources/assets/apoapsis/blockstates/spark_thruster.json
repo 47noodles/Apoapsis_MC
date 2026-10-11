@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "apoapsis:block/spark_thruster",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "apoapsis:block/spark_thruster",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north": {
+      "model": "apoapsis:block/spark_thruster",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "apoapsis:block/spark_thruster",
+      "x": 90,
+      "y": 180
+    },
+    "facing=up": {
+      "model": "apoapsis:block/spark_thruster"
+    },
+    "facing=west": {
+      "model": "apoapsis:block/spark_thruster",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

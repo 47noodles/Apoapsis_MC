@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "apoapsis:block/cockpit_side",
+    "down": "apoapsis:block/cockpit_side",
+    "up": "apoapsis:block/cockpit_top",
+    "north": "apoapsis:block/cockpit_front",
+    "south": "apoapsis:block/cockpit_back",
+    "east": "apoapsis:block/cockpit_side",
+    "west": "apoapsis:block/cockpit_side"
+  }
+}
