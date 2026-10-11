@@ -1,0 +1,179 @@
+package dev.apoapsis.test;
+
+import dev.apoapsis.Apoapsis;
+import dev.apoapsis.ages.Ages;
+import dev.apoapsis.flight.BodyId;
+import dev.apoapsis.flight.Flight;
+import dev.apoapsis.flight.FlightHooks;
+import dev.apoapsis.grid.FuelTankBlockEntity;
+import dev.apoapsis.ship.ShipAssembler;
+import dev.apoapsis.ship.ShipEntity;
+import dev.apoapsis.test.ApoapsisGameTest.ShipCleanup;
+import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.TestEnvironmentDefinition;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
+
+/**
+ * GameTests for the prototype, written against docs/dev/prototype-contract.md. They are registered from code when
+ * {@link RegisterGameTestsEvent} fires (dev runs and {@code ./gradlew runGameTestServer}), so no JSON is needed.
+ */
+@EventBusSubscriber(modid = Apoapsis.MODID)
+public final class GameTests {
+    private GameTests() {}
+
+    @SubscribeEvent
+    public static void onRegisterGameTests(RegisterGameTestsEvent event) {
+        Holder<TestEnvironmentDefinition<?>> environment = event.registerEnvironment(
+                TestSupport.id("default"), new TestEnvironmentDefinition.AllOf());
+        event.registerTest(TestSupport.id("ages_default_and_set"),
+                new ApoapsisGameTest("ages_default_and_set", environment, 40, GameTests::agesDefaultAndSet));
+        event.registerTest(TestSupport.id("assembly_roundtrip"),
+                new ApoapsisGameTest("assembly_roundtrip", environment, 600, GameTests::assemblyRoundtrip));
+        event.registerTest(TestSupport.id("ship_falls_without_thrust"),
+                new ApoapsisGameTest("ship_falls_without_thrust", environment, 400, GameTests::shipFallsWithoutThrust));
+        event.registerTest(TestSupport.id("ship_climbs_with_thrust"),
+                new ApoapsisGameTest("ship_climbs_with_thrust", environment, 120, GameTests::shipClimbsWithThrust));
+        event.registerTest(TestSupport.id("orbit_spawn"),
+                new ApoapsisGameTest("orbit_spawn", environment, 40, GameTests::orbitSpawn));
+    }
+
+    /**
+     * Age 0 by default, Ages.setAge(4) takes effect, and the gates for the spark thruster and hull plate hold.
+     * makeMockServerPlayerInLevel is deprecated, but its replacement has no network connection, so Ages.setAge could
+     * not sync to it; this one places a real player in the level.
+     */
+    @SuppressWarnings("removal")
+    private static void agesDefaultAndSet(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        int start = Ages.getAge(player);
+        helper.assertTrue(start == 0,
+                "a new player should start at Age 0 (sandbox is off by default), but Ages.getAge returned " + start);
+
+        Ages.setAge(player, 4);
+        int after = Ages.getAge(player);
+        helper.assertTrue(after == 4, "after Ages.setAge(player, 4), getAge returned " + after + ", expected 4");
+
+        int thruster = Ages.requiredAge(new ItemStack(TestSupport.item(helper, "spark_thruster")));
+        helper.assertTrue(thruster == 4, "requiredAge(apoapsis:spark_thruster) is " + thruster + ", expected 4");
+
+        int hull = Ages.requiredAge(new ItemStack(TestSupport.item(helper, "hull_plate")));
+        helper.assertTrue(hull == 3, "requiredAge(apoapsis:hull_plate) is " + hull + ", expected 3");
+        helper.succeed();
+    }
+
+    /**
+     * Assembles the three blocks standing on the floor, checks the ship and the emptied world, waits for the ship to
+     * land, then disassembles it and checks the blocks and the tank's 600 kg are back.
+     */
+    private static void assemblyRoundtrip(GameTestHelper helper, ShipCleanup ships) {
+        TestSupport.stoneFloor(helper);
+        helper.setBlock(TestSupport.THRUSTER, TestSupport.withFacing(helper, TestSupport.block(helper, "spark_thruster"), "down"));
+        helper.setBlock(TestSupport.TANK, TestSupport.block(helper, "fuel_tank"));
+        helper.getBlockEntity(TestSupport.TANK, FuelTankBlockEntity.class).setFuelKg(600.0);
+        helper.setBlock(TestSupport.COCKPIT, TestSupport.withFacing(helper, TestSupport.block(helper, "cockpit"), "north"));
+
+        ShipAssembler.Result result = ShipAssembler.assemble(helper.getLevel(), helper.absolutePos(TestSupport.COCKPIT), null);
+        helper.assertTrue(result.ship() != null, "ShipAssembler.assemble failed: " + TestSupport.message(result.error()));
+        ShipEntity ship = ships.track(result.ship());
+        helper.assertTrue(ship.isAlive() && ship.isAddedToLevel(), "the assembled ShipEntity is not alive in the level");
+        helper.assertTrue(ship.getStructure().size() == 3,
+                "the ship has " + ship.getStructure().size() + " blocks, expected 3");
+        helper.assertTrue(Math.abs(ship.fuelKg() - 600.0) <= 0.01,
+                "the ship has " + ship.fuelKg() + " kg of fuel after assembly, expected 600");
+        for (BlockPos pos : List.of(TestSupport.THRUSTER, TestSupport.TANK, TestSupport.COCKPIT)) {
+            BlockState state = helper.getBlockState(pos);
+            helper.assertTrue(state.isAir(), "the block at " + pos + " should be air after assembly, but is " + state);
+        }
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(ship.isLanded(),
+                        "the ship has not landed on the floor; entity y is " + ship.getY()))
+                .thenExecute(() -> {
+                    Component error = ShipAssembler.disassemble(ship);
+                    helper.assertTrue(error == null,
+                            "ShipAssembler.disassemble refused a landed ship: " + TestSupport.message(error));
+                    assertBlockAt(helper, TestSupport.THRUSTER, "spark_thruster", "down");
+                    assertBlockAt(helper, TestSupport.TANK, "fuel_tank", null);
+                    FuelTankBlockEntity tank = helper.getBlockEntity(TestSupport.TANK, FuelTankBlockEntity.class);
+                    helper.assertTrue(Math.abs(tank.getFuelKg() - 600.0) <= 0.01,
+                            "the tank holds " + tank.getFuelKg() + " kg after disassembly, expected 600");
+                    assertBlockAt(helper, TestSupport.COCKPIT, "cockpit", "north");
+                })
+                .thenSucceed();
+    }
+
+    /** With no throttle, a ship 10 blocks up is lower after 60 ticks and then lands on the floor. */
+    private static void shipFallsWithoutThrust(GameTestHelper helper, ShipCleanup ships) {
+        TestSupport.stoneFloor(helper);
+        ShipEntity ship = ships.track(TestSupport.spawnAboveFloor(helper, TestSupport.threeBlockShip(helper, 600.0), 10));
+        ship.setThrottle(0f);
+        double startY = ship.getY();
+
+        helper.startSequence()
+                .thenExecuteAfter(60, () -> {
+                    helper.assertTrue(ship.isAlive(), "the ship was removed during its fall");
+                    helper.assertTrue(ship.getY() < startY,
+                            "the ship did not fall: y went from " + startY + " to " + ship.getY() + " in 60 ticks");
+                })
+                .thenWaitUntil(() -> helper.assertTrue(ship.isLanded(),
+                        "the ship has not landed on the floor; entity y is " + ship.getY()))
+                .thenSucceed();
+    }
+
+    /** At full throttle, the same ship with 1,200 kg of fuel is higher after 40 ticks and has burned fuel. */
+    private static void shipClimbsWithThrust(GameTestHelper helper, ShipCleanup ships) {
+        TestSupport.stoneFloor(helper);
+        ShipEntity ship = ships.track(TestSupport.spawnAboveFloor(helper, TestSupport.threeBlockShip(helper, 1200.0), 10));
+        ship.setThrottle(1f);
+        double startY = ship.getY();
+
+        helper.startSequence()
+                .thenExecuteAfter(40, () -> {
+                    helper.assertTrue(ship.getY() > startY,
+                            "the ship did not climb at full throttle: y went from " + startY + " to " + ship.getY()
+                                    + " in 40 ticks");
+                    helper.assertTrue(ship.fuelKg() < 1200.0,
+                            "no fuel was burned at full throttle: " + ship.fuelKg() + " kg left of 1200");
+                })
+                .thenSucceed();
+    }
+
+    /** Flight.spawnInOrbit puts a ship in apoapsis:orbit, where FlightHooks reports it as orbital. */
+    private static void orbitSpawn(GameTestHelper helper, ShipCleanup ships) {
+        ShipEntity ship = Flight.spawnInOrbit(
+                helper.getLevel().getServer(), TestSupport.threeBlockShip(helper, 600.0), BodyId.VERDANCE, 16000.0, 0.0);
+        helper.assertTrue(ship != null, "Flight.spawnInOrbit returned null for Verdance at 16 km");
+        ships.track(ship);
+
+        ResourceKey<Level> orbit = ResourceKey.create(Registries.DIMENSION, TestSupport.id("orbit"));
+        helper.assertTrue(ship.level().dimension().equals(orbit),
+                "the ship spawned in " + ship.level().dimension().identifier() + ", expected apoapsis:orbit");
+        helper.assertTrue(FlightHooks.environment(ship).orbital(),
+                "FlightHooks.environment(ship).orbital() is false for a ship in apoapsis:orbit");
+        helper.succeed();
+    }
+
+    /** Asserts that the block at a relative position is the apoapsis block {@code path} with the given facing. */
+    private static void assertBlockAt(GameTestHelper helper, BlockPos pos, String path, String facing) {
+        BlockState state = helper.getBlockState(pos);
+        helper.assertTrue(state.is(TestSupport.block(helper, path)),
+                "expected apoapsis:" + path + " at " + pos + " after disassembly, found " + state);
+        if (facing != null) {
+            String found = TestSupport.facingOf(state);
+            helper.assertTrue(facing.equals(found),
+                    "expected facing " + facing + " on apoapsis:" + path + " at " + pos + ", found " + found);
+        }
+    }
+}
