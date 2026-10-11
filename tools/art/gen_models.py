@@ -6,6 +6,7 @@ Run from the repo root: python tools/art/gen_models.py
 Formats follow the vanilla 26.3 files: blockstates use "variants", item definitions
 under assets/<ns>/items/ use {"model": {"type": "minecraft:model", ...}}.
 Deterministic: unchanged files are not rewritten. Textures come from gen_textures.py.
+The shaped models (spark_thruster bell, nose_cone, fin) are written by hand and not generated here.
 """
 import json
 from pathlib import Path
@@ -51,6 +52,9 @@ BLOCKSTATES = {
     "fuel_tank": single(f"{NS}:block/fuel_tank"),
     "cockpit": faced("facing", FURNACE_LIKE, f"{NS}:block/cockpit"),
     "spark_thruster": faced("facing", BARREL_LIKE, f"{NS}:block/spark_thruster"),
+    "nose_cone": faced("facing", BARREL_LIKE, f"{NS}:block/nose_cone"),
+    "fin": faced("facing", FURNACE_LIKE, f"{NS}:block/fin"),
+    "window": single(f"{NS}:block/window"),
 }
 
 MODELS = {
@@ -91,17 +95,17 @@ MODELS = {
             "west": tex("cockpit_side"),
         },
     },
-    # Unrotated: exhaust points up. Rotated by the blockstate to follow the facing.
-    "block/spark_thruster": {
+    # Hull block with portholes on its four sides.
+    "block/window": {
         "parent": "minecraft:block/cube",
         "textures": {
-            "particle": tex("spark_thruster_side"),
-            "down": tex("spark_thruster_powerhead"),
-            "up": tex("spark_thruster_exhaust"),
-            "north": tex("spark_thruster_side"),
-            "south": tex("spark_thruster_side"),
-            "east": tex("spark_thruster_side"),
-            "west": tex("spark_thruster_side"),
+            "particle": tex("window_side"),
+            "down": tex("hull_plate"),
+            "up": tex("hull_plate"),
+            "north": tex("window_side"),
+            "south": tex("window_side"),
+            "east": tex("window_side"),
+            "west": tex("window_side"),
         },
     },
     "item/hydrolox_canister": {
@@ -111,7 +115,8 @@ MODELS = {
 }
 
 # Items that use their block model.
-BLOCK_ITEMS = ["hull_plate", "cockpit", "gyroscope", "fuel_tank", "spark_thruster", "regolith"]
+BLOCK_ITEMS = ["hull_plate", "cockpit", "gyroscope", "fuel_tank", "spark_thruster", "nose_cone", "fin", "window",
+               "regolith"]
 ITEM_ONLY = ["hydrolox_canister"]
 
 

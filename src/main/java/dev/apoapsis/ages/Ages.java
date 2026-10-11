@@ -131,7 +131,8 @@ public final class Ages {
             return 0;
         }
         return switch (id.getPath()) {
-            case "hull_plate", "cockpit", "gyroscope", "fuel_tank", "spark_thruster", "hydrolox_canister" -> 3;
+            case "hull_plate", "cockpit", "gyroscope", "fuel_tank", "spark_thruster", "hydrolox_canister",
+                    "nose_cone", "fin", "window" -> 3;
             default -> 0;
         };
     }

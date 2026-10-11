@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "apoapsis:block/window_side",
+    "down": "apoapsis:block/hull_plate",
+    "up": "apoapsis:block/hull_plate",
+    "north": "apoapsis:block/window_side",
+    "south": "apoapsis:block/window_side",
+    "east": "apoapsis:block/window_side",
+    "west": "apoapsis:block/window_side"
+  }
+}

@@ -145,17 +145,24 @@ public final class ShipRenderCache {
     }
 
     /**
-     * True when all six neighbours are full, opaque, drawn blocks of the ship, so no face of the block can be seen.
-     * {@link BlockState#isSolidRender()} is true only for a full-cube occlusion shape, which excludes glass and the
-     * partial models (cockpit, thrusters, fuel tank). Air outside the ship is not solid.
+     * True when the block and all six neighbours are full, opaque cubes, so no face of the block can be seen. A block
+     * that is not a full opaque cube (glass, the thruster bell, nose cones, fins) is never culled, and it stops its
+     * neighbours from being culled, because it lets their faces show through. Air outside the ship is not solid.
      */
     static boolean isEnclosed(ShipStructure structure, BlockPos pos) {
+        if (!isOpaqueCube(structure.get(pos))) {
+            return false;
+        }
         for (Direction d : Direction.values()) {
-            BlockState neighbour = structure.get(pos.relative(d));
-            if (neighbour.getRenderShape() != RenderShape.MODEL || !neighbour.isSolidRender()) {
+            if (!isOpaqueCube(structure.get(pos.relative(d)))) {
                 return false;
             }
         }
         return true;
+    }
+
+    /** A model block whose occlusion shape is a full cube, so it hides what is behind it. */
+    private static boolean isOpaqueCube(BlockState state) {
+        return state.getRenderShape() == RenderShape.MODEL && state.isSolidRender();
     }
 }

@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "apoapsis:block/nose_cone",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "apoapsis:block/nose_cone",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north": {
+      "model": "apoapsis:block/nose_cone",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "apoapsis:block/nose_cone",
+      "x": 90,
+      "y": 180
+    },
+    "facing=up": {
+      "model": "apoapsis:block/nose_cone"
+    },
+    "facing=west": {
+      "model": "apoapsis:block/nose_cone",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

@@ -374,8 +374,80 @@ def hydrolox_canister():
     return c
 
 
+def hazard(x, y, period):
+    """Diagonal hazard stripe: brass or steel-950 by the pixel's diagonal band."""
+    return BRASS if ((x + y) // period) % 2 == 0 else STEEL_950
+
+
+def nose_cone_side():
+    c = Canvas(STEEL_800)
+    c.bevel(STEEL_600, STEEL_950)
+    c.hline(1, 14, 6, COPPER)                     # copper cooling band
+    c.hline(1, 14, 7, COPPER_DARK)
+    for y in (11, 12, 13):                        # hazard striping near the base
+        for x in range(1, 15):
+            c.put(x, y, hazard(x, y, 2))
+    for x, y in ((2, 2), (12, 2)):
+        c.rivet(x, y, STEEL_400, STEEL_500, STEEL_950)
+    return c
+
+
+def nose_cone_tip():
+    c = Canvas(STEEL_700)
+    c.bevel(STEEL_600, STEEL_950)
+
+    def cap(d, dx, dy):
+        if d < 1.6:
+            return BRASS_LIGHT
+        if d < 3.4:
+            return BRASS
+        if d < 5.2:
+            return BRASS_DEEP
+        if d < 6.6:
+            return STEEL_950
+        return None
+
+    c.disc(8.0, 8.0, cap)
+    return c
+
+
+def fin():
+    c = Canvas(STEEL_800)
+    c.bevel(STEEL_600, STEEL_950)
+    for y in range(10, 15):                       # hazard edge along the lower fin
+        for x in range(1, 15):
+            c.put(x, y, hazard(x, y, 3))
+    c.vline(8, 2, 9, STEEL_600)                   # spine
+    for x, y in ((3, 3), (12, 3)):
+        c.rivet(x, y, STEEL_400, STEEL_500, STEEL_950)
+    return c
+
+
+def window_side():
+    """Hull side with a porthole: brass rim, translucent glass centre (alpha in the glass pixels)."""
+    c = Canvas(STEEL_800)
+    c.bevel(STEEL_600, STEEL_950)
+
+    def porthole(d, dx, dy):
+        if d < 4.0:
+            glass = SIGNAL_MID if dx + dy < -2.0 else SIGNAL_EDGE
+            return glass[:3] + (150,)
+        if d < 5.2:
+            return BRASS_DEEP
+        if d < 6.2:
+            return STEEL_950
+        return None
+
+    c.disc(8.0, 8.0, porthole)
+    return c
+
+
 TEXTURES = [
     ("block/hull_plate", hull_plate),
+    ("block/nose_cone_side", nose_cone_side),
+    ("block/nose_cone_tip", nose_cone_tip),
+    ("block/fin", fin),
+    ("block/window_side", window_side),
     ("block/cockpit_front", cockpit_front),
     ("block/cockpit_side", cockpit_side),
     ("block/cockpit_top", cockpit_top),

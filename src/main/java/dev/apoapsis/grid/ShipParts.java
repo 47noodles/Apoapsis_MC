@@ -21,6 +21,10 @@ public final class ShipParts {
     private static final double FUEL_TANK_DRY_MASS_KG = 150.0;
     private static final double SPARK_THRUSTER_MASS_KG = 350.0;
     private static final double GLASS_MASS_KG = 300.0;
+    private static final double NOSE_CONE_MASS_KG = 150.0;
+    private static final double FIN_MASS_KG = 150.0;
+    /** Hull block with a porthole: lighter than a plate, about the weight of the glass it holds. */
+    private static final double WINDOW_MASS_KG = 300.0;
     private static final double METAL_BLOCK_MASS_KG = 2000.0;
     private static final double LAMP_MASS_KG = 200.0;
     private static final double DEFAULT_MASS_KG = 1000.0;
@@ -67,6 +71,15 @@ public final class ShipParts {
         }
         if (state.is(GridBlocks.SPARK_THRUSTER.get())) {
             return SPARK_THRUSTER_MASS_KG;
+        }
+        if (state.is(GridBlocks.NOSE_CONE.get())) {
+            return NOSE_CONE_MASS_KG;
+        }
+        if (state.is(GridBlocks.FIN.get())) {
+            return FIN_MASS_KG;
+        }
+        if (state.is(GridBlocks.WINDOW.get())) {
+            return WINDOW_MASS_KG;
         }
         if (isGlass(state)) {
             return GLASS_MASS_KG;

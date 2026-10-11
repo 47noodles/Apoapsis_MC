@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:block/cube",
+  "parent": "minecraft:block/block",
   "textures": {
     "particle": "apoapsis:block/spark_thruster_side",
     "down": "apoapsis:block/spark_thruster_powerhead",
@@ -8,5 +8,67 @@
     "south": "apoapsis:block/spark_thruster_side",
     "east": "apoapsis:block/spark_thruster_side",
     "west": "apoapsis:block/spark_thruster_side"
-  }
+  },
+  "elements": [
+    {
+      "from": [3, 0, 3],
+      "to": [13, 6, 13],
+      "faces": {
+        "down": {"texture": "#down"},
+        "up": {"texture": "#down"},
+        "north": {"texture": "#north"},
+        "south": {"texture": "#south"},
+        "east": {"texture": "#east"},
+        "west": {"texture": "#west"}
+      }
+    },
+    {
+      "from": [5, 6, 5],
+      "to": [11, 8, 11],
+      "faces": {
+        "down": {"texture": "#north"},
+        "up": {"texture": "#north"},
+        "north": {"texture": "#north"},
+        "south": {"texture": "#south"},
+        "east": {"texture": "#east"},
+        "west": {"texture": "#west"}
+      }
+    },
+    {
+      "from": [3, 8, 3],
+      "to": [13, 11, 13],
+      "faces": {
+        "down": {"texture": "#north"},
+        "up": {"texture": "#north"},
+        "north": {"texture": "#north"},
+        "south": {"texture": "#south"},
+        "east": {"texture": "#east"},
+        "west": {"texture": "#west"}
+      }
+    },
+    {
+      "from": [1, 11, 1],
+      "to": [15, 14, 15],
+      "faces": {
+        "down": {"texture": "#north"},
+        "up": {"texture": "#up"},
+        "north": {"texture": "#north"},
+        "south": {"texture": "#south"},
+        "east": {"texture": "#east"},
+        "west": {"texture": "#west"}
+      }
+    },
+    {
+      "from": [0, 14, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "down": {"texture": "#north"},
+        "up": {"texture": "#up"},
+        "north": {"texture": "#north"},
+        "south": {"texture": "#south"},
+        "east": {"texture": "#east"},
+        "west": {"texture": "#west"}
+      }
+    }
+  ]
 }

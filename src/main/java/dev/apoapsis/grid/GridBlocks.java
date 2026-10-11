@@ -47,9 +47,19 @@ public final class GridBlocks {
     /** Holds hydrolox in its block entity. */
     public static final DeferredBlock<FuelTankBlock> FUEL_TANK = BLOCKS.registerBlock("fuel_tank", FuelTankBlock::new, GridBlocks::metal);
 
-    /** FACING is the exhaust direction, all six directions. */
+    /** FACING is the exhaust direction, all six directions. Not occluding: the bell is not a full cube, so it is never culled. */
     public static final DeferredBlock<SparkThrusterBlock> SPARK_THRUSTER =
-            BLOCKS.registerBlock("spark_thruster", SparkThrusterBlock::new, GridBlocks::metal);
+            BLOCKS.registerBlock("spark_thruster", SparkThrusterBlock::new, p -> metal(p).noOcclusion());
+
+    /** Tapered cap; FACING is the tip direction (up or down when placed). Not a full cube. */
+    public static final DeferredBlock<NoseConeBlock> NOSE_CONE =
+            BLOCKS.registerBlock("nose_cone", NoseConeBlock::new, p -> metal(p).noOcclusion());
+
+    /** Thin swept fin; horizontal FACING. Not a full cube. */
+    public static final DeferredBlock<FinBlock> FIN = BLOCKS.registerBlock("fin", FinBlock::new, p -> metal(p).noOcclusion());
+
+    /** Hull block with a translucent glass porthole on its sides. Not occluding, so the glass shows the ship inside. */
+    public static final DeferredBlock<Block> WINDOW = BLOCKS.registerSimpleBlock("window", p -> metal(p).noOcclusion());
 
     /** Pale ground: sand-like, light grey on maps. */
     public static final DeferredBlock<Block> REGOLITH = BLOCKS.registerSimpleBlock("regolith",
@@ -60,6 +70,9 @@ public final class GridBlocks {
     public static final DeferredItem<BlockItem> GYROSCOPE_ITEM = ITEMS.registerSimpleBlockItem("gyroscope", GYROSCOPE);
     public static final DeferredItem<BlockItem> FUEL_TANK_ITEM = ITEMS.registerSimpleBlockItem("fuel_tank", FUEL_TANK);
     public static final DeferredItem<BlockItem> SPARK_THRUSTER_ITEM = ITEMS.registerSimpleBlockItem("spark_thruster", SPARK_THRUSTER);
+    public static final DeferredItem<BlockItem> NOSE_CONE_ITEM = ITEMS.registerSimpleBlockItem("nose_cone", NOSE_CONE);
+    public static final DeferredItem<BlockItem> FIN_ITEM = ITEMS.registerSimpleBlockItem("fin", FIN);
+    public static final DeferredItem<BlockItem> WINDOW_ITEM = ITEMS.registerSimpleBlockItem("window", WINDOW);
     public static final DeferredItem<BlockItem> REGOLITH_ITEM = ITEMS.registerSimpleBlockItem("regolith", REGOLITH);
 
     /** Stacks to 16. Right-click a fuel tank to add 300 kg of hydrolox. */
@@ -70,7 +83,7 @@ public final class GridBlocks {
             () -> new BlockEntityType<FuelTankBlockEntity>(
                     (pos, state) -> new FuelTankBlockEntity(GridBlocks.FUEL_TANK_BE.get(), pos, state), FUEL_TANK.get()));
 
-    /** Creative tab with the seven grid items. */
+    /** Creative tab with the grid items. */
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB = TABS.register("apoapsis", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.apoapsis"))
             .icon(() -> new ItemStack(HULL_PLATE_ITEM.get()))
@@ -80,6 +93,9 @@ public final class GridBlocks {
                 output.accept(GYROSCOPE_ITEM.get());
                 output.accept(FUEL_TANK_ITEM.get());
                 output.accept(SPARK_THRUSTER_ITEM.get());
+                output.accept(NOSE_CONE_ITEM.get());
+                output.accept(FIN_ITEM.get());
+                output.accept(WINDOW_ITEM.get());
                 output.accept(REGOLITH_ITEM.get());
                 output.accept(HYDROLOX_CANISTER.get());
             })
