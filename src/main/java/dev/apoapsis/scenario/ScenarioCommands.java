@@ -46,7 +46,8 @@ public final class ScenarioCommands {
             source.sendFailure(Component.translatable("apoapsis.scenario.pad.blocked"));
             return 0;
         }
-        Ages.setAge(player, Math.max(Ages.getAge(player), 4));
+        // Quiet: no flight has happened, so the Custodian does not announce First Flight.
+        Ages.setAge(player, Math.max(Ages.getAge(player), 4), false);
         source.sendSuccess(() -> Component.translatable("apoapsis.scenario.pad.done"), false);
         return 1;
     }

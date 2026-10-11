@@ -48,12 +48,20 @@ public final class Ages {
 
     /** Sets the Age, syncs it to the client, and announces it if it went up. */
     public static void setAge(ServerPlayer player, int age) {
+        setAge(player, age, true);
+    }
+
+    /**
+     * Sets the Age and syncs it to the client. The Custodian announces a rise only when {@code announce} is true. The
+     * test scenarios pass false: they grant an Age without a flight having happened.
+     */
+    public static void setAge(ServerPlayer player, int age, boolean announce) {
         int next = Math.max(0, Math.min(MAX_AGE, age));
         int before = getAge(player);
         player.setData(AgeData.AGE.get(), next);
         sync(player);
         int after = getAge(player);
-        if (after > before) {
+        if (announce && after > before) {
             AgeAnnounce.ageReached(player, after);
         }
     }
@@ -123,8 +131,7 @@ public final class Ages {
             return 0;
         }
         return switch (id.getPath()) {
-            case "hull_plate", "cockpit", "gyroscope" -> 3;
-            case "fuel_tank", "spark_thruster", "hydrolox_canister" -> 4;
+            case "hull_plate", "cockpit", "gyroscope", "fuel_tank", "spark_thruster", "hydrolox_canister" -> 3;
             default -> 0;
         };
     }

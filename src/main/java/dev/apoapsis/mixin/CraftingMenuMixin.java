@@ -37,7 +37,8 @@ public abstract class CraftingMenuMixin {
     private static void apoapsis$withholdLockedResult(AbstractContainerMenu menu, ServerLevel level, Player player,
                                                       CraftingContainer container, ResultContainer resultSlots,
                                                       RecipeHolder<CraftingRecipe> recipeHint, CallbackInfo ci) {
-        if (!CraftGate.withholds(player, level, container, recipeHint)) {
+        int required = CraftGate.withheldAge(player, level, container, recipeHint);
+        if (required <= 0) {
             return;
         }
         // Clear the result slot and tell the client, as the vanilla method does at its end, then skip the rest.
@@ -45,6 +46,7 @@ public abstract class CraftingMenuMixin {
         menu.setRemoteSlot(0, ItemStack.EMPTY);
         ((ServerPlayer) player).connection.send(new ClientboundContainerSetSlotPacket(
                 menu.containerId, menu.incrementStateId(), 0, ItemStack.EMPTY));
+        CraftGate.notifyWithheld(player, required);
         ci.cancel();
     }
 }

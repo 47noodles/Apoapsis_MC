@@ -39,10 +39,10 @@ Placeholder art and UI. Round planets, real grid physics (Jolt), Mekanism and mu
 | `apoapsis:hull_plate` | block + item | BLK | 400 kg. Age 3 |
 | `apoapsis:cockpit` | block + item | BLK | Horizontal facing. 800 kg. Right-click to board. Age 3 |
 | `apoapsis:gyroscope` | block + item | BLK | 500 kg, 200 kN·m. Age 3 |
-| `apoapsis:fuel_tank` | block + item + block entity | BLK | 150 kg dry, holds 1,200 kg hydrolox. Age 4 |
-| `apoapsis:spark_thruster` | block + item | BLK | Facing = exhaust direction. 350 kg. 100 kN vacuum, Isp 440 s vacuum / 360 s sea level. Age 4 |
+| `apoapsis:fuel_tank` | block + item + block entity | BLK | 150 kg dry, holds 1,200 kg hydrolox. Age 3 |
+| `apoapsis:spark_thruster` | block + item | BLK | Facing = exhaust direction. 350 kg. 100 kN vacuum, Isp 440 s vacuum / 360 s sea level. Age 3 |
 | `apoapsis:regolith` | block + item | BLK | Pale ground |
-| `apoapsis:hydrolox_canister` | item | BLK | Right-click a fuel tank: +300 kg. Age 4 |
+| `apoapsis:hydrolox_canister` | item | BLK | Right-click a fuel tank: +300 kg. Age 3 |
 | `apoapsis:ship` | entity | SHIP | `ShipEntity` |
 | `apoapsis:orbit` | dimension | FLT | Void, starry black sky; ships in orbit live here |
 | `apoapsis:pale` | dimension | FLT | Flat regolith over basalt, sea level y = 64, no atmosphere |
@@ -113,18 +113,18 @@ Low Verdance orbit at 15 km is ≈ 713 m/s with an 11.6-minute period.
 | 0 | Landfall | start | vanilla |
 | 1 | Hearth | holding a copper ingot | — |
 | 2 | Steam and Brass | holding an iron ingot | — |
-| 3 | Current | holding a piston | hull plate, cockpit, gyroscope |
-| 4 | Ascent | *First Flight*: 1,500 m in a ship | fuel tank, Spark thruster, canister |
+| 3 | Current | holding a piston | hull plate, cockpit, gyroscope, fuel tank, Spark thruster, canister |
+| 4 | Ascent | *First Flight*: 1,500 m in a ship | nothing new in Stage 0 (orbital operations begin) |
 | 5–6 | Expanse, Beyond | later stages | — |
 
-Gates: the crafting result is withheld, and placing or using the item is refused with a calm action-bar line ("Needs Age 4 · Ascent"). Tooltips show the Age. `/apoapsis age`, `/apoapsis age get <player>`, `/apoapsis age set <player> <0-6>`, `/apoapsis age sandbox <on|off>` (set and sandbox need permission level 2). Sandbox (everything unlocked) is a per-world flag.
+Gates: the crafting result is withheld, and placing or using the item is refused with a calm action-bar line ("Needs Age 3 · Current"). Tooltips show the Age. `/apoapsis age`, `/apoapsis age get <player>`, `/apoapsis age set <player> <0-6>`, `/apoapsis age sandbox <on|off>` (set and sandbox need permission level 2). Sandbox (everything unlocked) is a per-world flag.
 
 **Control frame.** The nose is the thrust direction. Forward is the cockpit's facing. Right = forward × nose. Pitch turns about right (W tips the nose toward forward), yaw about forward (D tips the nose right), and roll about the nose (E turns the view right). Rotation is rate-controlled: gyros drive the angular rate toward the input. With SAS on and no input, the rate is driven to zero.
 
 ## Test worlds
 
-- `/apoapsis scenario pad`: builds the *Kestrel* on a pad next to you, fuelled, and raises you to Age 4.
-- `/apoapsis scenario orbit`: puts the *Kestrel* in a 16 km circular Verdance orbit with you in the cockpit, Pale about 2 minutes from the transfer window (a burn of about 190 m/s prograde).
+- `/apoapsis scenario pad`: builds the *Kestrel* on a pad next to you, fuelled, and raises you to Age 4 quietly (no Custodian announcement, since no flight happened).
+- `/apoapsis scenario orbit`: puts the *Kestrel* in a 16 km circular Verdance orbit with you in the cockpit, Pale about 2 minutes from the transfer window (a burn of about 190 m/s prograde). It raises you to Age 4 quietly.
 - `gradlew runTestFlight` starts the game with the system property `apoapsis.testFlight=true`. On the title screen it opens the save **Apoapsis Test Flight**, creating it on first launch (creative, cheats on, fixed seed). On the first join it runs the orbit scenario and builds a second Kestrel on a pad at spawn. No dedicated server and no EULA file are involved.
 
 ## Cross-module hooks added before dispatch

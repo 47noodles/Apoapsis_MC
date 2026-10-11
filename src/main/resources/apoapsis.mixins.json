@@ -4,7 +4,8 @@
   "package": "dev.apoapsis.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [
-    "CraftingMenuMixin"
+    "CraftingMenuMixin",
+    "CrafterBlockMixin"
   ],
   "client": [],
   "injectors": { "defaultRequire": 1 }

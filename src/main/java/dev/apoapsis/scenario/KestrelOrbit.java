@@ -64,8 +64,10 @@ public final class KestrelOrbit {
                 Apoapsis.LOG.warn("Could not seat the pilot in the orbit scenario", e);
             }
         });
-        Ages.setAge(player, Math.max(Ages.getAge(player), 4));
+        // Quiet: no flight has happened, so the Custodian does not announce First Flight.
+        Ages.setAge(player, Math.max(Ages.getAge(player), 4), false);
         player.sendSystemMessage(Component.translatable("apoapsis.scenario.orbit.done"));
+        player.sendSystemMessage(Component.translatable("apoapsis.scenario.orbit.hint"));
         return true;
     }
 }

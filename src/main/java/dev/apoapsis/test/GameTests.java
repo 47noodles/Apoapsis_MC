@@ -66,7 +66,7 @@ public final class GameTests {
         helper.assertTrue(after == 4, "after Ages.setAge(player, 4), getAge returned " + after + ", expected 4");
 
         int thruster = Ages.requiredAge(new ItemStack(TestSupport.item(helper, "spark_thruster")));
-        helper.assertTrue(thruster == 4, "requiredAge(apoapsis:spark_thruster) is " + thruster + ", expected 4");
+        helper.assertTrue(thruster == 3, "requiredAge(apoapsis:spark_thruster) is " + thruster + ", expected 3");
 
         int hull = Ages.requiredAge(new ItemStack(TestSupport.item(helper, "hull_plate")));
         helper.assertTrue(hull == 3, "requiredAge(apoapsis:hull_plate) is " + hull + ", expected 3");

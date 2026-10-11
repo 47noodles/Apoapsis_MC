@@ -13,7 +13,6 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.event.level.BlockEvent;
 
 /** Item gates for using and placing, and the Age lines on tooltips. */
 final class AgeGates {
@@ -29,7 +28,6 @@ final class AgeGates {
     static void register() {
         NeoForge.EVENT_BUS.addListener(AgeGates::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(AgeGates::onRightClickItem);
-        NeoForge.EVENT_BUS.addListener(AgeGates::onEntityPlace);
         NeoForge.EVENT_BUS.addListener(AgeGates::onTooltip);
     }
 
@@ -58,21 +56,6 @@ final class AgeGates {
         }
     }
 
-    /**
-     * Placing a locked block. NeoForge posts this for entity placement; in 26.3 it is not posted for a player's
-     * BlockItem use, where {@link #onRightClickBlock} already refuses the placement.
-     */
-    static void onEntityPlace(BlockEvent.EntityPlaceEvent event) {
-        if (!(event.getEntity() instanceof Player player)) {
-            return;
-        }
-        int required = Ages.requiredAgeOf(event.getPlacedBlock().getBlock().asItem());
-        if (required > 0 && Ages.getAge(player) < required) {
-            event.setCanceled(true);
-            refuse(player, required);
-        }
-    }
-
     /** A grey "Age N · Name" line on gated items, or a muted red "Needs Age N · Name" when locked. */
     static void onTooltip(ItemTooltipEvent event) {
         Player player = event.getEntity();
@@ -93,7 +76,7 @@ final class AgeGates {
      * The refusal is sent from the server only: the client's use packet still reaches the server after a cancelled
      * click, so the server's cancelled event is the one that reports it.
      */
-    private static void refuse(Player player, int required) {
+    static void refuse(Player player, int required) {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return;
         }

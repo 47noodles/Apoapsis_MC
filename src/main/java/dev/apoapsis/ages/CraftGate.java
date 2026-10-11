@@ -4,6 +4,7 @@ import java.util.Optional;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -19,9 +20,32 @@ public final class CraftGate {
      */
     public static boolean withholds(Player player, ServerLevel level, CraftingContainer container,
                                     RecipeHolder<CraftingRecipe> recipeHint) {
+        return withheldAge(player, level, container, recipeHint) > 0;
+    }
+
+    /** The Age the withheld result needs, or 0 when the grid's result may be shown to this player. */
+    public static int withheldAge(Player player, ServerLevel level, CraftingContainer container,
+                                  RecipeHolder<CraftingRecipe> recipeHint) {
         CraftingInput input = container.asCraftInput();
         Optional<RecipeHolder<CraftingRecipe>> recipe = level.getServer().getRecipeManager()
                 .getRecipeFor(RecipeType.CRAFTING, input, level, recipeHint);
-        return recipe.isPresent() && !Ages.canUse(player, recipe.get().value().assemble(input));
+        if (recipe.isEmpty()) {
+            return 0;
+        }
+        ItemStack result = recipe.get().value().assemble(input);
+        return Ages.canUse(player, result) ? 0 : Ages.requiredAge(result);
+    }
+
+    /** Shows the "Needs Age N" action-bar line, sharing the use and place gates' per-player cooldown. */
+    public static void notifyWithheld(Player player, int required) {
+        AgeGates.refuse(player, required);
+    }
+
+    /**
+     * True when a result assembled with no player (a Crafter's output) is gated and this world is not a sandbox. The
+     * Crafter has no player to check, so gated items cannot be automated in Stage 0.
+     */
+    public static boolean withholdsAutomated(ServerLevel level, ItemStack result) {
+        return Ages.requiredAge(result) > 0 && !Ages.sandbox(level);
     }
 }
