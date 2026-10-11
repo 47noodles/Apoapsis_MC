@@ -1,9 +1,6 @@
 package dev.apoapsis.client.map;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.FontDescription;
-import net.minecraft.network.chat.Style;
-import net.minecraft.resources.Identifier;
 
 import java.util.Locale;
 
@@ -13,20 +10,12 @@ import java.util.Locale;
  */
 final class Fmt {
     private static final String NONE = "—";
-    /** The unicode font is one width per glyph, so digits do not shift as values change. */
-    private static final Style MONO = Style.EMPTY.withFont(new FontDescription.Resource(
-            Identifier.withDefaultNamespace("uniform")));
 
     private Fmt() {}
 
-    /** A value in the tabular unicode font (see {@link #MONO}). */
-    static Component mono(String s) {
-        return Component.literal(s).setStyle(MONO);
-    }
-
-    /** A time until an event in the tabular font, the "T-" and the clock together ("T-12:04"). */
+    /** A time until an event, the "T-" and the clock together ("T-12:04"). One font on the map, so no tabular font. */
     static Component countdown(double seconds) {
-        return mono("T-" + clock(seconds));
+        return Component.literal("T-" + clock(seconds));
     }
 
     /** Altitude or distance: metres below 1 km, otherwise kilometres to one decimal ("14.2 km"). */

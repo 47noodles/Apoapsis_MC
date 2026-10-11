@@ -1,5 +1,6 @@
 package dev.apoapsis.client.map;
 
+import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.OrbitNow;
 import dev.apoapsis.client.hud.HudProjection;
 import dev.apoapsis.client.hud.Navball;
@@ -98,7 +99,7 @@ public final class FlightHud {
         if (mc.player == null || !(mc.player.getVehicle() instanceof ShipEntity ship)) {
             return;
         }
-        OrbitStatePayload p = OrbitClock.current();
+        OrbitStatePayload p = ClientState.orbit;
         if (p == null) {
             return;
         }

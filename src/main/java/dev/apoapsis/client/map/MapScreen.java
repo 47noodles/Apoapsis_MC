@@ -1,6 +1,8 @@
 package dev.apoapsis.client.map;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.apoapsis.client.ClientState;
+import dev.apoapsis.client.OrbitNow;
 import dev.apoapsis.client.OverlayMessages;
 import dev.apoapsis.client.ship.PilotKeys;
 import dev.apoapsis.client.sky.PlanetTextures;
@@ -11,6 +13,7 @@ import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Elements;
 import dev.apoapsis.orbit.MeridianSystem;
 import dev.apoapsis.orbit.StateVector;
+import dev.apoapsis.orbit.Transfers;
 import dev.apoapsis.orbit.Vec3d;
 import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.client.Minecraft;
@@ -24,8 +27,10 @@ import net.minecraft.world.entity.Entity;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * The full-screen system map (the System map key, M by default). Full-bleed, no panel, does not pause the game. Shows
@@ -36,9 +41,10 @@ import java.util.Random;
  * at that body's position when the ship enters it, so the predicted line meets the encounter's white dot. The encounter
  * shows a faint ghost of Pale where it will be at that time: its outline, a dashed sphere of influence and brackets.
  *
- * <p>Look: the current patch is a solid glowing line, future patches are dashed, Pale's orbit a quiet thin ring. Bodies
- * are shaded discs lit from the upper left, textured when the server has sent a surface map. Chrome sits in the four
- * corners and reserves its boxes before any label is placed, so nothing lands on it.
+ * <p>Look: the current patch is a clean one-pixel line, future patches are dashed, Pale's orbit a quiet thin ring. Bodies
+ * are shaded discs lit from the upper left, textured when the server has sent a surface map. Labels are drawn after the
+ * bodies and the paths, on a dark backdrop. Chrome sits in the four corners and reserves its boxes before any label is
+ * placed, so nothing lands on it. The bottom row holds the keycaps on the left and the warp strip on the right.
  */
 public final class MapScreen extends Screen {
     private static final int RECOMPUTE_FRAMES = 10;
@@ -59,8 +65,12 @@ public final class MapScreen extends Screen {
     private static final double STANDARD_GRAVITY = 9.80665;
     /** Dash length of a future patch, px. */
     private static final double DASH_PX = 6;
-    /** Keycap row width reserved at the bottom left, px. */
-    private static final int KEYCAP_ROW_W = 560;
+    /** The bottom row sits this far above the bottom edge, px. The transfer card stands 8 px above it. */
+    private static final int BOTTOM_INSET = 22;
+    /** Clear space between the keycaps and the warp strip, px. */
+    private static final int BOTTOM_GAP = 12;
+    /** Below this GUI width the scroll, drag and focus hints are left out, so the warp keys fit, px. */
+    private static final int NARROW_GUI_PX = 376;
     /** Within this many degrees of the Hohmann lead, the window is open now. */
     private static final double WINDOW_NOW_DEG = 2;
     /** Eccentricity below which the Pale window cue applies. */
@@ -83,6 +93,8 @@ public final class MapScreen extends Screen {
     private final MapView view = new MapView();
     private final double[] bufX = new double[MapPrediction.MAX_SAMPLES + 1];
     private final double[] bufY = new double[MapPrediction.MAX_SAMPLES + 1];
+    /** Pilot keys whose press the map has acted on and that are still held: their key-repeats are swallowed. */
+    private final Set<Integer> heldPilotKeys = new HashSet<>();
     private MapPrediction prediction;
     /** The view scale the prediction's polylines were sampled at. */
     private double sampledScale = 1e-3;
@@ -122,12 +134,11 @@ public final class MapScreen extends Screen {
         Canvas c = new Canvas(graphics);
         view.setSize(c.width, c.height);
         Labels labels = new Labels();
-        OrbitStatePayload p = OrbitClock.current();
-        int bottomY = c.height - 22;
-        // The bottom chrome claims its boxes first so no label lands on it; it is drawn last so it sits on the paths.
-        labels.reserve(8, bottomY - 6, 8 + KEYCAP_ROW_W, bottomY + LABEL_H + 6);
-        labels.reserve(c.width / 2 - 120, bottomY - 6, c.width / 2 + 120, bottomY + LABEL_H + 6);
-        Component overlay = OverlayMessages.current(Minecraft.getInstance());
+        OrbitStatePayload p = ClientState.orbit;
+        int bottomY = c.height - BOTTOM_INSET;
+        // The bottom row claims its box first so no label lands on it; it is drawn last so it sits on the paths.
+        labels.reserve(8, bottomY - 6, c.width - 8, bottomY + LABEL_H + 6);
+        Component overlay = OverlayMessages.currentOwn(Minecraft.getInstance());
         if (p == null) {
             Component msg = Component.translatable("apoapsis.map.board");
             c.text(msg, (c.width - c.textWidth(msg)) / 2, c.height / 2 - 4, 1f, Palette.INK_MUTED, false);
@@ -137,7 +148,7 @@ public final class MapScreen extends Screen {
         CelestialBody body = Bodies.of(p);
         followBody(p, body);
         ensurePrediction(p);
-        double nowUt = OrbitClock.nowUt(p, partialTick);
+        double nowUt = OrbitNow.utNow(p, partialTick);
         resolveCentre(nowUt);
         drawTopLeft(c, labels, p, body, nowUt);
         drawTime(c, labels, nowUt);
@@ -152,18 +163,24 @@ public final class MapScreen extends Screen {
         }
     }
 
-    /** Escape closes (vanilla), the System map key closes, 1 2 3 choose what the view follows, the warp keys warp. */
+    /** Escape closes (vanilla), the System map key closes, 1 2 3 choose what the view follows, the pilot keys act. */
     @Override
     public boolean keyPressed(KeyEvent event) {
         if (PilotKeys.SYSTEM_MAP.matches(event)) {
             onClose();
             return true;
         }
-        // With a screen open vanilla does not click the warp keys, so the map sends the press itself.
-        if (PilotKeys.WARP_UP.matches(event) && sendWarp(ShipInputPayload.FLAG_WARP_UP)) {
+        // With a screen open vanilla does not act on the pilot keys, so the map sends their presses itself.
+        if (PilotKeys.WARP_UP.matches(event)
+                && pilotKey(event, ShipInputPayload.THROTTLE_HOLD, ShipInputPayload.FLAG_WARP_UP)) {
             return true;
         }
-        if (PilotKeys.WARP_DOWN.matches(event) && sendWarp(ShipInputPayload.FLAG_WARP_DOWN)) {
+        if (PilotKeys.WARP_DOWN.matches(event)
+                && pilotKey(event, ShipInputPayload.THROTTLE_HOLD, ShipInputPayload.FLAG_WARP_DOWN)) {
+            return true;
+        }
+        if (PilotKeys.THROTTLE_CUT.matches(event)
+                && pilotKey(event, ShipInputPayload.THROTTLE_CUT, (byte) 0)) {
             return true;
         }
         int key = event.input();
@@ -182,15 +199,37 @@ public final class MapScreen extends Screen {
         return super.keyPressed(event);
     }
 
-    /** Sends one time-warp press to the ship the player rides. False when the player rides no ship. */
-    private static boolean sendWarp(byte flag) {
+    @Override
+    public boolean keyReleased(KeyEvent event) {
+        heldPilotKeys.remove(event.input());
+        return super.keyReleased(event);
+    }
+
+    /**
+     * A pilot key sends one input to the ship on its initial press only: a key-repeat of a key still held is swallowed.
+     * False when the player rides no ship, so the key falls through to the screen.
+     */
+    private boolean pilotKey(KeyEvent event, byte throttle, byte flag) {
+        int key = event.input();
+        if (heldPilotKeys.contains(key)) {
+            return true;
+        }
+        if (!sendToShip(throttle, flag)) {
+            return false;
+        }
+        heldPilotKeys.add(key);
+        return true;
+    }
+
+    /** Sends one pilot input to the ship the player rides. False when the player rides no ship. */
+    private static boolean sendToShip(byte throttle, byte flag) {
         Minecraft mc = Minecraft.getInstance();
         Entity vehicle = mc.player == null ? null : mc.player.getVehicle();
         if (!(vehicle instanceof ShipEntity ship) || mc.getConnection() == null) {
             return false;
         }
         ClientPacketDistributor.sendToServer(new ShipInputPayload(ship.getId(), (byte) 0, (byte) 0, (byte) 0,
-                ShipInputPayload.THROTTLE_HOLD, flag));
+                throttle, flag));
         return true;
     }
 
@@ -309,12 +348,16 @@ public final class MapScreen extends Screen {
         c.ring(vx, vy, view.px(verdance.radius + verdance.atmosphereTop),
                 Palette.alpha(Palette.HYDROGEN, 0x70), ATMOSPHERE_SEGMENTS);
         drawBody(c, PlanetTextures.texture(pale.id), px, py, paleR, Palette.PALE_LIT, Palette.PALE_GROUND);
+        if (prediction.patchCount() > 0) {
+            drawCoast(c, labels, orbit, nowUt);
+        }
+        // The body names come last, over the bodies and the paths.
         bodyLabel(c, labels, verdance, "apoapsis.map.body.verdance", vx, vy, verdanceR);
         bodyLabel(c, labels, pale, "apoapsis.map.body.pale", px, py, paleR);
+    }
 
-        if (prediction.patchCount() == 0) {
-            return;
-        }
+    /** The predicted coast, its marks and the ship marker. Labels on the marks are drawn over the paths. */
+    private void drawCoast(Canvas c, Labels labels, boolean orbit, double nowUt) {
         // The predicted coast: later patches first so the current one is drawn on top. Each patch is offset by
         // patchCentre. Known limitation, not fixed: after a flyby the next Verdance patch is drawn at its true
         // positions, so it starts away from the ghost-drawn Pale patch by Pale's motion during the flyby.
@@ -329,7 +372,8 @@ public final class MapScreen extends Screen {
                 bufY[k] = view.sy(o.y() + ys[k]);
             }
             if (i == cur) {
-                c.glowPolyline(bufX, bufY, n, 0, Palette.SIGNAL, Palette.alpha(Palette.SIGNAL, 0x40));
+                // The current patch is one clean pixel line: a halo read as a thick, jagged line.
+                c.glowPolyline(bufX, bufY, n, 0, Palette.SIGNAL, 0);
             } else {
                 // Future patches are plain dashes: a halo turns short dashes into blobs.
                 c.glowPolyline(bufX, bufY, n, DASH_PX, Palette.HYDROGEN, 0);
@@ -424,7 +468,7 @@ public final class MapScreen extends Screen {
                 }
                 c.line(mx + dx * 2, my + dy * 2, mx + dx * 6, my + dy * 6, Palette.BRASS);
                 String key = m.kind() == MapPrediction.Kind.APOAPSIS ? "apoapsis.map.mark.ap" : "apoapsis.map.mark.pe";
-                Component label = Component.translatable(key, Fmt.mono(Fmt.distance(m.altM())));
+                Component label = Component.translatable(key, Fmt.distance(m.altM()));
                 int lx = (int) Math.round(mx + dx * 9);
                 int ly = (int) Math.round(my + dy * 9 - 4);
                 int x = dx < -0.3 ? lx - c.textWidth(label) : lx;
@@ -450,7 +494,7 @@ public final class MapScreen extends Screen {
                 Component title = Component.translatable("apoapsis.map.mark.encounter",
                         Fmt.spaced(Component.translatable("apoapsis.map.body." + m.body()).getString()));
                 Component countdown = Component.translatable("apoapsis.map.mark.countdown",
-                        Fmt.mono(Fmt.clock(m.ut() - nowUt)));
+                        Fmt.clock(m.ut() - nowUt));
                 int lx = (int) Math.round(gx + half + 6);
                 int ly = (int) Math.round(gy - half);
                 if (!label(c, labels, title, lx, ly, Palette.INK)) {
@@ -504,7 +548,10 @@ public final class MapScreen extends Screen {
         }
     }
 
-    /** Draws {@code text} at {@code x}, {@code y} when it is on screen and clear of every label already drawn. */
+    /**
+     * Draws {@code text} at {@code x}, {@code y} when it is on screen and clear of every label already drawn. It sits
+     * on a dark backdrop so it reads over a disc or a path.
+     */
     private static boolean label(Canvas c, Labels labels, Component text, int x, int y, int argb) {
         int w = c.textWidth(text);
         if (x + w < 0 || y + LABEL_H < 0 || x > c.width || y > c.height) {
@@ -513,13 +560,14 @@ public final class MapScreen extends Screen {
         if (!labels.claim(x - 1, y - 1, x + w + 1, y + LABEL_H + 1)) {
             return false;
         }
+        c.rect(x - 1, y - 1, x + w + 1, y + LABEL_H + 1, Palette.alpha(Palette.STEEL_950, 0xB0));
         c.text(text, x, y, 1f, argb, false);
         return true;
     }
 
     /**
      * Top left, no box round the figures: the breadcrumb (system and body) in a bracketed frame, then altitude and
-     * speed, then apsides for an orbit that stays in its sphere of influence (else periapsis), then an escape countdown.
+     * speed, then apsides for an orbit that stays in its sphere of influence (else periapsis).
      */
     private void drawTopLeft(Canvas c, Labels labels, OrbitStatePayload p, CelestialBody body, double nowUt) {
         int x = 16;
@@ -539,7 +587,7 @@ public final class MapScreen extends Screen {
         lines.add(Component.translatable("apoapsis.map.top.speed", Fmt.speed(speed)));
         if (FlightRegime.byOrdinal(p.regime()) == FlightRegime.ORBIT) {
             Elements el = Elements.of(body.mu, Bodies.stateOf(p));
-            if (el.eccentricity() < 1 && el.apoapsisRadius() < body.soiRadius()) {
+            if (MapPrediction.boundWithinSoi(el, body)) {
                 lines.add(Component.translatable("apoapsis.map.top.apsides",
                         Fmt.distance(el.apoapsisRadius() - body.radius),
                         Fmt.distance(el.periapsisRadius() - body.radius)));
@@ -549,10 +597,6 @@ public final class MapScreen extends Screen {
                 lines.add(Component.translatable("apoapsis.map.top.periapsis",
                         Fmt.distance(el.periapsisRadius() - body.radius)));
             }
-        }
-        int cur = prediction.indexAt(nowUt);
-        if (prediction.endsByEscape(cur)) {
-            lines.add(Component.translatable("apoapsis.map.top.escape", Fmt.clock(prediction.endUtOf(cur) - nowUt)));
         }
         int lineY = y + LABEL_H + 8 + 12;
         for (Component line : lines) {
@@ -565,7 +609,7 @@ public final class MapScreen extends Screen {
 
     /** Top right: the universal time in a bracketed frame. */
     private static void drawTime(Canvas c, Labels labels, double nowUt) {
-        Component time = Component.translatable("apoapsis.map.time", Fmt.mono(Fmt.universalTime(nowUt)));
+        Component time = Component.translatable("apoapsis.map.time", Fmt.universalTime(nowUt));
         int w = c.textWidth(time);
         int x1 = c.width - 16;
         int x0 = x1 - w - 14;
@@ -575,7 +619,7 @@ public final class MapScreen extends Screen {
         labels.reserve(x0 - 2, y - 2, x1 + 2, y + LABEL_H + 10);
     }
 
-    /** The transfer card's lines and box, placed bottom right. */
+    /** The transfer card's lines and box, bottom right, standing just above the bottom row. */
     private record Card(Component title, Component timer, Component burn, int x0, int y0, int x1, int y1) {}
 
     /**
@@ -587,7 +631,7 @@ public final class MapScreen extends Screen {
         Component burn = null;
         double encounterUt = encounterUt(nowUt);
         if (!Double.isNaN(encounterUt)) {
-            timer = Component.translatable("apoapsis.map.card.encounter", Fmt.mono(Fmt.clock(encounterUt - nowUt)));
+            timer = Component.translatable("apoapsis.map.card.encounter", Fmt.clock(encounterUt - nowUt));
         } else {
             double windowIn = paleWindowIn(p, body, nowUt);
             if (Double.isNaN(windowIn)) {
@@ -595,7 +639,7 @@ public final class MapScreen extends Screen {
             }
             timer = windowIn == 0
                     ? Component.translatable("apoapsis.map.card.now")
-                    : Component.translatable("apoapsis.map.card.depart", Fmt.mono(Fmt.clock(windowIn)));
+                    : Component.translatable("apoapsis.map.card.depart", Fmt.clock(windowIn));
             int cur = prediction.indexAt(nowUt);
             StateVector s = prediction.relativeState(cur, nowUt);
             double dv = TransferMath.hohmannDeltaV(body.mu, s.r().length(), s.v().length(),
@@ -611,7 +655,7 @@ public final class MapScreen extends Screen {
             w = Math.max(w, c.textWidth(burn));
         }
         int x1 = c.width - 16;
-        int y1 = c.height - 16;
+        int y1 = c.height - BOTTOM_INSET - 8;
         int h = 3 * LINE_STEP + 10;
         return new Card(title, timer, burn, x1 - w - 20, y1 - h, x1, y1);
     }
@@ -629,9 +673,9 @@ public final class MapScreen extends Screen {
     }
 
     /**
-     * The Hohmann window cue: on a near-circular orbit of Verdance with no encounter predicted, the time until Pale is
-     * where a transfer from this orbit meets it. Zero when the window is open now (within {@link #WINDOW_NOW_DEG}),
-     * NaN when the cue does not apply.
+     * The Hohmann window cue: on a near-circular, prograde orbit of Verdance with no encounter predicted, the time until
+     * Pale is where a transfer from this orbit meets it. Zero when the window is open now (within
+     * {@link #WINDOW_NOW_DEG}), NaN when the cue does not apply. A retrograde orbit has no such window.
      */
     private double paleWindowIn(OrbitStatePayload p, CelestialBody body, double nowUt) {
         if (body != MeridianSystem.VERDANCE || FlightRegime.byOrdinal(p.regime()) != FlightRegime.ORBIT
@@ -643,16 +687,23 @@ public final class MapScreen extends Screen {
         if (!(Elements.of(body.mu, s).eccentricity() < WINDOW_MAX_ECC)) {
             return Double.NaN;
         }
+        // Angular momentum about the system's +Z: positive is prograde.
+        double hz = s.r().x() * s.v().y() - s.r().y() * s.v().x();
+        if (!(hz > 0)) {
+            return Double.NaN;
+        }
         double r1 = Math.hypot(s.r().x(), s.r().y());
         StateVector pale = Bodies.rootState(MeridianSystem.PALE, nowUt);
         double lead = Math.atan2(pale.r().y(), pale.r().x()) - Math.atan2(s.r().y(), s.r().x());
-        double error = Math.IEEEremainder(lead - MapPrediction.hohmannLead(r1), 2 * Math.PI);
+        double wanted = Transfers.hohmannLead(body.mu, r1, MeridianSystem.PALE.orbitRadius,
+                MeridianSystem.PALE.orbitPeriod());
+        double error = Math.IEEEremainder(lead - wanted, 2 * Math.PI);
         if (Math.abs(error) < Math.toRadians(WINDOW_NOW_DEG)) {
             return 0;
         }
-        double omegaShip = (s.r().x() * s.v().y() - s.r().y() * s.v().x()) / (r1 * r1);
+        double omegaShip = hz / (r1 * r1);
         double omegaPale = 2 * Math.PI / MeridianSystem.PALE.orbitPeriod();
-        return MapPrediction.windowSeconds(error, omegaPale - omegaShip);
+        return Transfers.windowSeconds(error, omegaPale - omegaShip);
     }
 
     /** The universal time of the first encounter at or after {@code ut}, or NaN when none is predicted. */
@@ -672,38 +723,58 @@ public final class MapScreen extends Screen {
     }
 
     /**
-     * Bottom: the controls as keycaps, bottom left, and the warp as a strip at bottom centre showing the current step.
-     * While a vanilla overlay message is showing (warp refusals, sphere of influence entry, hard landing) it takes the
-     * keycaps' place, in full ink, so it stays readable.
+     * Bottom row: the controls as keycaps from the left, the warp strip at the right edge. Hints that do not fit before
+     * the strip are left out, scroll and drag first (on narrow GUI widths they and the focus keys are not tried at all, so
+     * faster and slower fit at GUI width 320). The warp hints show
+     * only while piloting. While a vanilla overlay message is showing (warp refusals, sphere of influence entry, hard
+     * landing) it takes the keycaps' place, in full ink, so it stays readable.
      */
     private static void drawBottom(Canvas c, OrbitStatePayload p, int y, Component overlay) {
+        String step = p == null ? null : Fmt.warp(p.warp());
+        int stripLeft = step == null ? c.width - 16 : c.width - 32 - warpTotal(c, step);
         if (overlay != null) {
             c.text(overlay, 16, y, 1f, Palette.INK, false);
         } else {
+            int limit = stripLeft - BOTTOM_GAP;
             int x = 16;
-            x = hint(c, x, y, Component.translatable("apoapsis.map.key.zoom"),
-                    Component.literal("SCROLL"));
-            x = hint(c, x, y, Component.translatable("apoapsis.map.key.pan"), Component.literal("DRAG"));
-            x = hint(c, x, y, Component.translatable("apoapsis.map.key.focus"),
-                    Component.literal("1"), Component.literal("2"), Component.literal("3"));
-            x = hint(c, x, y, Component.translatable("apoapsis.map.key.warp"),
-                    PilotKeys.WARP_UP.getTranslatedKeyMessage(), PilotKeys.WARP_DOWN.getTranslatedKeyMessage());
-            hint(c, x, y, Component.translatable("apoapsis.map.key.close"),
+            if (c.width >= NARROW_GUI_PX) {
+                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.zoom"), Component.literal("SCROLL"));
+                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.pan"), Component.literal("DRAG"));
+                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.focus"),
+                        Component.literal("1"), Component.literal("2"), Component.literal("3"));
+            }
+            if (p != null) {
+                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.faster"),
+                        PilotKeys.WARP_UP.getTranslatedKeyMessage());
+                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.slower"),
+                        PilotKeys.WARP_DOWN.getTranslatedKeyMessage());
+            }
+            hint(c, x, y, limit, Component.translatable("apoapsis.map.key.close"),
                     PilotKeys.SYSTEM_MAP.getTranslatedKeyMessage());
         }
-        if (p != null) {
-            drawWarp(c, Fmt.warp(p.warp()), y);
+        if (step != null) {
+            drawWarp(c, step, y);
         }
     }
 
-    /** Keycaps for one control, then what they do. Returns the x after it. */
-    private static int hint(Canvas c, int x, int y, Component what, Component... keys) {
+    /**
+     * Keycaps for one control, then what they do, drawn only when they end by {@code limit}. Returns the x after the
+     * hint, or {@code x} unchanged when it does not fit.
+     */
+    private static int hint(Canvas c, int x, int y, int limit, Component what, Component... keys) {
+        int w = 3 + c.textWidth(what) + 18;
+        for (Component key : keys) {
+            w += c.textWidth(key) + 8 + 3;
+        }
+        if (x + w > limit) {
+            return x;
+        }
         int at = x;
         for (Component key : keys) {
             at += keycap(c, at, y, key) + 3;
         }
         c.text(what, at + 3, y + 2, 1f, Palette.INK_MUTED, false);
-        return at + 3 + c.textWidth(what) + 18;
+        return x + w;
     }
 
     /** One keycap: a small raised box with its key name. Returns its width. */
@@ -719,13 +790,18 @@ public final class MapScreen extends Screen {
         return w;
     }
 
-    /** The warp strip: "WARP" and the current step in a bracketed cell, centred on the bottom edge. */
+    /** Width of the warp strip's label and step cell for {@code step}, GUI px. */
+    private static int warpTotal(Canvas c, String step) {
+        return c.textWidth(Component.translatable("apoapsis.map.warp")) + 10 + c.textWidth(Component.literal(step)) + 12;
+    }
+
+    /** The warp strip: "WARP" and the current step in a bracketed cell, at the bottom right edge. */
     private static void drawWarp(Canvas c, String step, int y) {
         Component label = Component.translatable("apoapsis.map.warp");
         int labelW = c.textWidth(label);
         int cellW = c.textWidth(Component.literal(step)) + 12;
-        int total = labelW + 10 + cellW;
-        int x0 = c.width / 2 - total / 2;
+        int total = warpTotal(c, step);
+        int x0 = c.width - 24 - total;
         c.corners(x0 - 8, y - 6, x0 + total + 8, y + LABEL_H + 5, 6, Palette.STEEL_500);
         c.text(label, x0, y, 1f, Palette.INK_MUTED, false);
         int cx = x0 + labelW + 10;

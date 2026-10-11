@@ -27,6 +27,12 @@ public final class OverlayMessages {
         return hud.apoapsis$overlayTime() > 0 ? hud.apoapsis$overlayMessage() : null;
     }
 
+    /** The overlay message only when it is one of ours, else null: the map shows Apoapsis messages and no vanilla ones. */
+    public static @Nullable Component currentOwn(Minecraft mc) {
+        Component msg = current(mc);
+        return msg != null && isOurs(msg) ? msg : null;
+    }
+
     /** Draws an Apoapsis overlay message centred just above a container's panel, on a backdrop like the HUD's. */
     static void onScreenRender(ScreenEvent.Render.Post event) {
         if (!(event.getScreen() instanceof AbstractContainerScreen<?> screen)) {

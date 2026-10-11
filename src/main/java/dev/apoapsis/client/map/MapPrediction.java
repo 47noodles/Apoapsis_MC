@@ -3,7 +3,6 @@ package dev.apoapsis.client.map;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Elements;
-import dev.apoapsis.orbit.MeridianSystem;
 import dev.apoapsis.orbit.Patch;
 import dev.apoapsis.orbit.StateVector;
 import dev.apoapsis.orbit.TrajectoryPredictor;
@@ -211,40 +210,9 @@ final class MapPrediction {
         return patches.size();
     }
 
-    /** True when patch {@code index} ends by leaving its body's sphere of influence. False for a bad index. */
-    boolean endsByEscape(int index) {
-        return index >= 0 && index < patches.size() && patches.get(index).end() == Patch.EndReason.ESCAPE;
-    }
-
-    /** Universal time patch {@code index} ends, s, or the horizon when it has no end. */
-    double endUtOf(int index) {
-        return endUt(patches.get(index), horizon);
-    }
-
-    /**
-     * Lead of Pale over a ship at radius {@code r1} (m) at the moment a Hohmann transfer to Pale's orbit starts, rad.
-     * The same maths as the test driver's window check (TestDriverTransfer.windowError).
-     */
-    static double hohmannLead(double r1) {
-        double r2 = MeridianSystem.PALE.orbitRadius;
-        double a = (r1 + r2) / 2;
-        double transfer = Math.PI * Math.sqrt(a * a * a / MeridianSystem.VERDANCE.mu);
-        return Math.PI - 2 * Math.PI * transfer / MeridianSystem.PALE.orbitPeriod();
-    }
-
-    /**
-     * Seconds until a lead error reaches zero again: the time t >= 0 at which {@code errorRad + rateRadPerS * t} is a
-     * whole turn. {@code errorRad} is the lead minus the wanted lead, rad; {@code rateRadPerS} is how fast the lead
-     * changes, rad/s. NaN when the rate is zero or not finite. Pure: no game state.
-     */
-    static double windowSeconds(double errorRad, double rateRadPerS) {
-        if (rateRadPerS == 0 || !Double.isFinite(rateRadPerS)) {
-            return Double.NaN;
-        }
-        double turn = 2 * Math.PI;
-        double ahead = rateRadPerS > 0 ? -errorRad : errorRad;
-        double remaining = ((ahead % turn) + turn) % turn;
-        return remaining / Math.abs(rateRadPerS);
+    /** True for a bound orbit whose apoapsis lies inside the body's sphere of influence. Shared by the map's labels. */
+    static boolean boundWithinSoi(Elements el, CelestialBody body) {
+        return el.eccentricity() < 1 && el.apoapsisRadius() < body.soiRadius();
     }
 
     /** Sample x coordinates of patch {@code index}, relative to its body, metres. Length is the sample count plus one. */
