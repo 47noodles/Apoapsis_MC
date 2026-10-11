@@ -100,7 +100,18 @@ final class TestDriverSupport {
     static double[] steer(ShipEntity ship, OrbitStatePayload p, int sign) {
         // Velocity in orbit-dimension axes: (X, Z, -Y).
         Vector3f d = new Vector3f((float) p.vx(), (float) p.vz(), (float) -p.vy()).normalize().mul(sign);
-        Quaternionf q = ship.getOrientation();
+        return turn(ship.getOrientation(), d);
+    }
+
+    /**
+     * Pitch and yaw inputs that turn the nose toward {@code dir}, a unit-free direction in dimension axes (Y up on a
+     * surface), and the error in degrees: the returned array is {pitch, yaw, angle}.
+     */
+    static double[] aim(ShipEntity ship, Vector3f dir) {
+        return turn(ship.getOrientation(), new Vector3f(dir).normalize());
+    }
+
+    private static double[] turn(Quaternionf q, Vector3f d) {
         Vector3f dBody = q.conjugate(new Quaternionf()).transform(new Vector3f(d));
         Vector3f nose = new Vector3f(0, 1, 0);
         Vector3f forward = new Vector3f(0, 0, -1); // the Kestrel's cockpit faces north
