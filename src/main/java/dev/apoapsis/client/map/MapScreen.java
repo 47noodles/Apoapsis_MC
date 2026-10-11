@@ -368,14 +368,17 @@ public final class MapScreen extends Screen {
                 double gy = view.sy(ghost.y());
                 double gr = Math.max(2, view.px(entered.radius));
                 c.ring(gx, gy, gr, Palette.STEEL_500);
-                c.dashedRing(gx, gy, view.px(entered.soiRadius()), Palette.alpha(Palette.SIGNAL_EDGE, 0x80), 6);
+                // The label goes outside the sphere of influence, clear of the line entering it.
+                double soiPx = view.px(entered.soiRadius());
+                c.dashedRing(gx, gy, soiPx, Palette.alpha(Palette.SIGNAL_EDGE, 0x80), 6);
+                double clear = Math.max(gr, soiPx);
                 Component label = Component.translatable("apoapsis.map.mark.encounter",
                         Component.translatable("apoapsis.map.body." + m.body()),
                         Fmt.mono(Fmt.clock(m.ut() - nowUt)));
-                int lx = (int) Math.round(gx + gr + 4);
+                int lx = (int) Math.round(gx + clear + 4);
                 int ly = (int) Math.round(gy - 4);
                 if (!label(c, labels, label, lx, ly, Palette.INK_MUTED)) {
-                    int above = (int) Math.round(gy - gr - LABEL_H - 3);
+                    int above = (int) Math.round(gy - clear - LABEL_H - 3);
                     label(c, labels, label, (int) Math.round(gx - c.textWidth(label) / 2.0), above, Palette.INK_MUTED);
                 }
             }
