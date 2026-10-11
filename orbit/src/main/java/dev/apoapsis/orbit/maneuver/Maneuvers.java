@@ -43,14 +43,24 @@ public final class Maneuvers {
         return TrajectoryPredictor.predict(body, applyAt(atNode, node), node.ut(), horizonSeconds, maxPatches);
     }
 
-    /** Burn duration (s) for {@code dv} m/s with constant thrust {@code thrustN} on a ship of {@code massKg}. */
+    /**
+     * Burn duration (s) for {@code dv} m/s with constant thrust {@code thrustN} on a ship of {@code massKg}.
+     * Returns {@link Double#POSITIVE_INFINITY} when thrust or Isp is not positive, so the burn is impossible.
+     */
     public static double burnSeconds(double dv, double massKg, double ispS, double thrustN) {
+        if (thrustN <= 0 || ispS <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
         double ve = ispS * G0;
         return massKg * ve / thrustN * (1 - Math.exp(-dv / ve));
     }
 
-    /** Ignition time (s) that centres the burn on {@code node.ut()}. */
+    /**
+     * Ignition time (s) that puts the first half of the burn's delta-v before {@code node.ut()}.
+     * The heavier ship takes longer over that half than half the burn time, so this is earlier than
+     * {@code ut - burnSeconds / 2}. Returns {@link Double#NEGATIVE_INFINITY} when {@link #burnSeconds} is infinite.
+     */
     public static double burnStartUt(ManeuverNode node, double massKg, double ispS, double thrustN) {
-        return node.ut() - burnSeconds(node.deltaV(), massKg, ispS, thrustN) / 2;
+        return node.ut() - burnSeconds(node.deltaV() / 2, massKg, ispS, thrustN);
     }
 }

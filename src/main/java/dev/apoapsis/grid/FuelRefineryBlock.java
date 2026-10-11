@@ -10,9 +10,11 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.ItemUtils;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CookingFuel;
+import net.minecraft.world.item.component.UseRemainder;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -68,7 +70,11 @@ public class FuelRefineryBlock extends Block implements EntityBlock {
         return (BlockEntityTicker<T>) ticker;
     }
 
-    /** A water bucket adds one bucket; furnace fuel adds its burn time. Each click uses one item outside creative. */
+    /**
+     * A water bucket adds one bucket; furnace fuel adds its burn time. Each click uses one item outside creative.
+     * Fuel is refused when more than half its burn would be wasted against the heat cap; otherwise the item's
+     * crafting remainder (for example an empty bucket) is returned to the hand.
+     */
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
             InteractionHand hand, BlockHitResult hitResult) {
@@ -76,7 +82,7 @@ public class FuelRefineryBlock extends Block implements EntityBlock {
             return addWater(stack, level, pos, player, hand);
         }
         if (stack.has(DataComponents.COOKING_FUEL)) {
-            return addHeat(stack, level, pos, player);
+            return addHeat(stack, level, pos, player, hand);
         }
         return InteractionResult.TRY_WITH_EMPTY_HAND;
     }
@@ -106,7 +112,12 @@ public class FuelRefineryBlock extends Block implements EntityBlock {
         return InteractionResult.SUCCESS;
     }
 
-    private static InteractionResult addHeat(ItemStack stack, Level level, BlockPos pos, Player player) {
+    /**
+     * Adds furnace fuel's burn time to the heat buffer. The item is refused when more than half its burn would be
+     * wasted against the cap. Otherwise the heat is clamped to the cap and the item's crafting remainder (if any)
+     * replaces the item in the hand; with no remainder, one item is consumed.
+     */
+    private static InteractionResult addHeat(ItemStack stack, Level level, BlockPos pos, Player player, InteractionHand hand) {
         if (!(level instanceof ServerLevel server) || !(level.getBlockEntity(pos) instanceof FuelRefineryBlockEntity refinery)) {
             return InteractionResult.SUCCESS;
         }
@@ -114,13 +125,20 @@ public class FuelRefineryBlock extends Block implements EntityBlock {
         if (burn <= 0) {
             return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
-        if (refinery.getHeatTicks() >= FuelRefineryBlockEntity.MAX_HEAT_TICKS) {
+        long total = (long) refinery.getHeatTicks() + burn;
+        long wasted = Math.max(0L, total - FuelRefineryBlockEntity.MAX_HEAT_TICKS);
+        if (wasted * 2 > burn) { // a full buffer wastes the whole burn, so this covers it too
             player.sendOverlayMessage(Component.translatable("message.apoapsis.refinery_full"));
             return InteractionResult.FAIL;
         }
-        refinery.setHeatTicks(refinery.getHeatTicks() + burn);
+        refinery.setHeatTicks((int) Math.min(total, FuelRefineryBlockEntity.MAX_HEAT_TICKS));
         if (!player.isCreative()) {
-            stack.shrink(1);
+            ItemStack remainder = remainderOf(stack);
+            if (remainder.isEmpty()) {
+                stack.shrink(1);
+            } else {
+                player.setItemInHand(hand, ItemUtils.createFilledResult(stack, player, remainder));
+            }
         }
         player.sendOverlayMessage(statusMessage(level, pos, refinery));
         return InteractionResult.SUCCESS;
@@ -137,6 +155,19 @@ public class FuelRefineryBlock extends Block implements EntityBlock {
                 .withOptionalParameter(NeoForgeLootContextParams.QUERIED_STACK, stack)
                 .create(FUEL_QUERY);
         return fuel.burnTime().get(new LootContext.Builder(params).create(Optional.empty()), 0);
+    }
+
+    /**
+     * What a used fuel item leaves behind: its use-remainder component, else its crafting remainder (a lava bucket
+     * leaves a bucket), else empty.
+     */
+    static ItemStack remainderOf(ItemStack stack) {
+        UseRemainder use = stack.get(DataComponents.USE_REMAINDER);
+        if (use != null) {
+            return use.convertInto().create();
+        }
+        ItemStackTemplate crafting = stack.getItem().getCraftingRemainder();
+        return crafting == null ? ItemStack.EMPTY : crafting.create();
     }
 
     /** "Refinery: 3 water · 20 s heat · 900 kg hydrolox"; water shows the infinite sign beside a source block. */

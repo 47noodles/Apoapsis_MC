@@ -67,7 +67,8 @@ public final class KestrelOrbit {
             }
         });
         // Quiet: no flight has happened, so the Custodian does not announce First Flight.
-        Ages.setAge(player, Math.max(Ages.getAge(player), 4), false);
+        // stored value: sandbox must not leak a raised Age into the save
+        Ages.setAge(player, Math.max(Ages.stored(player), 4), false);
         player.sendSystemMessage(Component.translatable("apoapsis.scenario.orbit.done"));
         player.sendSystemMessage(Component.translatable("apoapsis.scenario.orbit.hint"));
         return true;

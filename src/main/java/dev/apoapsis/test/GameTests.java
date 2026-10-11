@@ -8,6 +8,7 @@ import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.Flight;
 import dev.apoapsis.flight.FlightHooks;
 import dev.apoapsis.flight.FlightRules;
+import dev.apoapsis.flight.Transitions;
 import dev.apoapsis.grid.FuelRefineryBlockEntity;
 import dev.apoapsis.grid.FuelTankBlockEntity;
 import dev.apoapsis.net.TerrainTilePayload;
@@ -32,6 +33,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -98,6 +100,18 @@ public final class GameTests {
         event.registerTest(TestSupport.id("suborbital_advancement_awarded"),
                 new ApoapsisGameTest("suborbital_advancement_awarded", environment, 40,
                         GameTests::suborbitalAdvancementAwarded));
+        event.registerTest(TestSupport.id("suborbital_recorded_for_seated_pilot"),
+                new ApoapsisGameTest("suborbital_recorded_for_seated_pilot", environment, 40,
+                        GameTests::suborbitalRecordedForSeatedPilot));
+        event.registerTest(TestSupport.id("fuel_refinery_refuses_wasteful_fuel"),
+                new ApoapsisGameTest("fuel_refinery_refuses_wasteful_fuel", environment, 40,
+                        GameTests::fuelRefineryRefusesWastefulFuel));
+        event.registerTest(TestSupport.id("fuel_refinery_fuel_fills_to_cap_and_returns_bucket"),
+                new ApoapsisGameTest("fuel_refinery_fuel_fills_to_cap_and_returns_bucket", environment, 40,
+                        GameTests::fuelRefineryFuelFillsToCapAndReturnsBucket));
+        event.registerTest(TestSupport.id("fuel_refinery_coal_leaves_no_remainder"),
+                new ApoapsisGameTest("fuel_refinery_coal_leaves_no_remainder", environment, 40,
+                        GameTests::fuelRefineryCoalLeavesNoRemainder));
         event.registerTest(TestSupport.id("pale_sample_grants_age_five"),
                 new ApoapsisGameTest("pale_sample_grants_age_five", environment, 40, GameTests::paleSampleGrantsAgeFive));
         event.registerTest(TestSupport.id("ship_owner_may_pilot"),
@@ -297,6 +311,24 @@ public final class GameTests {
     }
 
     /**
+     * Transitions.up unseats the pilot while it moves the ship, so SUBORBITAL must be recorded for the pilot who was
+     * seated before the move. The orbit dimension is not loaded in the GameTest world, so up() itself cannot run here;
+     * this drives the extracted moveRecordingSuborbital with a move that unseats the pilot, as Transitions.move does.
+     */
+    @SuppressWarnings("removal")
+    private static void suborbitalRecordedForSeatedPilot(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer pilot = helper.makeMockServerPlayerInLevel();
+        ShipEntity ship = claimedShip(helper, ships, null);
+        ship.seatPilot(pilot);
+        helper.assertTrue(ship.getPilot() == pilot, "the pilot was not seated before the move");
+        Transitions.moveRecordingSuborbital(ship, pilot::stopRiding);
+        helper.assertTrue(ship.getPilot() == null, "the move did not unseat the pilot");
+        helper.assertTrue(Firsts.has(pilot, Firsts.First.SUBORBITAL),
+                "SUBORBITAL was not recorded for the pilot who was seated before the move");
+        helper.succeed();
+    }
+
+    /**
      * A pilot at Age 4 with PALE_LANDING recorded and a sample in the inventory, landing on Verdance, reaches Age 5 and
      * keeps the sample.
      */
@@ -481,6 +513,56 @@ public final class GameTests {
         TerrainProbe.timeTiles(verdance, 1234, -5678);
         TerrainProbe.timeMap(pale, 512, 256, 2);
         TerrainProbe.timeMap(verdance, 512, 256, 2);
+        helper.succeed();
+    }
+
+    /** A lava bucket on a nearly full heat buffer would waste almost all its burn, so the refinery refuses it. */
+    private static void fuelRefineryRefusesWastefulFuel(GameTestHelper helper, ShipCleanup ships) {
+        TestSupport.stoneFloor(helper);
+        helper.setBlock(REFINERY, TestSupport.block(helper, "fuel_refinery"));
+        int start = FuelRefineryBlockEntity.MAX_HEAT_TICKS - 100;
+        helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).setHeatTicks(start);
+        Player player = namedPlayer(helper, "refiner");
+        helper.assertTrue(!player.isCreative(), "the test player is in creative, which skips the item use");
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.LAVA_BUCKET));
+        helper.useBlock(REFINERY, player);
+        int heat = helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).getHeatTicks();
+        helper.assertTrue(heat == start, "the refinery took the wasteful fuel: heat is " + heat + ", expected " + start);
+        helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).is(Items.LAVA_BUCKET),
+                "the refused lava bucket left the hand: " + player.getItemInHand(InteractionHand.MAIN_HAND));
+        helper.succeed();
+    }
+
+    /** A lava bucket on an empty buffer fills it to the cap (wasting under half its burn) and leaves an empty bucket. */
+    private static void fuelRefineryFuelFillsToCapAndReturnsBucket(GameTestHelper helper, ShipCleanup ships) {
+        TestSupport.stoneFloor(helper);
+        helper.setBlock(REFINERY, TestSupport.block(helper, "fuel_refinery"));
+        helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).setHeatTicks(0);
+        Player player = namedPlayer(helper, "refiner");
+        helper.assertTrue(!player.isCreative(), "the test player is in creative, which skips the item use");
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.LAVA_BUCKET));
+        helper.useBlock(REFINERY, player);
+        int heat = helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).getHeatTicks();
+        helper.assertTrue(heat == FuelRefineryBlockEntity.MAX_HEAT_TICKS,
+                "heat is " + heat + ", expected the cap " + FuelRefineryBlockEntity.MAX_HEAT_TICKS);
+        helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).is(Items.BUCKET),
+                "the hand holds " + player.getItemInHand(InteractionHand.MAIN_HAND) + ", expected the empty bucket");
+        helper.succeed();
+    }
+
+    /** Coal has no remainder: one is consumed from the stack and the rest stay in the hand. */
+    private static void fuelRefineryCoalLeavesNoRemainder(GameTestHelper helper, ShipCleanup ships) {
+        TestSupport.stoneFloor(helper);
+        helper.setBlock(REFINERY, TestSupport.block(helper, "fuel_refinery"));
+        helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).setHeatTicks(0);
+        Player player = namedPlayer(helper, "refiner");
+        helper.assertTrue(!player.isCreative(), "the test player is in creative, which skips the item use");
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.COAL, 2));
+        helper.useBlock(REFINERY, player);
+        int heat = helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).getHeatTicks();
+        helper.assertTrue(heat > 0, "the refinery took no heat from the coal");
+        ItemStack hand = player.getItemInHand(InteractionHand.MAIN_HAND);
+        helper.assertTrue(hand.is(Items.COAL) && hand.getCount() == 1, "the hand holds " + hand + ", expected 1 coal");
         helper.succeed();
     }
 

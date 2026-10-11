@@ -32,7 +32,7 @@ import org.joml.Quaternionf;
  * Moves a ship between its surface dimension and the orbit dimension. The ship is replaced by a new entity in the
  * target level, and its pilot is teleported in and seated on the next tick.
  */
-final class Transitions {
+public final class Transitions {
     /** Ticks to wait for a pilot to reach the target level before the seat is dropped. */
     private static final int SEAT_TIMEOUT_TICKS = 40;
 
@@ -94,8 +94,17 @@ final class Transitions {
                 FlightMessages.bodyName(body)));
         FlightWarp.clear();
         loadChunk(orbit, FlightDimensions.slotPosition(slot));
-        move(ship, orbit, FlightDimensions.slotPosition(slot), q, state, Vec3.ZERO);
-        Firsts.suborbital(ship.getPilot());
+        moveRecordingSuborbital(ship, () -> move(ship, orbit, FlightDimensions.slotPosition(slot), q, state, Vec3.ZERO));
+    }
+
+    /**
+     * Runs {@code move}, which unseats the pilot, then records SUBORBITAL for whoever was seated before it. Public so a
+     * GameTest can drive it: the orbit dimension is not loaded in the GameTest world, so {@link #up} cannot run there.
+     */
+    public static void moveRecordingSuborbital(ShipEntity ship, Runnable move) {
+        Entity pilot = ship.getPilot();
+        move.run();
+        Firsts.suborbital(pilot);
     }
 
     /**

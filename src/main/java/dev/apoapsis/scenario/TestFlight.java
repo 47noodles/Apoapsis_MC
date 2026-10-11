@@ -102,7 +102,8 @@ public final class TestFlight {
             player.sendSystemMessage(Component.translatable("apoapsis.scenario.testflight.pad_failed"));
             return;
         }
-        Ages.setAge(player, Math.max(Ages.getAge(player), 4), false);
+        // stored value: sandbox must not leak a raised Age into the save
+        Ages.setAge(player, Math.max(Ages.stored(player), 4), false);
         ShipAssembler.Result result = ShipAssembler.assemble(overworld, cockpit, player);
         if (result.error() != null) {
             player.sendSystemMessage(result.error());

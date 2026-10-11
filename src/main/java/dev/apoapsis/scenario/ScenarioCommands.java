@@ -47,7 +47,8 @@ public final class ScenarioCommands {
             return 0;
         }
         // Quiet: no flight has happened, so the Custodian does not announce First Flight.
-        Ages.setAge(player, Math.max(Ages.getAge(player), 4), false);
+        // stored value: sandbox must not leak a raised Age into the save
+        Ages.setAge(player, Math.max(Ages.stored(player), 4), false);
         source.sendSuccess(() -> Component.translatable("apoapsis.scenario.pad.done"), false);
         return 1;
     }

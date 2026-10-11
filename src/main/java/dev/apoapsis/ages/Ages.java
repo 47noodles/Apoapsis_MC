@@ -91,8 +91,10 @@ public final class Ages {
     /**
      * Once per player: Age 3 (never lower than they have), the ship part recipes, and one Custodian line. Existing
      * players who have not started get it at their next login. Sandbox still reports MAX_AGE on top of this.
+     * It also backfills PALE_LANDING for saves that already announced Pale, on every login.
      */
     public static void start(ServerPlayer player) {
+        backfillPaleLanding(player);
         if (player.getData(AgeData.STARTED.get())) {
             return;
         }
@@ -104,6 +106,16 @@ public final class Ages {
         }
         player.awardRecipesByKey(recipes);
         AgeAnnounce.custodian(player, Component.translatable("apoapsis.ages.line.start"));
+    }
+
+    /**
+     * Old saves showed the Pale line (PALE_ANNOUNCED) without recording PALE_LANDING. Record it now, quietly: the
+     * line flag is false, so the Custodian says nothing.
+     */
+    static void backfillPaleLanding(ServerPlayer player) {
+        if (player.getData(AgeData.PALE_ANNOUNCED.get()) && !Firsts.has(player, Firsts.First.PALE_LANDING)) {
+            Firsts.record(player, Firsts.First.PALE_LANDING, false);
+        }
     }
 
     /** Milestone: the player flew a ship above 1,500 m and landed it on Verdance (Age 3 to 4). */
@@ -145,8 +157,11 @@ public final class Ages {
                 Component.translatable("apoapsis.ages.name." + n));
     }
 
-    /** The Age stored on the player, before sandbox. */
-    static int stored(Player player) {
+    /**
+     * The Age stored on the player, before sandbox. Public so the test scenarios store from the real Age, not the
+     * sandbox one.
+     */
+    public static int stored(Player player) {
         return Math.max(0, Math.min(MAX_AGE, player.getData(AgeData.AGE.get())));
     }
 

@@ -86,6 +86,25 @@ class ManeuversTest {
     }
 
     @Test
+    void burnStartPutsHalfTheDeltaVBeforeTheNode() {
+        // ve = 300 * 9.80665 = 2941.995; the first 1000 m/s of a 2000 m/s burn takes
+        // t = 1000 * ve / 10000 * (1 - exp(-1000 / ve)) = 84.777217 s, not half the 145.1248 s total (72.56 s).
+        assertTimeoutPreemptively(Duration.ofMillis(200), () -> {
+            double start = Maneuvers.burnStartUt(new ManeuverNode(1000, 2000, 0, 0), 1000, 300, 10000);
+            assertEquals(1000 - 84.777217, start, 1e-4);
+        });
+    }
+
+    @Test
+    void burnSecondsIsInfiniteWithoutThrustOrIsp() {
+        assertEquals(Double.POSITIVE_INFINITY, Maneuvers.burnSeconds(100, 1000, 300, 0));
+        assertEquals(Double.POSITIVE_INFINITY, Maneuvers.burnSeconds(100, 1000, 300, -5));
+        assertEquals(Double.POSITIVE_INFINITY, Maneuvers.burnSeconds(100, 1000, 0, 10000));
+        assertEquals(Double.POSITIVE_INFINITY, Maneuvers.burnSeconds(0, 1000, 300, 0)); // zero delta-v must not be NaN
+        assertEquals(Double.NEGATIVE_INFINITY, Maneuvers.burnStartUt(new ManeuverNode(1000, 100, 0, 0), 1000, 300, 0));
+    }
+
+    @Test
     void predictAfterNodeReachesPale() {
         assertTimeoutPreemptively(Duration.ofMillis(200), () -> {
             List<Patch> patches = Maneuvers.predictAfter(MeridianSystem.VERDANCE, hohmannShip(), 0,

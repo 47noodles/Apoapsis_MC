@@ -82,7 +82,8 @@ public final class Firsts {
 
     /**
      * ORBIT: once a second, in orbit around Verdance with the engines off, the orbit is bound and its periapsis is above
-     * the Verdance transition altitude. Called every tick of an orbiting ship from flight/FlightRules.
+     * the top of Verdance's atmosphere (atmosphereTop, 12 km). Called every tick of an orbiting ship
+     * from flight/FlightRules.
      */
     public static void checkOrbit(Entity pilot, boolean enginesOff, BodyId body, Vec3d r, Vec3d v) {
         if (!(pilot instanceof ServerPlayer player) || player.tickCount % ORBIT_CHECK_TICKS != 0) {
@@ -91,8 +92,8 @@ public final class Firsts {
         if (!enginesOff || body != BodyId.VERDANCE || has(player, First.ORBIT)) {
             return;
         }
-        double transition = FlightDimensions.transitionAltitude(body);
-        if (periapsisAltitude(FlightDimensions.system(body), r, v) > transition) {
+        CelestialBody sys = FlightDimensions.system(body);
+        if (periapsisAltitude(sys, r, v) > sys.atmosphereTop) {
             record(player, First.ORBIT);
         }
     }
