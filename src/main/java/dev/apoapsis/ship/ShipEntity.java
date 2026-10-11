@@ -253,16 +253,6 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         setSasMode(getSasMode().next());
     }
 
-    /** True unless SAS is OFF. */
-    public boolean isSasOn() {
-        return getSasMode() != SasMode.OFF;
-    }
-
-    /** Compatibility form: true sets HOLD, false sets OFF. */
-    public void setSas(boolean on) {
-        setSasMode(on ? SasMode.HOLD : SasMode.OFF);
-    }
-
     /** True while FLT moves the ship between dimensions: the pilot may dismount and physics is paused. */
     public boolean isTransferring() {
         return transferring;
@@ -444,22 +434,35 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         return false;
     }
 
+    /** The vector itself, or zero if any component is not finite. */
+    private static Vec3 finite(Vec3 v) {
+        return Double.isFinite(v.x) && Double.isFinite(v.y) && Double.isFinite(v.z) ? v : Vec3.ZERO;
+    }
+
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
         structure = ShipStructure.load(input.childOrEmpty("structure"));
-        comLocal = new Vec3(input.getDoubleOr("comX", 0), input.getDoubleOr("comY", 0), input.getDoubleOr("comZ", 0));
+        // Corrupt numbers in a save are replaced by safe defaults, so they cannot poison the physics.
+        AABB bounds = structure.localBounds();
+        Vec3 com = finite(new Vec3(input.getDoubleOr("comX", 0), input.getDoubleOr("comY", 0),
+                input.getDoubleOr("comZ", 0)));
+        comLocal = new Vec3(Mth.clamp(com.x, bounds.minX - 1, bounds.maxX + 1),
+                Mth.clamp(com.y, bounds.minY - 1, bounds.maxY + 1),
+                Mth.clamp(com.z, bounds.minZ - 1, bounds.maxZ + 1));
         invalidateStructureCache();
         orientation.set(input.getFloatOr("qx", 0f), input.getFloatOr("qy", 0f), input.getFloatOr("qz", 0f),
                 input.getFloatOr("qw", 1f));
-        if (orientation.lengthSquared() < 1e-6f) {
+        float lengthSq = orientation.lengthSquared();
+        if (!(lengthSq >= 1e-6f && lengthSq < Float.POSITIVE_INFINITY)) {
             orientation.identity();
         }
         orientation.normalize();
-        velocity = new Vec3(input.getDoubleOr("vx", 0), input.getDoubleOr("vy", 0), input.getDoubleOr("vz", 0));
-        angularVelocity = new Vec3(input.getDoubleOr("wx", 0), input.getDoubleOr("wy", 0), input.getDoubleOr("wz", 0));
+        velocity = finite(new Vec3(input.getDoubleOr("vx", 0), input.getDoubleOr("vy", 0), input.getDoubleOr("vz", 0)));
+        angularVelocity = finite(new Vec3(input.getDoubleOr("wx", 0), input.getDoubleOr("wy", 0),
+                input.getDoubleOr("wz", 0)));
         throttle = Math.max(0f, Math.min(1f, input.getFloatOr("throttle", 0f)));
         int mode = input.getIntOr("sasMode", -1);
-        sasMode = mode >= 0 ? SasMode.byOrdinal(mode) : (input.getBooleanOr("sas", true) ? SasMode.HOLD : SasMode.OFF);
+        sasMode = mode >= 0 ? SasMode.byOrdinal(mode) : SasMode.HOLD;
         landed = input.getBooleanOr("landed", false);
         updateBounds();
     }
@@ -756,6 +759,8 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         int steps = (int) Mth.clamp(Math.ceil(speed0 * DT / MAX_STEP_M), MIN_SUBSTEPS, MAX_SUBSTEPS);
         double h = DT / steps;
         boolean blockedBelow = false;
+        // Broad phase: far above terrain, no probe can touch a solid cell this tick, so the probe tests are skipped.
+        boolean clear = clearOfTerrain(x, y, z);
 
         for (int i = 0; i < steps; i++) {
             // Speed at the start of the substep: a collision response may never leave the ship faster than this.
@@ -768,7 +773,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
 
             // Y first, then X, then Z; each axis is reverted on contact.
             double ny = y + vy * h;
-            if (collidesWith(probes, x, ny, z)) {
+            if (!clear && collidesWith(probes, x, ny, z)) {
                 double vContact = Math.sqrt(vx * vx + vy * vy + vz * vz);
                 if (vContact > CRASH_CONTACT_MPS || Math.abs(vy) > CRASH_VERTICAL_MPS) {
                     setPos(x, y, z);
@@ -790,7 +795,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
                 y = ny;
             }
             double nx = x + vx * h;
-            if (collidesWith(probes, nx, y, z)) {
+            if (!clear && collidesWith(probes, nx, y, z)) {
                 double vContact = Math.sqrt(vx * vx + vy * vy + vz * vz);
                 if (vContact > CRASH_CONTACT_MPS) {
                     setPos(x, y, z);
@@ -804,7 +809,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
                 x = nx;
             }
             double nz = z + vz * h;
-            if (collidesWith(probes, x, y, nz)) {
+            if (!clear && collidesWith(probes, x, y, nz)) {
                 double vContact = Math.sqrt(vx * vx + vy * vy + vz * vz);
                 if (vContact > CRASH_CONTACT_MPS) {
                     setPos(x, y, z);
@@ -1071,6 +1076,31 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
 
     private static boolean sameOrientation(Quaternionfc a, Quaternionfc b) {
         return a.x() == b.x() && a.y() == b.y() && a.z() == b.z() && a.w() == b.w();
+    }
+
+    /**
+     * True if the ship is far enough above terrain that no probe can reach a solid cell this tick: its lowest point,
+     * after a full tick of motion and one block of margin, lies above the motion-blocking heightmap at nine points of
+     * the footprint grown by the horizontal motion. An unloaded chunk counts as not clear.
+     */
+    private boolean clearOfTerrain(double x, double y, double z) {
+        if (!terrainCollision) {
+            return true;
+        }
+        double reach = halfExtent + Math.hypot(velocity.x, velocity.z) * DT + 1;
+        double lowest = y - halfExtent - velocity.length() * DT - 1;
+        int top = Integer.MIN_VALUE;
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                int sx = Mth.floor(x + i * reach);
+                int sz = Mth.floor(z + j * reach);
+                if (!level().hasChunkAt(new BlockPos(sx, 0, sz))) {
+                    return false;
+                }
+                top = Math.max(top, level().getHeight(Heightmap.Types.MOTION_BLOCKING, sx, sz));
+            }
+        }
+        return lowest >= top;
     }
 
     /** True if any probe of the probe set, with its centre of mass at (x, y, z), lies in a solid cell. */

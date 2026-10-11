@@ -16,6 +16,8 @@ import net.minecraft.world.level.storage.PrimaryLevelData;
 public final class TestFlight {
     /** JVM system property that enables the test flight. */
     public static final String PROPERTY = "apoapsis.testFlight";
+    /** Level name of the test save; must equal {@code TestFlightClient.SAVE_NAME}. */
+    private static final String SAVE_NAME = "Apoapsis Test Flight";
 
     private TestFlight() {}
 
@@ -31,7 +33,9 @@ public final class TestFlight {
         MinecraftServer server = player.level().getServer();
         // Vanilla counts any world with extra dimensions as experimental and asks for a backup each time the save is
         // reopened; the test save is ours, so record the warning as seen (written to level.dat on the next save).
-        if (server.getWorldData() instanceof PrimaryLevelData data) {
+        // Only that save: the name must match TestFlightClient.SAVE_NAME (copied here, the client class is not imported).
+        if (SAVE_NAME.equals(server.getWorldData().getLevelName())
+                && server.getWorldData() instanceof PrimaryLevelData data) {
             data.withConfirmedWarning(true);
         }
         Scenarios.runNextTick(() -> setUp(server, player));

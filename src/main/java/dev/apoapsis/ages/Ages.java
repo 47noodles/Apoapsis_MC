@@ -99,7 +99,7 @@ public final class Ages {
 
     /** The Age stored on the player, before sandbox. */
     static int stored(Player player) {
-        return player.getData(AgeData.AGE.get());
+        return Math.max(0, Math.min(MAX_AGE, player.getData(AgeData.AGE.get())));
     }
 
     /** Whether this level's world has the sandbox flag on. */

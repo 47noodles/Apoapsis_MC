@@ -65,7 +65,11 @@ public class FuelTankBlockEntity extends BlockEntity {
         return saveCustomOnly(registries);
     }
 
+    /** Clamps to 0..CAPACITY_KG; NaN and negative values become 0. */
     private static double clamp(double kg) {
-        return Math.max(0, Math.min(CAPACITY_KG, kg));
+        if (!(kg > 0)) {
+            return 0;
+        }
+        return Math.min(CAPACITY_KG, kg);
     }
 }

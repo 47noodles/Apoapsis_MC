@@ -35,7 +35,9 @@ public final class ShipEntities {
         if (!event.isDismounting() || !(event.getEntityBeingMounted() instanceof ShipEntity ship)) {
             return;
         }
-        if (ship.isTransferring() || !FlightHooks.environment(ship).orbital()) {
+        // A ship being removed, or a rider who is removed or dead, must be let go; cancelling would leave them attached.
+        if (ship.isTransferring() || ship.isRemoved() || !event.getEntityMounting().isAlive()
+                || !FlightHooks.environment(ship).orbital()) {
             return;
         }
         event.setCanceled(true);

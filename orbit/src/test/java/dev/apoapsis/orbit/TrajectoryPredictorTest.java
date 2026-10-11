@@ -3,8 +3,10 @@ package dev.apoapsis.orbit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -57,6 +59,17 @@ class TrajectoryPredictorTest {
         assertEquals(Patch.EndReason.ATMOSPHERE, patches.get(0).end());
         assertEquals(1, patches.size());
         assertTrue(patches.get(0).endUt() < 120, "atmosphere entry at " + patches.get(0).endUt() + " s");
+    }
+
+    @Test
+    void bisectionFinishesAtHugeUniverseTime() {
+        // At ut = 1e13 s adjacent doubles are about 2 ms apart, so the 1 ms bisection tolerance is unreachable.
+        StateVector s = new StateVector(new Vec3d(84000, 0, 0), new Vec3d(0, 100, 0));
+        List<Patch> patches = assertTimeoutPreemptively(Duration.ofSeconds(5),
+                () -> TrajectoryPredictor.predict(VERDANCE, s, 1e13, 3000, 8));
+
+        assertEquals(Patch.EndReason.ATMOSPHERE, patches.get(0).end());
+        assertTrue(patches.get(0).endUt() >= 1e13, "endUt " + patches.get(0).endUt());
     }
 
     @Test

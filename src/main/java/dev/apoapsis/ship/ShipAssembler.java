@@ -64,7 +64,11 @@ public final class ShipAssembler {
         if (!ShipParts.isCockpit(level.getBlockState(cockpitPos))) {
             return new Result(null, Component.translatable("message.apoapsis.ship.no_cockpit"));
         }
+        // Break events are built by hand below, so they do not get the checks NeoForge applies to player breaks.
         if (pilot != null) {
+            if (!pilot.getAbilities().mayBuild) {
+                return new Result(null, protectedError());
+            }
             ItemStack cockpitItem = new ItemStack(GridBlocks.COCKPIT.get());
             if (!Ages.canUse(pilot, cockpitItem)) {
                 return new Result(null, Component.translatable("apoapsis.ages.needs",
@@ -152,6 +156,9 @@ public final class ShipAssembler {
         }
 
         Player pilot = ship.getPilot();
+        if (pilot != null && !pilot.getAbilities().mayBuild) {
+            return protectedError();
+        }
         Vec3 com = ship.getCenterOfMassLocal();
         Vec3 base = ship.position();
         Vec3 origin = null;

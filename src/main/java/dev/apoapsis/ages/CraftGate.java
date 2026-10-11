@@ -15,15 +15,9 @@ public final class CraftGate {
     private CraftGate() {}
 
     /**
-     * True when the grid would craft a result the player's Age does not allow yet. Uses the same recipe lookup as
-     * vanilla, so the 3x3 table, the 2x2 inventory grid and the recipe-book fill all pass through it.
+     * The Age the withheld result needs, or 0 when the grid's result may be shown to this player. Uses the same recipe
+     * lookup as vanilla, so the 3x3 table, the 2x2 inventory grid and the recipe-book fill all pass through it.
      */
-    public static boolean withholds(Player player, ServerLevel level, CraftingContainer container,
-                                    RecipeHolder<CraftingRecipe> recipeHint) {
-        return withheldAge(player, level, container, recipeHint) > 0;
-    }
-
-    /** The Age the withheld result needs, or 0 when the grid's result may be shown to this player. */
     public static int withheldAge(Player player, ServerLevel level, CraftingContainer container,
                                   RecipeHolder<CraftingRecipe> recipeHint) {
         CraftingInput input = container.asCraftInput();

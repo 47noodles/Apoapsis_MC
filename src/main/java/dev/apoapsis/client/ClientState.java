@@ -19,7 +19,16 @@ public final class ClientState {
     /** The local player's Age, 0..6. */
     public static volatile int age;
 
+    /** Largest universal time the client accepts; beyond it double precision is too coarse for the predictor. */
+    private static final double MAX_UT = 1e11;
+
+    /** Stores the orbit state; ignores a payload with non-finite numbers or an absurd universal time. */
     public static void accept(OrbitStatePayload p) {
+        if (!Double.isFinite(p.ut()) || p.ut() > MAX_UT || !Float.isFinite(p.warp())
+                || !Double.isFinite(p.rx()) || !Double.isFinite(p.ry()) || !Double.isFinite(p.rz())
+                || !Double.isFinite(p.vx()) || !Double.isFinite(p.vy()) || !Double.isFinite(p.vz())) {
+            return;
+        }
         orbitReceivedTick = clientTicks;
         orbit = p;
     }

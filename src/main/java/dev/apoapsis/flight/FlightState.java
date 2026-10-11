@@ -52,17 +52,22 @@ final class FlightState {
         FlightState s = new FlightState();
         s.regime = FlightRegime.byOrdinal(regime);
         s.body = BodyId.byOrdinal(body);
-        s.rx = rx;
-        s.ry = ry;
-        s.rz = rz;
-        s.vx = vx;
-        s.vy = vy;
-        s.vz = vz;
-        s.epochUt = epochUt;
+        s.rx = finite(rx);
+        s.ry = finite(ry);
+        s.rz = finite(rz);
+        s.vx = finite(vx);
+        s.vy = finite(vy);
+        s.vz = finite(vz);
+        s.epochUt = finite(epochUt);
         s.slot = slot;
         s.firstFlight = firstFlight;
         s.airborneTicks = airborneTicks;
         return s;
+    }
+
+    /** The value, or 0 if it is not finite (a corrupt save must not poison the orbit maths). */
+    private static double finite(double v) {
+        return Double.isFinite(v) ? v : 0;
     }
 
     /** A new orbit state at the given inertial state. */

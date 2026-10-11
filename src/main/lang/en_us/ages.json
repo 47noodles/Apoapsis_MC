@@ -18,6 +18,7 @@
   "apoapsis.ages.line.pale": "First landing on Pale recorded. Age 5 arrives in a later version.",
   "apoapsis.ages.cmd.self": "Your Age is %s.",
   "apoapsis.ages.cmd.get": "%s is at %s.",
+  "apoapsis.ages.cmd.forbidden": "Only operators can read another player's Age.",
   "apoapsis.ages.cmd.set": "Set %s to %s.",
   "apoapsis.ages.cmd.sandbox": "Sandbox is %s.",
   "apoapsis.ages.cmd.on": "on",

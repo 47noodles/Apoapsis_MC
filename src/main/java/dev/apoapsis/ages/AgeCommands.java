@@ -52,6 +52,12 @@ final class AgeCommands {
     }
 
     private static int showOther(CommandSourceStack source, ServerPlayer target) {
+        // Reading someone else's Age is an operator action; reading your own needs no permission.
+        if (source.getEntity() != target
+                && !Commands.<CommandSourceStack>hasPermission(Commands.LEVEL_GAMEMASTERS).test(source)) {
+            source.sendFailure(Component.translatable("apoapsis.ages.cmd.forbidden"));
+            return 0;
+        }
         int age = Ages.getAge(target);
         source.sendSuccess(() -> Component.translatable("apoapsis.ages.cmd.get", target.getDisplayName(),
                 Ages.ageName(age)), false);

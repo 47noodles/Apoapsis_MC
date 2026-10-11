@@ -21,7 +21,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * are merged: the latest rotation wins, and the newer throttle wins unless it is {@code THROTTLE_HOLD}, in which case
  * an older one-shot throttle command (full, cut) is kept, so a press is not lost to a later idle payload. One-shot
  * flags (SAS, assembly, warp) are merged by union. They are edge-triggered: a flag fires only if the previous applied
- * tick did not carry it, and each flag then has a {@link #FLAG_COOLDOWN_TICKS} cooldown.
+ * tick did not carry it, and each flag then has a cooldown ({@link #TAP_COOLDOWN_TICKS} for SAS and warp,
+ * {@link #FLAG_COOLDOWN_TICKS} for assembly).
  */
 @EventBusSubscriber(modid = Apoapsis.MODID)
 public final class ShipControls {
@@ -29,13 +30,15 @@ public final class ShipControls {
     private static final float THROTTLE_STEP = 1f / 40f;
     /** Ticks before the same one-shot flag may fire again for the same player. */
     static final int FLAG_COOLDOWN_TICKS = 10;
+    /** Shorter cooldown for SAS and warp taps, so a quick second press still registers. */
+    static final int TAP_COOLDOWN_TICKS = 2;
     /** The one-shot bits of {@link ShipInputPayload#flags}; other bits are ignored. */
     private static final int ONE_SHOT_MASK = ShipInputPayload.FLAG_TOGGLE_SAS | ShipInputPayload.FLAG_ASSEMBLY
             | ShipInputPayload.FLAG_WARP_UP | ShipInputPayload.FLAG_WARP_DOWN;
     /** Marks a flag that has never fired: far enough in the past that its cooldown has passed. */
     private static final long NEVER = Long.MIN_VALUE / 2;
 
-    /** Input waiting for the next server tick. Written on network threads, drained on the server thread. */
+    /** Input waiting for the next server tick. Written by the payload handler, drained on the server thread. */
     private static final Map<UUID, Pending> PENDING = new ConcurrentHashMap<>();
     /** Edge and cooldown state per player. Touched on the server thread only; removed on logout. */
     private static final Map<UUID, Gate> GATES = new ConcurrentHashMap<>();
@@ -51,11 +54,13 @@ public final class ShipControls {
         int lastFlags;
         /** Last server tick each one-shot flag fired, indexed by bit position. */
         final long[] firedAt = {NEVER, NEVER, NEVER, NEVER};
+        /** True once a failure has been logged for this player, so a repeating fault logs once. */
+        boolean warned;
     }
 
     private ShipControls() {}
 
-    /** Network entry point. Runs on the network thread, so it only queues the input for the next server tick. */
+    /** Payload entry point. Runs on the server thread (the NeoForge default), so it only queues the input for the next tick. */
     public static void handle(ShipInputPayload payload, IPayloadContext context) {
         Player player = context.player();
         int flags = payload.flags() & ONE_SHOT_MASK;
@@ -78,7 +83,16 @@ public final class ShipControls {
             // remove() takes whatever was merged up to now, so a payload arriving meanwhile is not lost.
             Pending pending = PENDING.remove(id);
             if (pending != null) {
-                apply(pending, GATES.computeIfAbsent(id, k -> new Gate()), now);
+                Gate gate = GATES.computeIfAbsent(id, k -> new Gate());
+                try {
+                    apply(pending, gate, now);
+                } catch (RuntimeException e) {
+                    // A listener from another mod must not break the tick; this player's input is dropped.
+                    if (!gate.warned) {
+                        gate.warned = true;
+                        Apoapsis.LOG.warn("Ship input for {} dropped after an error", id, e);
+                    }
+                }
             }
         }
     }
@@ -117,16 +131,16 @@ public final class ShipControls {
             ship.setThrottle(0f);
         }
 
-        if (fire(gate, edges, ShipInputPayload.FLAG_TOGGLE_SAS, now)) {
+        if (fire(gate, edges, ShipInputPayload.FLAG_TOGGLE_SAS, now, TAP_COOLDOWN_TICKS)) {
             ship.cycleSasMode();
         }
-        if (fire(gate, edges, ShipInputPayload.FLAG_WARP_UP, now)) {
+        if (fire(gate, edges, ShipInputPayload.FLAG_WARP_UP, now, TAP_COOLDOWN_TICKS)) {
             FlightHooks.requestWarp(ship, 1);
         }
-        if (fire(gate, edges, ShipInputPayload.FLAG_WARP_DOWN, now)) {
+        if (fire(gate, edges, ShipInputPayload.FLAG_WARP_DOWN, now, TAP_COOLDOWN_TICKS)) {
             FlightHooks.requestWarp(ship, -1);
         }
-        if (fire(gate, edges, ShipInputPayload.FLAG_ASSEMBLY, now)) {
+        if (fire(gate, edges, ShipInputPayload.FLAG_ASSEMBLY, now, FLAG_COOLDOWN_TICKS)) {
             Component error = ShipAssembler.disassemble(ship);
             if (error != null) {
                 player.sendOverlayMessage(error);
@@ -135,12 +149,12 @@ public final class ShipControls {
     }
 
     /** True if {@code flag} rose this tick and is past its cooldown; records the firing when it returns true. */
-    private static boolean fire(Gate gate, int edges, int flag, long now) {
+    private static boolean fire(Gate gate, int edges, int flag, long now, int cooldownTicks) {
         if ((edges & flag) == 0) {
             return false;
         }
         int bit = Integer.numberOfTrailingZeros(flag);
-        if (now - gate.firedAt[bit] < FLAG_COOLDOWN_TICKS) {
+        if (now - gate.firedAt[bit] < cooldownTicks) {
             return false;
         }
         gate.firedAt[bit] = now;
