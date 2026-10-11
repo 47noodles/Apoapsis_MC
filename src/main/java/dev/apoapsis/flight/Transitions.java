@@ -1,23 +1,25 @@
 package dev.apoapsis.flight;
 
 import dev.apoapsis.orbit.CelestialBody;
+import dev.apoapsis.orbit.Kepler;
 import dev.apoapsis.orbit.StateVector;
 import dev.apoapsis.orbit.Vec3d;
 import dev.apoapsis.ship.ShipEntity;
 import dev.apoapsis.ship.ShipStructure;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.TicketType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.phys.Vec3;
@@ -51,7 +53,7 @@ final class Transitions {
         Vec3d r = Frames.toInertialPosition(pos, sys.radius, FlightDimensions.seaLevel(surface.dimension()), t);
         Vec3d v = Frames.toInertialVelocity(ship.getVelocity(), t);
         Quaternionf q = Frames.surfaceToOrbitOrientation(ship.getOrientation(), t);
-        int slot = freeSlot(orbit);
+        int slot = OrbitSlots.claim(server, orbit);
         FlightState state = FlightState.inOrbit(body, new StateVector(r, v), UniverseTime.get(server).ut(), slot);
         state.firstFlight = old.firstFlight;
 
@@ -85,7 +87,9 @@ final class Transitions {
                 ? "apoapsis.flight.enter_atmosphere"
                 : "apoapsis.flight.leave_orbit"));
         FlightWarp.clear();
+        OrbitSlots.release(server, old.slot);
         loadChunk(surface, pos);
+        pos = aboveTerrain(surface, pos);
         move(ship, surface, pos, q, state, vel);
     }
 
@@ -100,7 +104,7 @@ final class Transitions {
         }
         ShipEntity fresh = ShipEntity.spawn(target, structure, pos, orientation);
         fresh.setThrottle(old.getThrottle());
-        fresh.setSas(old.isSasOn());
+        fresh.setSasMode(old.getSasMode());
         fresh.setVelocity(velocity);
         fresh.setAngularVelocity(old.getAngularVelocity());
         fresh.setData(FlightAttachments.FLIGHT.get(), state);
@@ -146,25 +150,39 @@ final class Transitions {
         PENDING.clear();
     }
 
-    /** The lowest orbit slot that no loaded ship uses. */
-    static int freeSlot(ServerLevel orbit) {
-        Set<Integer> used = new HashSet<>();
-        for (Entity e : orbit.getAllEntities()) {
-            if (e instanceof ShipEntity s) {
-                int slot = FlightAttachments.state(s).slot;
-                if (slot >= 0) {
-                    used.add(slot);
-                }
-            }
+    /**
+     * Asks for the landing chunk one tick before a descent is due, so {@link #down} finds it loaded rather than
+     * blocking. Does nothing unless the next tick at the current warp takes the ship below its transition altitude.
+     */
+    static void prefetchLanding(MinecraftServer server, FlightState st) {
+        CelestialBody sys = FlightDimensions.system(st.body);
+        StateVector next = Kepler.propagate(sys.mu, st.stateVector(),
+                FlightEvents.TICK_SECONDS * FlightWarp.factor(server));
+        Vec3d r = next.r();
+        if (r.length() - sys.radius >= FlightDimensions.transitionAltitude(st.body) || r.dot(next.v()) >= 0) {
+            return;
         }
-        int slot = 0;
-        while (used.contains(slot)) {
-            slot++;
+        ServerLevel surface = server.getLevel(FlightDimensions.surfaceDimension(st.body));
+        if (surface == null) {
+            return;
         }
-        return slot;
+        Vec3 pos = Frames.toSurfacePosition(r, sys.radius, FlightDimensions.seaLevel(st.body), Frames.tangentAt(r));
+        surface.getChunkSource().addTicketWithRadius(TicketType.ENDER_PEARL,
+                new ChunkPos(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4), 1);
     }
 
+    /** Loads the chunk under a spawn point. A prefetch ticket usually has it ready; otherwise this call blocks. */
     private static void loadChunk(ServerLevel level, Vec3 pos) {
-        level.getChunk(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4);
+        int cx = Mth.floor(pos.x) >> 4;
+        int cz = Mth.floor(pos.z) >> 4;
+        if (level.getChunkSource().getChunkNow(cx, cz) == null) {
+            level.getChunk(cx, cz);
+        }
+    }
+
+    /** Lifts a spawn point to one metre above the top solid block at its x and z when the point lies inside terrain. */
+    private static Vec3 aboveTerrain(ServerLevel level, Vec3 pos) {
+        int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(pos.x), Mth.floor(pos.z));
+        return pos.y < top ? new Vec3(pos.x, top + 1.0, pos.z) : pos;
     }
 }

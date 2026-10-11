@@ -50,7 +50,7 @@ public final class Flight {
         // Prograde is body +Y. Inertial (-sin, cos, 0) maps to orbit-dimension axes (X, Z, -Y) = (-sin, 0, -cos).
         Quaternionf orientation = Frames.noseTowards(-sin, 0, -cos);
 
-        int slot = Transitions.freeSlot(level);
+        int slot = OrbitSlots.claim(server, level);
         Vec3 at = FlightDimensions.slotPosition(slot);
         level.getChunk(Mth.floor(at.x) >> 4, Mth.floor(at.z) >> 4);
         ShipEntity ship = ShipEntity.spawn(level, structure, at, orientation);

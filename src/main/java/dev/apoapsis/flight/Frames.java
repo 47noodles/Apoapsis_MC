@@ -85,9 +85,12 @@ final class Frames {
         return t.e().scale(v.x).add(t.n().scale(-v.z)).add(t.u().scale(v.y));
     }
 
-    /** Surface position of an inertial position r (relative to the body centre), with sea level and radius. */
+    /**
+     * Surface position of an inertial position r (relative to the body centre), with sea level and radius. The height
+     * is kept at 1 m or more, so a ship that arrives below the surface is placed on it, not in the void.
+     */
     static Vec3 toSurfacePosition(Vec3d r, double radius, double seaLevel, Tangent t) {
-        double h = r.length() - radius;
+        double h = Math.max(1.0, r.length() - radius);
         return new Vec3(t.lon() * radius, seaLevel + h, -t.lat() * radius);
     }
 

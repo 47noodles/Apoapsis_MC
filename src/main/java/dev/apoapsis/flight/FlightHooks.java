@@ -1,6 +1,7 @@
 package dev.apoapsis.flight;
 
 import dev.apoapsis.orbit.CelestialBody;
+import dev.apoapsis.orbit.Vec3d;
 import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -59,17 +60,23 @@ public final class FlightHooks {
         FlightRules.afterTick(ship);
     }
 
-    /** Current warp factor for this ship (1 in real time). Ships scale their per-tick physics by nothing; FLT owns warp. */
     /**
      * Unit velocity direction in the ship's current dimension axes (surface: relative to the ground; orbit dimension:
-     * the orbital velocity mapped to local axes), or Vec3.ZERO when nearly at rest. Used by SAS prograde/retrograde.
-     * STUB from integration: node FIX-D implements the orbit case.
+     * the orbital velocity mapped to local axes), or Vec3.ZERO under 1 m/s. Used by SAS prograde and retrograde.
      */
     public static Vec3 velocityDirection(ShipEntity ship) {
-        Vec3 v = ship.getVelocity();
-        return v.lengthSqr() < 1e-4 ? Vec3.ZERO : v.normalize();
+        Vec3 v;
+        if (FlightDimensions.ORBIT.equals(ship.level().dimension())) {
+            // Inertial velocity relative to the body, mapped to orbit-dimension axes (x, y, z) = (X, Z, -Y).
+            Vec3d inertial = FlightAttachments.state(ship).v();
+            v = new Vec3(inertial.x(), inertial.z(), -inertial.y());
+        } else {
+            v = ship.getVelocity();
+        }
+        return v.lengthSqr() < 1.0 ? Vec3.ZERO : v.normalize();
     }
 
+    /** Current warp factor for this ship (1 in real time). Ships scale their per-tick physics by nothing; FLT owns warp. */
     public static float warp(ShipEntity ship) {
         return FlightWarp.factorFor(ship);
     }

@@ -7,7 +7,14 @@
   "apoapsis.flight.leave_orbit": "Leaving orbit",
   "apoapsis.flight.soi.enter_pale": "Entering Pale's sphere of influence",
   "apoapsis.flight.soi.enter_verdance": "Entering Verdance's sphere of influence",
+  "apoapsis.flight.warp.atmosphere": "Warp needs you clear of the atmosphere",
+  "apoapsis.flight.warp.engines": "Warp needs the engines off",
+  "apoapsis.flight.warp.held": "Warp held at x%s to stay clear of the surface",
   "apoapsis.flight.warp.level": "Time warp x%s",
-  "apoapsis.flight.warp.need": "Warp needs engines off, clear of the atmosphere, singleplayer",
-  "apoapsis.flight.warp.off": "Real time"
+  "apoapsis.flight.warp.off": "Real time",
+  "apoapsis.flight.warp.orbit": "Warp works in orbit only",
+  "apoapsis.flight.warp.pilot": "Warp needs a pilot aboard",
+  "apoapsis.flight.warp.singleplayer": "Warp works in singleplayer only",
+  "apoapsis.flight.warp.surface": "Real time to stay clear of the surface",
+  "apoapsis.flight.warp.too_close": "Too close to %s for warp"
 }

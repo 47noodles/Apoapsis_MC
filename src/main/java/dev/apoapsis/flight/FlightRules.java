@@ -55,6 +55,8 @@ final class FlightRules {
                 && st.r().dot(st.v()) < 0) {
             Transitions.down(ship, st, level);
             return;
+        } else {
+            Transitions.prefetchLanding(server, st);
         }
 
         if (pilot != null && ship.tickCount % SYNC_INTERVAL_TICKS == 0) {
