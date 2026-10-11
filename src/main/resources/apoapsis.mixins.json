@@ -11,7 +11,8 @@
     "client.HudAccessor",
     "client.SkyRendererMixin",
     "client.EntityTurnMixin",
-    "client.GameRendererMixin"
+    "client.GameRendererMixin",
+    "client.LevelExtractorMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

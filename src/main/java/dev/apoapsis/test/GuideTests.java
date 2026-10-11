@@ -7,7 +7,9 @@ import dev.apoapsis.Apoapsis;
 import dev.apoapsis.ages.Ages;
 import dev.apoapsis.ages.Firsts;
 import dev.apoapsis.ages.Guide;
+import dev.apoapsis.net.GuideStepPayload;
 import dev.apoapsis.test.ApoapsisGameTest.ShipCleanup;
+import io.netty.buffer.Unpooled;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -18,6 +20,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.SimpleContainer;
@@ -37,6 +40,9 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
  * complete.
  */
 final class GuideTests {
+    /** The longest body line the guide panel is meant to carry, in characters with each key counted as one. */
+    private static final int MAX_LINE_CHARS = 190;
+
     private GuideTests() {}
 
     /** A new player has the first step from the login start, and reaching it again shows nothing. */
@@ -180,16 +186,8 @@ final class GuideTests {
     /** Every step has its title and body lines in the lang file, and no line names a missing key argument. */
     @SuppressWarnings("removal")
     static void guideTextIsComplete(GameTestHelper helper, ShipCleanup ships) {
-        InputStream stream = GuideTests.class.getResourceAsStream("/assets/" + Apoapsis.MODID + "/lang/en_us.json");
-        if (stream == null) {
-            helper.fail("the merged en_us lang file is not on the classpath");
-            return;
-        }
-        JsonObject lang;
-        try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
-            lang = JsonParser.parseReader(reader).getAsJsonObject();
-        } catch (IOException e) {
-            helper.fail("the lang file could not be read: " + e.getMessage());
+        JsonObject lang = loadLang(helper);
+        if (lang == null) {
             return;
         }
         Pattern placeholder = Pattern.compile("%(\\d+)\\$s");
@@ -207,6 +205,64 @@ final class GuideTests {
             }
         }
         helper.succeed();
+    }
+
+    /**
+     * A step reaches the client as its position in the guide, and that number names the same step again. A player with
+     * no client for the panel (these mock players) is sent the text in chat instead, so showing a step never fails.
+     */
+    @SuppressWarnings("removal")
+    static void guideStepPayloadRoundTrips(GameTestHelper helper, ShipCleanup ships) {
+        for (Guide.Step step : Guide.Step.values()) {
+            RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(),
+                    helper.getLevel().getServer().registryAccess());
+            GuideStepPayload.STREAM_CODEC.encode(buf, new GuideStepPayload(step.ordinal()));
+            GuideStepPayload back = GuideStepPayload.STREAM_CODEC.decode(buf);
+            helper.assertTrue(back.step() == step.ordinal() && Guide.Step.values()[back.step()] == step,
+                    step.id() + " changed in the codec round trip");
+        }
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        for (Guide.Step step : Guide.Step.values()) {
+            Guide.show(player, step);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * No body line is longer than the guide panel is meant to carry. The panel is a small corner of the view, about
+     * 200 GUI pixels wide, so a line much past 190 characters (keys counted as one) takes five or more rows.
+     */
+    @SuppressWarnings("removal")
+    static void guideLinesFitThePanel(GameTestHelper helper, ShipCleanup ships) {
+        JsonObject lang = loadLang(helper);
+        if (lang == null) {
+            return;
+        }
+        for (Guide.Step step : Guide.Step.values()) {
+            for (int line = 1; line <= Guide.LINES; line++) {
+                String key = step.lineKey(line);
+                requireKey(helper, lang, key);
+                int length = lang.get(key).getAsString().replaceAll("%\\d+\\$s", "K").length();
+                helper.assertTrue(length <= MAX_LINE_CHARS,
+                        key + " is " + length + " characters, over the panel's " + MAX_LINE_CHARS);
+            }
+        }
+        helper.succeed();
+    }
+
+    /** The merged en_us lang file, or null after failing the test. */
+    private static JsonObject loadLang(GameTestHelper helper) {
+        InputStream stream = GuideTests.class.getResourceAsStream("/assets/" + Apoapsis.MODID + "/lang/en_us.json");
+        if (stream == null) {
+            helper.fail("the merged en_us lang file is not on the classpath");
+            return null;
+        }
+        try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            return JsonParser.parseReader(reader).getAsJsonObject();
+        } catch (IOException e) {
+            helper.fail("the lang file could not be read: " + e.getMessage());
+            return null;
+        }
     }
 
     /** Asserts the step is not shown yet, runs the trigger, then asserts the trigger showed it. */

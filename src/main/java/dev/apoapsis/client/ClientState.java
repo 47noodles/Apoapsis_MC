@@ -16,6 +16,8 @@ public final class ClientState {
     public static volatile long orbitReceivedTick;
     /** Client ticks (not paused) since the client started. */
     public static volatile long clientTicks;
+    /** Orbit states accepted so far: a change tells a caller that a fresh state has arrived. */
+    public static volatile long orbitCount;
     /** The local player's Age, 0..6. */
     public static volatile int age;
 
@@ -43,6 +45,7 @@ public final class ClientState {
             return;
         }
         orbitReceivedTick = clientTicks;
+        orbitCount++;
         orbit = p;
     }
 

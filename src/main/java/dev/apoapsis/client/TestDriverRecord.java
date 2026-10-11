@@ -57,9 +57,19 @@ final class TestDriverRecord {
     private static final String TRANSITION_HEADER = "transition,frame,nanotime,client_tick,dimension,riding,ships,"
             + "cam_x,cam_y,cam_z,eye_x,eye_y,eye_z,distance,held\n";
     /** Frames logged after each change of dimension. */
-    private static final int WATCH_FRAMES = 40;
+    private static final int WATCH_FRAMES = denseStep() > 0 ? 400 : 40;
     private static final boolean TRANSITION_SHOTS = !"false".equalsIgnoreCase(
             System.getProperty("apoapsis.record.transitionShots", "true"));
+    /**
+     * With {@code -Dapoapsis.record.denseShots=N} (or the environment variable {@code APOAPSIS_DENSE_SHOTS}), a full-size
+     * shot at most every N client ticks for {@link #DENSE_TICKS} ticks after each change of dimension, held frames
+     * included: what the player saw. 0 is off.
+     */
+    private static final int DENSE_STEP = denseStep();
+    /** Client ticks after a change of dimension during which dense shots are taken. */
+    private static final int DENSE_TICKS = 70;
+    private static long transitionStartTick;
+    private static long nextDenseTick;
 
     private static String mode;
     private static int frame;
@@ -82,6 +92,11 @@ final class TestDriverRecord {
     private static boolean shotTaken;
 
     private TestDriverRecord() {}
+
+    private static int denseStep() {
+        String env = System.getenv("APOAPSIS_DENSE_SHOTS");
+        return Integer.getInteger("apoapsis.record.denseShots", env == null ? 0 : Integer.parseInt(env.trim()));
+    }
 
     /** Hooks the per-frame grab into the render loop. Called once from {@link TestDriver#register()}. */
     static void register() {
@@ -226,6 +241,8 @@ final class TestDriverRecord {
             firstSeatedFrame = 0;
             heldFrames = 0;
             shotTaken = false;
+            transitionStartTick = ClientState.clientTicks;
+            nextDenseTick = transitionStartTick;
             LOG.info("[test driver] transition {}: {} -> {}", transitions, lastDimension.identifier(), dimension.identifier());
         }
         lastDimension = dimension;
@@ -272,10 +289,17 @@ final class TestDriverRecord {
             worstDistance = distance;
             worstFrame = watched;
         }
-        LOG.info("[test driver] transition {} frame {}: held {} riding {} ships {} camera {} eye {} distance {}",
-                transitions, watched, held, riding, ships, fmt(cam), eye == null ? "none" : fmt(eye),
+        LOG.info("[test driver] transition {} frame {}: tick {} held {} riding {} orbit {} ships {} camera {} eye {} distance {}",
+                transitions, watched, ClientState.clientTicks, held, riding, ClientState.orbit != null, ships, fmt(cam),
+                eye == null ? "none" : fmt(eye),
                 Double.isNaN(distance) ? "n/a" : String.format("%.3f", distance));
         writeTransitionRow(mc, now, riding, ships, cam, eye, distance, held);
+        long sinceSwitch = ClientState.clientTicks - transitionStartTick;
+        if (DENSE_STEP > 0 && sinceSwitch <= DENSE_TICKS && ClientState.clientTicks >= nextDenseTick) {
+            nextDenseTick = ClientState.clientTicks + DENSE_STEP;
+            Screenshot.grab(mc.gameDirectory, String.format("dense-%d-t%02d-f%02d.png", transitions, sinceSwitch, watched),
+                    mc.gameRenderer.mainRenderTarget(), 1, message -> { });
+        }
         if (TRANSITION_SHOTS && !held && !shotTaken) {
             shotTaken = true;
             Screenshot.grab(mc.gameDirectory, "jitter-transition-" + transitions + "-frame" + watched + ".png",

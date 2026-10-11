@@ -1,6 +1,7 @@
 package dev.apoapsis;
 
 import dev.apoapsis.client.ClientState;
+import dev.apoapsis.client.GuidePanel;
 import dev.apoapsis.client.MapClient;
 import dev.apoapsis.client.SeamlessTransitions;
 import dev.apoapsis.client.ShipClient;
@@ -8,6 +9,7 @@ import dev.apoapsis.client.SkyClient;
 import dev.apoapsis.client.TestDriver;
 import dev.apoapsis.client.sky.PlanetTextures;
 import dev.apoapsis.net.AgeSyncPayload;
+import dev.apoapsis.net.GuideStepPayload;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.net.PlanetMapPayload;
 import net.neoforged.api.distmarker.Dist;
@@ -22,6 +24,7 @@ public final class ApoapsisClient {
     public ApoapsisClient(IEventBus modBus, ModContainer container) {
         ShipClient.register(modBus);
         MapClient.register(modBus);
+        GuidePanel.register(modBus);
         SkyClient.register(modBus);
         SeamlessTransitions.register(modBus);
         modBus.addListener(ApoapsisClient::onClientPayloads);
@@ -33,6 +36,7 @@ public final class ApoapsisClient {
     private static void onClientPayloads(RegisterClientPayloadHandlersEvent event) {
         event.register(OrbitStatePayload.TYPE, (p, ctx) -> ClientState.accept(p));
         event.register(AgeSyncPayload.TYPE, (p, ctx) -> ClientState.accept(p));
+        event.register(GuideStepPayload.TYPE, (p, ctx) -> GuidePanel.show(p.step()));
         event.register(PlanetMapPayload.TYPE, (p, ctx) -> PlanetTextures.accept(p));
     }
 }

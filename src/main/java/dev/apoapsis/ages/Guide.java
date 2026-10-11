@@ -1,12 +1,14 @@
 package dev.apoapsis.ages;
 
 import dev.apoapsis.Apoapsis;
+import dev.apoapsis.net.GuideStepPayload;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -14,9 +16,11 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * The Custodian's survival guide: ten short steps, each shown once, in chat, at the moment it becomes relevant. A step
+ * The Custodian's survival guide: ten short steps, each shown once, at the moment it becomes relevant, on the client's
+ * guide panel (a small panel in the top right, clear of the flight instruments; chat for a client without it). A step
  * opens on a first ({@link Firsts}), on the login start, on crafting a cockpit, on first boarding a ship, or on coming
  * back into Verdance's sphere of influence. The shown steps are stored per player in {@link AgeData#GUIDE}; the text
  * lives in {@code lang/en_us/guide.json}. {@code /apoapsis guide} shows the current step again.
@@ -118,15 +122,31 @@ public final class Guide {
         return true;
     }
 
-    /** Shows the step: a header, then its body lines. Always, even if the player has seen it. */
+    /**
+     * Shows the step: on the client's guide panel, where it stays clear of the flight instruments, or, for a client that
+     * does not know the panel's channel (a fake player, another mod's machine), as a header and its body lines in chat.
+     * Always, even if the player has seen it.
+     */
     public static void show(ServerPlayer player, Step step) {
-        AgeAnnounce.custodian(player, Component.translatable("apoapsis.guide.header",
-                        String.valueOf(step.number()), String.valueOf(TOTAL), Component.translatable(step.titleKey()))
-                .withStyle(ChatFormatting.GRAY));
-        Object[] args = step.args();
-        for (int line = 1; line <= LINES; line++) {
-            player.sendSystemMessage(Component.literal("  ").append(Component.translatable(step.lineKey(line), args)));
+        if (player.connection != null && player.connection.hasChannel(GuideStepPayload.TYPE)) {
+            PacketDistributor.sendToPlayer(player, new GuideStepPayload(step.ordinal()));
+            return;
         }
+        AgeAnnounce.custodian(player, header(step).withStyle(ChatFormatting.GRAY));
+        for (int line = 1; line <= LINES; line++) {
+            player.sendSystemMessage(Component.literal("  ").append(line(step, line)));
+        }
+    }
+
+    /** The step's header: its number, the total and its title. */
+    public static MutableComponent header(Step step) {
+        return Component.translatable("apoapsis.guide.header", String.valueOf(step.number()), String.valueOf(TOTAL),
+                Component.translatable(step.titleKey()));
+    }
+
+    /** Body line {@code line} (1-based) of the step, with the player's own key bindings named. */
+    public static MutableComponent line(Step step, int line) {
+        return Component.translatable(step.lineKey(line), step.args());
     }
 
     /** Whether the player has been shown the step. */

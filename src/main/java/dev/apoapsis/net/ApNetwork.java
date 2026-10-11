@@ -19,6 +19,7 @@ public final class ApNetwork {
         r.playToServer(ShipInputPayload.TYPE, ShipInputPayload.STREAM_CODEC, ShipControls::handle);
         r.playToClient(OrbitStatePayload.TYPE, OrbitStatePayload.STREAM_CODEC);
         r.playToClient(AgeSyncPayload.TYPE, AgeSyncPayload.STREAM_CODEC);
+        r.playToClient(GuideStepPayload.TYPE, GuideStepPayload.STREAM_CODEC);
         r.playToClient(PlanetMapPayload.TYPE, PlanetMapPayload.STREAM_CODEC);
         r.playToClient(TerrainTilePayload.TYPE, TerrainTilePayload.STREAM_CODEC);
         r.playToServer(TerrainTilePayload.Request.TYPE, TerrainTilePayload.Request.STREAM_CODEC,
