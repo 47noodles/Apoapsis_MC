@@ -6,6 +6,7 @@ import dev.apoapsis.flight.Flight;
 import dev.apoapsis.grid.GridBlocks;
 import dev.apoapsis.net.ApNetwork;
 import dev.apoapsis.planet.PlanetMaps;
+import dev.apoapsis.planet.terrain.PaleFeatures;
 import dev.apoapsis.scenario.Scenarios;
 import dev.apoapsis.ship.ShipEntities;
 import net.neoforged.bus.api.IEventBus;
@@ -27,5 +28,6 @@ public final class Apoapsis {
         Scenarios.register(modBus);
         ApNetwork.register(modBus);
         PlanetMaps.register();
+        PaleFeatures.register(modBus);
     }
 }

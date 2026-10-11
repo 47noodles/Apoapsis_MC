@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:interpolated",
+  "cell_size_xz": 4,
+  "cell_size_y": 8,
+  "input": {
+    "type": "minecraft:add",
+    "left": {
+      "type": "minecraft:gradient",
+      "axis": "y",
+      "from_coordinate": 16,
+      "to_coordinate": 192,
+      "from_value": 1.0,
+      "to_value": -1.0
+    },
+    "right": "apoapsis:pale/surface_offset"
+  }
+}

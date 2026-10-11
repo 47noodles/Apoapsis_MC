@@ -16,7 +16,7 @@ import net.minecraft.world.phys.Vec3;
 public final class FlightDimensions {
     /** Void dimension where ships in orbit live, one per slot along +X. */
     public static final ResourceKey<Level> ORBIT = key("orbit");
-    /** Pale's flat regolith surface, sea level y = 64, no atmosphere. */
+    /** Pale's surface: basalt maria near y 60 and regolith highlands near y 104, sea level y = 64, no atmosphere. */
     public static final ResourceKey<Level> PALE = key("pale");
 
     /** Distance between orbit slots along X, metres. */

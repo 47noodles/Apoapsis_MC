@@ -1,0 +1,85 @@
+{
+  "noise": {
+    "min_y": 16,
+    "height": 128
+  },
+  "default_block": "minecraft:basalt",
+  "default_fluid": "minecraft:air",
+  "noise_router": {
+    "temperature": 0.0,
+    "vegetation": 0.0,
+    "continents": "apoapsis:pale/maria",
+    "erosion": 0.0,
+    "depth": 0.0,
+    "ridges": 0.0,
+    "chunk_surface_level": 0.0,
+    "final_density": "apoapsis:pale/final"
+  },
+  "material_rule": {
+    "type": "minecraft:sequence",
+    "sequence": [
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:vertical_gradient",
+          "random_name": "apoapsis:pale_bedrock",
+          "true_at_and_below": { "above_bottom": 0 },
+          "false_at_and_above": { "above_bottom": 4 }
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": "minecraft:bedrock"
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": { "type": "minecraft:biome", "biome_is": "apoapsis:pale_highlands" },
+        "then_run": {
+          "type": "minecraft:condition",
+          "if_true": {
+            "type": "minecraft:stone_depth",
+            "offset": 2,
+            "add_surface_depth": false,
+            "secondary_depth_range": 0,
+            "surface_type": "floor"
+          },
+          "then_run": {
+            "type": "minecraft:block",
+            "result_state": "apoapsis:regolith"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": { "type": "minecraft:biome", "biome_is": "apoapsis:pale_maria" },
+        "then_run": {
+          "type": "minecraft:condition",
+          "if_true": {
+            "type": "minecraft:noise_threshold",
+            "noise": "apoapsis:pale/maria",
+            "min_threshold": -0.15,
+            "max_threshold": -0.05
+          },
+          "then_run": {
+            "type": "minecraft:condition",
+            "if_true": {
+              "type": "minecraft:stone_depth",
+              "offset": 0,
+              "add_surface_depth": false,
+              "secondary_depth_range": 0,
+              "surface_type": "floor"
+            },
+            "then_run": {
+              "type": "minecraft:block",
+              "result_state": "apoapsis:regolith"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "spawn_target": [],
+  "sea_level": 64,
+  "disable_mob_generation": true,
+  "legacy_random_source": false
+}

@@ -1,25 +1,36 @@
 {
   "type": "apoapsis:pale",
   "generator": {
-    "type": "minecraft:flat",
-    "settings": {
-      "biome": "apoapsis:pale_maria",
-      "features": false,
-      "lakes": false,
-      "layers": [
+    "type": "minecraft:noise",
+    "biome_source": {
+      "type": "minecraft:multi_noise",
+      "biomes": [
         {
-          "block": "minecraft:bedrock",
-          "height": 1
+          "biome": "apoapsis:pale_maria",
+          "parameters": {
+            "temperature": [-2.0, 2.0],
+            "humidity": [-2.0, 2.0],
+            "continentalness": [-2.0, -0.05],
+            "erosion": [-2.0, 2.0],
+            "depth": [-2.0, 2.0],
+            "weirdness": [-2.0, 2.0],
+            "offset": 0.0
+          }
         },
         {
-          "block": "minecraft:basalt",
-          "height": 44
-        },
-        {
-          "block": "apoapsis:regolith",
-          "height": 3
+          "biome": "apoapsis:pale_highlands",
+          "parameters": {
+            "temperature": [-2.0, 2.0],
+            "humidity": [-2.0, 2.0],
+            "continentalness": [-0.05, 2.0],
+            "erosion": [-2.0, 2.0],
+            "depth": [-2.0, 2.0],
+            "weirdness": [-2.0, 2.0],
+            "offset": 0.0
+          }
         }
       ]
-    }
+    },
+    "settings": "apoapsis:pale"
   }
 }

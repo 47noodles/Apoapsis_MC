@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:add",
+  "left": -0.5,
+  "right": {
+    "type": "minecraft:add",
+    "left": {
+      "type": "minecraft:mul",
+      "left": "apoapsis:pale/highland_weight",
+      "right": {
+        "type": "minecraft:add",
+        "left": 0.5,
+        "right": {
+          "type": "minecraft:mul",
+          "left": "apoapsis:pale/rough",
+          "right": 0.04
+        }
+      }
+    },
+    "right": {
+      "type": "minecraft:mul",
+      "left": "apoapsis:pale/roll",
+      "right": 0.015
+    }
+  }
+}

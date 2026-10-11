@@ -36,8 +36,8 @@ import org.jspecify.annotations.Nullable;
  * thread, kept, cached, and sent to clients as a {@link PlanetMapPayload}. Never blocks the server thread.
  */
 public final class PlanetMaps {
-    /** Cache format version; bump it when the colouring changes. */
-    static final int CACHE_VERSION = 1;
+    /** Cache format version; bump it when the colouring or a body's terrain changes (2: Pale relief). */
+    static final int CACHE_VERSION = 2;
     private static final int POOL_THREADS = 2;
     private static final List<Spec> SPECS = List.of(
             new Spec(BodyId.VERDANCE, 512, 256),
