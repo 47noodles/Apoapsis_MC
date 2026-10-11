@@ -3,6 +3,7 @@
   "block.apoapsis.cockpit": "Cockpit",
   "block.apoapsis.gyroscope": "Gyroscope",
   "block.apoapsis.fuel_tank": "Hydrolox Tank",
+  "block.apoapsis.fuel_refinery": "Fuel Refinery",
   "block.apoapsis.spark_thruster": "Hydrolox Engine — Spark",
   "block.apoapsis.nose_cone": "Nose Cone",
   "block.apoapsis.fin": "Swept Fin",
@@ -10,5 +11,7 @@
   "block.apoapsis.regolith": "Regolith",
   "item.apoapsis.hydrolox_canister": "Hydrolox Canister",
   "message.apoapsis.tank_fuel": "Hydrolox tank: %1$s / %2$s kg",
-  "message.apoapsis.tank_full": "Hydrolox tank is full"
+  "message.apoapsis.tank_full": "Hydrolox tank is full",
+  "message.apoapsis.refinery_full": "Fuel refinery is full",
+  "apoapsis.refinery.status": "Refinery: %1$s water · %2$s s heat · %3$s kg hydrolox"
 }

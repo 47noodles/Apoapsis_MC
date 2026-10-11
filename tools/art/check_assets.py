@@ -20,6 +20,7 @@ BLOCK_VARIANTS = {
     "cockpit": {f"facing={d}" for d in ("north", "east", "south", "west")},
     "gyroscope": {""},
     "fuel_tank": {""},
+    "fuel_refinery": {"lit=false", "lit=true"},
     "spark_thruster": {f"facing={d}" for d in ("up", "down", "north", "south", "east", "west")},
     "nose_cone": {f"facing={d}" for d in ("up", "down", "north", "south", "east", "west")},
     "fin": {f"facing={d}" for d in ("north", "east", "south", "west")},
@@ -30,7 +31,8 @@ ITEM_ONLY = ["hydrolox_canister"]
 TEXTURES = {
     "block/hull_plate", "block/cockpit_front", "block/cockpit_side", "block/cockpit_top",
     "block/cockpit_back", "block/gyroscope_top", "block/gyroscope_side", "block/fuel_tank_side",
-    "block/fuel_tank_end", "block/spark_thruster_exhaust", "block/spark_thruster_powerhead",
+    "block/fuel_tank_end", "block/fuel_refinery_side", "block/fuel_refinery_top", "block/fuel_refinery_front",
+    "block/fuel_refinery_front_lit", "block/spark_thruster_exhaust", "block/spark_thruster_powerhead",
     "block/spark_thruster_side", "block/nose_cone_side", "block/nose_cone_tip", "block/fin",
     "block/window_side", "block/regolith", "item/hydrolox_canister",
 }

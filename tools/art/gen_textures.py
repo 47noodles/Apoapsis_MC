@@ -442,6 +442,56 @@ def window_side():
     return c
 
 
+def fuel_refinery_side():
+    """Machine side: copper and brass bands, an inset access panel, four bolts."""
+    c = Canvas(STEEL_800)
+    c.bevel(STEEL_600, STEEL_950)
+    c.hline(1, 14, 3, COPPER)
+    c.hline(1, 14, 4, BRASS_DEEP)
+    c.outline(5, 8, 10, 12, STEEL_500, STEEL_950)  # access panel
+    c.fill(6, 9, 9, 11, STEEL_700)
+    for x, y in ((2, 9), (12, 9), (2, 13), (12, 13)):
+        c.put(x, y, STEEL_400)
+    return c
+
+
+def fuel_refinery_top():
+    """Machine top: a vent grate under a brass lip."""
+    c = Canvas(STEEL_700)
+    c.bevel(STEEL_500, STEEL_950)
+    c.hline(4, 11, 4, BRASS_DEEP)
+    for y in range(5, 12):
+        c.hline(4, 11, y, STEEL_600 if y % 2 else STEEL_950)
+    return c
+
+
+def _fuel_refinery_frame():
+    c = Canvas(STEEL_800)
+    c.bevel(STEEL_600, STEEL_950)
+    c.outline(3, 3, 12, 12, BRASS, BRASS_DEEP)
+    return c
+
+
+def fuel_refinery_front():
+    """Front, idle: a brass-framed grate with dark bars."""
+    c = _fuel_refinery_frame()
+    c.fill(4, 4, 11, 11, STEEL_500)
+    for x in (5, 7, 9):
+        c.vline(x, 4, 11, STEEL_900)
+    return c
+
+
+def fuel_refinery_front_lit():
+    """Front, refining: the grate glows signal teal with hot white cores."""
+    c = _fuel_refinery_frame()
+    c.fill(4, 4, 11, 11, SIGNAL_EDGE)
+    for x in (5, 7, 9):
+        c.vline(x, 5, 11, SIGNAL)
+    for x in (7, 9):
+        c.vline(x, 6, 9, INK)
+    return c
+
+
 TEXTURES = [
     ("block/hull_plate", hull_plate),
     ("block/nose_cone_side", nose_cone_side),
@@ -456,6 +506,10 @@ TEXTURES = [
     ("block/gyroscope_side", gyroscope_side),
     ("block/fuel_tank_side", fuel_tank_side),
     ("block/fuel_tank_end", fuel_tank_end),
+    ("block/fuel_refinery_side", fuel_refinery_side),
+    ("block/fuel_refinery_top", fuel_refinery_top),
+    ("block/fuel_refinery_front", fuel_refinery_front),
+    ("block/fuel_refinery_front_lit", fuel_refinery_front_lit),
     ("block/spark_thruster_exhaust", spark_thruster_exhaust),
     ("block/spark_thruster_powerhead", spark_thruster_powerhead),
     ("block/spark_thruster_side", spark_thruster_side),

@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "apoapsis:block/fuel_refinery_side",
+    "down": "apoapsis:block/fuel_refinery_side",
+    "up": "apoapsis:block/fuel_refinery_top",
+    "north": "apoapsis:block/fuel_refinery_front_lit",
+    "south": "apoapsis:block/fuel_refinery_side",
+    "east": "apoapsis:block/fuel_refinery_side",
+    "west": "apoapsis:block/fuel_refinery_side"
+  }
+}

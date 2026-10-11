@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "apoapsis:block/fuel_refinery"
+    },
+    "lit=true": {
+      "model": "apoapsis:block/fuel_refinery_lit"
+    }
+  }
+}

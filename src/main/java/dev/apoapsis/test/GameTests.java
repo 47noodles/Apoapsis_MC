@@ -6,6 +6,7 @@ import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.Flight;
 import dev.apoapsis.flight.FlightHooks;
 import dev.apoapsis.flight.FlightRules;
+import dev.apoapsis.grid.FuelRefineryBlockEntity;
 import dev.apoapsis.grid.FuelTankBlockEntity;
 import dev.apoapsis.ship.ShipAssembler;
 import dev.apoapsis.ship.ShipEntity;
@@ -21,6 +22,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -59,6 +61,11 @@ public final class GameTests {
         event.registerTest(TestSupport.id("landing_without_altitude_grants_nothing"),
                 new ApoapsisGameTest("landing_without_altitude_grants_nothing", environment, 40,
                         GameTests::landingWithoutAltitudeGrantsNothing));
+        event.registerTest(TestSupport.id("fuel_refinery_makes_hydrolox"),
+                new ApoapsisGameTest("fuel_refinery_makes_hydrolox", environment, 300, GameTests::fuelRefineryMakesHydrolox));
+        event.registerTest(TestSupport.id("fuel_refinery_source_water_is_unlimited"),
+                new ApoapsisGameTest("fuel_refinery_source_water_is_unlimited", environment, 300,
+                        GameTests::fuelRefinerySourceWaterIsUnlimited));
     }
 
     /**
@@ -108,6 +115,55 @@ public final class GameTests {
                 "First Flight was due on a landing that never reached 1,500 m");
         helper.assertTrue(Ages.getAge(pilot) == 3, "a landing without altitude moved the pilot to Age " + Ages.getAge(pilot));
         helper.succeed();
+    }
+
+    /** Relative positions for the refinery tests: the refinery on the stone floor, a fuel tank on its +x side. */
+    private static final BlockPos REFINERY = new BlockPos(0, 1, 0);
+    private static final BlockPos REFINERY_TANK = new BlockPos(1, 1, 0);
+    private static final BlockPos REFINERY_SOURCE = new BlockPos(-1, 1, 0);
+
+    /**
+     * One water bucket and one coal's burn time make one 300 kg cycle in 200 ticks, which reaches the adjacent tank
+     * within 260 ticks. The bucket is used up.
+     */
+    private static void fuelRefineryMakesHydrolox(GameTestHelper helper, ShipCleanup ships) {
+        TestSupport.stoneFloor(helper);
+        helper.setBlock(REFINERY, TestSupport.block(helper, "fuel_refinery"));
+        helper.setBlock(REFINERY_TANK, TestSupport.block(helper, "fuel_tank"));
+        helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).setWaterBuckets(1);
+        helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).setHeatTicks(1600);
+
+        helper.startSequence()
+                .thenExecuteAfter(260, () -> {
+                    FuelTankBlockEntity tank = helper.getBlockEntity(REFINERY_TANK, FuelTankBlockEntity.class);
+                    helper.assertTrue(Math.abs(tank.getFuelKg() - 300.0) <= 1.0,
+                            "the tank holds " + tank.getFuelKg() + " kg of hydrolox after 260 ticks, expected 300");
+                    FuelRefineryBlockEntity refinery = helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class);
+                    helper.assertTrue(refinery.getWaterBuckets() == 0,
+                            "the refinery has " + refinery.getWaterBuckets() + " water buckets left, expected 0");
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * With a water source block beside it, the refinery keeps its one bucket while it burns heat and refines.
+     */
+    private static void fuelRefinerySourceWaterIsUnlimited(GameTestHelper helper, ShipCleanup ships) {
+        TestSupport.stoneFloor(helper);
+        helper.setBlock(REFINERY, TestSupport.block(helper, "fuel_refinery"));
+        helper.setBlock(REFINERY_SOURCE, Blocks.WATER.defaultBlockState());
+        helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).setWaterBuckets(1);
+        helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class).setHeatTicks(1600);
+
+        helper.startSequence()
+                .thenExecuteAfter(260, () -> {
+                    FuelRefineryBlockEntity refinery = helper.getBlockEntity(REFINERY, FuelRefineryBlockEntity.class);
+                    helper.assertTrue(refinery.getWaterBuckets() == 1,
+                            "the refinery has " + refinery.getWaterBuckets() + " water buckets, expected 1 (source water is unlimited)");
+                    helper.assertTrue(refinery.getHeatTicks() < 1600,
+                            "the refinery did not refine: heat is still " + refinery.getHeatTicks() + " ticks");
+                })
+                .thenSucceed();
     }
 
     /**

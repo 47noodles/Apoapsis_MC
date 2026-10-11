@@ -47,6 +47,10 @@ public final class GridBlocks {
     /** Holds hydrolox in its block entity. */
     public static final DeferredBlock<FuelTankBlock> FUEL_TANK = BLOCKS.registerBlock("fuel_tank", FuelTankBlock::new, GridBlocks::metal);
 
+    /** Turns water and furnace heat into hydrolox for the fuel tanks beside it. Lit while refining. */
+    public static final DeferredBlock<FuelRefineryBlock> FUEL_REFINERY =
+            BLOCKS.registerBlock("fuel_refinery", FuelRefineryBlock::new, GridBlocks::metal);
+
     /** FACING is the exhaust direction, all six directions. Not occluding: the bell is not a full cube, so it is never culled. */
     public static final DeferredBlock<SparkThrusterBlock> SPARK_THRUSTER =
             BLOCKS.registerBlock("spark_thruster", SparkThrusterBlock::new, p -> metal(p).noOcclusion());
@@ -69,6 +73,7 @@ public final class GridBlocks {
     public static final DeferredItem<BlockItem> COCKPIT_ITEM = ITEMS.registerSimpleBlockItem("cockpit", COCKPIT);
     public static final DeferredItem<BlockItem> GYROSCOPE_ITEM = ITEMS.registerSimpleBlockItem("gyroscope", GYROSCOPE);
     public static final DeferredItem<BlockItem> FUEL_TANK_ITEM = ITEMS.registerSimpleBlockItem("fuel_tank", FUEL_TANK);
+    public static final DeferredItem<BlockItem> FUEL_REFINERY_ITEM = ITEMS.registerSimpleBlockItem("fuel_refinery", FUEL_REFINERY);
     public static final DeferredItem<BlockItem> SPARK_THRUSTER_ITEM = ITEMS.registerSimpleBlockItem("spark_thruster", SPARK_THRUSTER);
     public static final DeferredItem<BlockItem> NOSE_CONE_ITEM = ITEMS.registerSimpleBlockItem("nose_cone", NOSE_CONE);
     public static final DeferredItem<BlockItem> FIN_ITEM = ITEMS.registerSimpleBlockItem("fin", FIN);
@@ -83,6 +88,11 @@ public final class GridBlocks {
             () -> new BlockEntityType<FuelTankBlockEntity>(
                     (pos, state) -> new FuelTankBlockEntity(GridBlocks.FUEL_TANK_BE.get(), pos, state), FUEL_TANK.get()));
 
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FuelRefineryBlockEntity>> FUEL_REFINERY_BE = BLOCK_ENTITY_TYPES.register(
+            "fuel_refinery",
+            () -> new BlockEntityType<FuelRefineryBlockEntity>(
+                    (pos, state) -> new FuelRefineryBlockEntity(GridBlocks.FUEL_REFINERY_BE.get(), pos, state), FUEL_REFINERY.get()));
+
     /** Creative tab with the grid items. */
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB = TABS.register("apoapsis", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.apoapsis"))
@@ -92,6 +102,7 @@ public final class GridBlocks {
                 output.accept(COCKPIT_ITEM.get());
                 output.accept(GYROSCOPE_ITEM.get());
                 output.accept(FUEL_TANK_ITEM.get());
+                output.accept(FUEL_REFINERY_ITEM.get());
                 output.accept(SPARK_THRUSTER_ITEM.get());
                 output.accept(NOSE_CONE_ITEM.get());
                 output.accept(FIN_ITEM.get());

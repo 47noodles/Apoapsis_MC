@@ -50,6 +50,8 @@ BLOCKSTATES = {
     "gyroscope": single(f"{NS}:block/gyroscope"),
     "regolith": single(f"{NS}:block/regolith"),
     "fuel_tank": single(f"{NS}:block/fuel_tank"),
+    "fuel_refinery": {"variants": {"lit=false": {"model": f"{NS}:block/fuel_refinery"},
+                                   "lit=true": {"model": f"{NS}:block/fuel_refinery_lit"}}},
     "cockpit": faced("facing", FURNACE_LIKE, f"{NS}:block/cockpit"),
     "spark_thruster": faced("facing", BARREL_LIKE, f"{NS}:block/spark_thruster"),
     "nose_cone": faced("facing", BARREL_LIKE, f"{NS}:block/nose_cone"),
@@ -82,6 +84,19 @@ MODELS = {
         "parent": "minecraft:block/cube_column",
         "textures": {"end": tex("fuel_tank_end"), "side": tex("fuel_tank_side")},
     },
+    # The grate faces north; no facing for the MVP. The lit model swaps in the glowing grate while it refines.
+    **{f"block/fuel_refinery{suffix}": {
+        "parent": "minecraft:block/cube",
+        "textures": {
+            "particle": tex("fuel_refinery_side"),
+            "down": tex("fuel_refinery_side"),
+            "up": tex("fuel_refinery_top"),
+            "north": tex("fuel_refinery_front" + suffix),
+            "south": tex("fuel_refinery_side"),
+            "east": tex("fuel_refinery_side"),
+            "west": tex("fuel_refinery_side"),
+        },
+    } for suffix in ("", "_lit")},
     # Unrotated: canopy faces north. South shows the back, the rest the side.
     "block/cockpit": {
         "parent": "minecraft:block/cube",
@@ -115,7 +130,7 @@ MODELS = {
 }
 
 # Items that use their block model.
-BLOCK_ITEMS = ["hull_plate", "cockpit", "gyroscope", "fuel_tank", "spark_thruster", "nose_cone", "fin", "window",
+BLOCK_ITEMS = ["hull_plate", "cockpit", "gyroscope", "fuel_tank", "fuel_refinery", "spark_thruster", "nose_cone", "fin", "window",
                "regolith"]
 ITEM_ONLY = ["hydrolox_canister"]
 
