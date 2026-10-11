@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # gradlew is committed as mode 644, so CI marks it executable itself.
+      - name: Make the Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      # Also runs the orbit unit tests.
+      - name: Build
+        run: ./gradlew build
+
+      - name: Run GameTests
+        run: ./gradlew runGameTestServer
+
+      - name: Short commit id
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the mod jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: apoapsis-${{ steps.sha.outputs.short }}
+          path: build/libs/*.jar
+          if-no-files-found: error

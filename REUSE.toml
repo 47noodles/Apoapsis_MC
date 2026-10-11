@@ -22,3 +22,16 @@ SPDX-License-Identifier = "CC-BY-4.0"
 path = ["tools/**", "REUSE.toml", ".gitignore"]
 SPDX-FileCopyrightText = "2026 The Apoapsis contributors"
 SPDX-License-Identifier = "MIT"
+
+# Code, build files and data: MIT.
+[[annotations]]
+path = ["src/**/*.java", "orbit/**", "*.gradle", "gradle.properties", "gradle/**", "gradlew", "gradlew.bat", ".github/**", "src/main/templates/**", "src/main/lang/**", "src/main/resources/**/*.json"]
+SPDX-FileCopyrightText = "2026 The Apoapsis contributors"
+SPDX-License-Identifier = "MIT"
+
+# Art and docs: CC BY 4.0. Listed after the MIT block so they win where they overlap
+# (model files are JSON, so they also match src/main/resources/**/*.json).
+[[annotations]]
+path = ["src/main/resources/assets/**/textures/**", "src/main/resources/assets/**/models/**", "docs/dev/**"]
+SPDX-FileCopyrightText = "2026 The Apoapsis contributors"
+SPDX-License-Identifier = "CC-BY-4.0"

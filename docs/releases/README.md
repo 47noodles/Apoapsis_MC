@@ -23,3 +23,4 @@ Every Apoapsis release ships patch notes. No exceptions, including hotfixes.
 | Version | Date | Notes |
 |---|---|---|
 | Design draft 0.0.1 | 2026-10-11 | [CHANGELOG](../../CHANGELOG.md#design-draft-001--2026-10-11) (docs only, no game build) |
+| 0.0.2-alpha.1 (Stage 0 prototype) | Unreleased, branch `stage0-prototype` | [Patch notes](0.0.2-alpha.1.md), [CHANGELOG](../../CHANGELOG.md#002-alpha1--stage-0-prototype) |

@@ -4,7 +4,19 @@ All notable changes to Apoapsis are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
-Nothing yet.
+### 0.0.2-alpha.1 — Stage 0 prototype
+
+Unreleased, on the `stage0-prototype` branch. Placeholder art and UI.
+
+#### Added
+- **Orbit library** (`orbit/`, pure Java, no Minecraft classes): Kepler propagation, orbital elements, Meridian system bodies, patched-conic trajectory predictor, RK4 integrator.
+- **Ship blocks and assembly** (`dev.apoapsis.grid`, `dev.apoapsis.ship`): hull plate, cockpit, gyroscope, fuel tank, Spark thruster, regolith and hydrolox canister. Right-click a cockpit to board; the blocks become one moving ship. Disassemble a landed ship back into blocks.
+- **Flight physics:** surface flight with gravity, thrust and drag; rate-controlled rotation from gyroscopes with SAS; fuel burn from thrust and specific impulse.
+- **Orbit and Pale dimensions** (`apoapsis:orbit`, `apoapsis:pale`): ships in orbit live in a starry void, and Pale is a dry regolith moon at 0.16 g. Flight regimes, dimension transitions, universal time, and time warp in singleplayer.
+- **System map and flight HUD:** full-screen map of the Meridian system on M, and an in-flight HUD.
+- **Ages gating:** Ages 0 to 4 (Landfall, Hearth, Steam and Brass, Current, Ascent) with milestones. Ship parts are locked by Age, with tooltips and an action-bar line. *First Flight* (1,500 m in a ship) raises you to Age 4. `/apoapsis age` and a per-world sandbox flag.
+- **Test scenarios and test save:** `/apoapsis scenario pad` and `/apoapsis scenario orbit`, and `gradlew runTestFlight`, which opens the *Apoapsis Test Flight* save with a Kestrel in orbit and a second on a pad.
+- **CI:** GitHub Actions workflow that builds on every push and pull request, runs the GameTests, and uploads the mod jar as an `apoapsis-<short sha>` artifact.
 
 ## [Design draft 0.0.1] — 2026-10-11
 

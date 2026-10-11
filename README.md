@@ -2,7 +2,92 @@
 
 **Space Engineers-style building, KSP-style orbits and SevTech-style ages: a fully open-source Minecraft mod and modpack for the latest Minecraft Java (26.3).**
 
-> **Status: design phase.** No code yet. This repository currently holds the first full design draft (October 2026) and the research behind it.
+> **Status: Stage 0 prototype (0.0.2-alpha.1).** The first playable slice is on the `stage0-prototype` branch. The design draft (October 2026) and the research behind it are here too.
+
+## Try the prototype
+
+The **Stage 0 prototype** (0.0.2-alpha.1) is the first playable slice, with placeholder art and UI. Build a ship and fly it, reach orbit, transfer to Pale and land. Ship parts unlock as you advance through the Ages. Patch notes: [docs/releases/0.0.2-alpha.1.md](docs/releases/0.0.2-alpha.1.md).
+
+### From source (recommended)
+
+You need Git and any JDK 21 or newer to start Gradle. Gradle fetches Java 25 itself. Until the branch is merged, use `stage0-prototype`:
+
+```bash
+git clone https://github.com/47noodles/Apoapsis_MC.git
+```
+
+```bash
+cd Apoapsis_MC
+```
+
+```bash
+git checkout stage0-prototype
+```
+
+Then start the test flight. The first run downloads Minecraft and NeoForge, so it takes a while. On Windows, use `gradlew.bat runTestFlight`.
+
+```bash
+./gradlew runTestFlight
+```
+
+It opens straight into the test save, **Apoapsis Test Flight**, with a Kestrel rocket already in orbit and a second one on a pad at spawn. To start the normal game instead:
+
+```bash
+./gradlew runClient
+```
+
+### As a jar
+
+Open the **Actions** tab on GitHub, pick the latest **Build** run on `stage0-prototype`, and download the `apoapsis-<short sha>` artifact. Unzip it and put the jar in the mods folder of a NeoForge 26.3.0.69-beta instance, for example one made with [Prism Launcher](https://prismlauncher.org/).
+
+### Controls
+
+| Key | Action | Notes |
+|---|---|---|
+| Right-click cockpit block | Board: assemble and sit | |
+| Right-click a ship | Sit in its cockpit | |
+| W / S | Pitch: tip the nose forward / back | Vanilla movement keys, read while piloting |
+| A / D | Yaw: tip the nose left / right | |
+| Q / E | Roll left / right | While piloting, Q's drop and E's inventory are suppressed |
+| R / F | Throttle up / down | While piloting, F's swap-hands is suppressed |
+| Z / X | Full / cut throttle | |
+| G | SAS (hold attitude) on or off | Not T: T is chat |
+| B | Disassemble (landed and slow) | |
+| M | System map | |
+| . / , | Time warp up / down | Orbit only, engines off, singleplayer |
+| Shift | Leave seat | Vanilla dismount |
+
+### A first flight
+
+From orbit, in the Kestrel from the test save:
+
+1. Press **M** to open the system map.
+2. Wait for the transfer window. In orbit, **.** warps time forward.
+3. Point prograde (along your direction of travel) and burn about 190 m/s.
+4. Coast until Pale's gravity takes over at its sphere of influence.
+5. Slow down and land.
+
+From the pad, with the second Kestrel:
+
+1. Full throttle (**Z**) and climb.
+2. Tip over gradually to the east to build horizontal speed.
+3. Aim for 15 km and about 710 m/s, which is the speed of a circular orbit at that height.
+
+### Commands
+
+The test save has cheats on, so these work there:
+
+- `/apoapsis scenario pad`: builds a fuelled Kestrel on a pad next to you and raises you to Age 4.
+- `/apoapsis scenario orbit`: puts a Kestrel in a 16 km circular orbit around Verdance, with you in the cockpit.
+- `/apoapsis age`: shows your Age. `set` and `sandbox` need permission level 2.
+
+### Known limits
+
+- Flat worlds only. Round planets come in Stage 3.
+- Simple physics. Real grid physics comes later.
+- No spacewalks: you cannot leave a ship in orbit.
+- Placeholder art and UI.
+- Time warp works only in singleplayer.
 
 ## What it is
 

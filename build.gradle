@@ -35,11 +35,11 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
-        // Opens straight into the test world: a ready-built rocket in low Verdance orbit.
-        // Run `gradlew makeTestSaves` once first (it builds the saves headlessly).
+        // Opens straight into the save "Apoapsis Test Flight" (created on first launch): the Kestrel rocket
+        // already in low Verdance orbit with you in the cockpit, and a second one on a pad at spawn.
         testFlight {
             client()
-            programArguments.addAll '--quickPlaySingleplayer', 'Apoapsis Test Flight'
+            systemProperty 'apoapsis.testFlight', 'true'
         }
 
         server {
