@@ -1,0 +1,32 @@
+package dev.apoapsis.ages;
+
+import com.mojang.serialization.Codec;
+import dev.apoapsis.Apoapsis;
+import net.neoforged.neoforge.attachment.AttachmentType;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
+
+/** Player data attachments for the Age store. Both are copied on death. */
+final class AgeData {
+    private AgeData() {}
+
+    static final DeferredRegister<AttachmentType<?>> ATTACHMENTS =
+            DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Apoapsis.MODID);
+
+    /** The player's stored Age, 0..MAX_AGE. Sandbox is applied on top of this, never written into it. */
+    static final DeferredHolder<AttachmentType<?>, AttachmentType<Integer>> AGE = ATTACHMENTS.register(
+            "age",
+            () -> AttachmentType.builder(() -> 0)
+                    .serialize(Codec.INT.optionalFieldOf("age", 0))
+                    .copyOnDeath()
+                    .build());
+
+    /** Whether the one-off "first landing on Pale" line has been shown to this player. */
+    static final DeferredHolder<AttachmentType<?>, AttachmentType<Boolean>> PALE_ANNOUNCED = ATTACHMENTS.register(
+            "pale_landing_announced",
+            () -> AttachmentType.builder(() -> false)
+                    .serialize(Codec.BOOL.optionalFieldOf("pale_landing_announced", false))
+                    .copyOnDeath()
+                    .build());
+}
