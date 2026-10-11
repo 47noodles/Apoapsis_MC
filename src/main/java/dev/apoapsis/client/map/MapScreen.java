@@ -366,13 +366,19 @@ public final class MapScreen extends Screen {
     }
 
     /**
-     * A body as a disc. With its surface map, the map textured and shaded; else a lit disc in the body's palette colours.
-     * Under three pixels a disc has no shading to show, so it is one flat colour.
+     * Off: the surface maps come from base terrain columns (stone and water, before surface rules), so a textured disc
+     * reads as grey and blue static, and its square mask covers the chrome under it. Bodies use the shaded disc.
+     */
+    private static final boolean TEXTURED_BODIES = false;
+
+    /**
+     * A body as a disc. With its surface map (and {@link #TEXTURED_BODIES}), the map textured and shaded; else a lit disc
+     * in the body's palette colours. Under three pixels a disc has no shading to show, so it is one flat colour.
      */
     private static void drawBody(Canvas c, Identifier texture, double cx, double cy, double r, int lit, int dark) {
         if (r < 3) {
             c.disc(cx, cy, r, lit);
-        } else if (texture != null) {
+        } else if (TEXTURED_BODIES && texture != null) {
             c.texturedDisc(texture, cx, cy, r, LIGHT_X, LIGHT_Y, Palette.STEEL_950,
                     Palette.alpha(Palette.STEEL_950, 0xB0));
         } else {
