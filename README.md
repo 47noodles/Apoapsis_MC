@@ -10,13 +10,15 @@ The **Stage 0 prototype** (0.0.2-alpha.1) is the first playable slice, with plac
 
 ### From source (recommended)
 
-You need Git and any JDK 21 or newer to start Gradle. Gradle fetches Java 25 itself. On a fresh machine, paste this into a terminal:
+You need Git and any JDK 21 or newer to start Gradle. Gradle fetches Java 25 itself. On a fresh machine, run these three commands in a terminal, one at a time:
 
 ```bash
-git clone -b stage0-prototype https://github.com/47noodles/Apoapsis_MC.git && cd Apoapsis_MC && ./gradlew runTestFlight
+git clone -b stage0-prototype https://github.com/47noodles/Apoapsis_MC.git
+cd Apoapsis_MC
+./gradlew runTestFlight
 ```
 
-On Windows, run `gradlew.bat runTestFlight` from the `Apoapsis_MC` folder instead of `./gradlew runTestFlight`. The first run downloads Minecraft and NeoForge, so it takes a while. The window opens at 1600x900.
+On Windows PowerShell, use `.\gradlew.bat runTestFlight` for the last command (the `./gradlew` form fails there). The first run downloads Minecraft and NeoForge, so it takes a while. The window opens at 1600x900.
 
 It opens straight into the test save, **Apoapsis Test Flight**, with a Kestrel rocket already in orbit and a second one on a pad at spawn. To reset the test save, delete `run/saves/Apoapsis Test Flight`, or run `/apoapsis scenario orbit` to get the same start again. To start the normal game instead:
 

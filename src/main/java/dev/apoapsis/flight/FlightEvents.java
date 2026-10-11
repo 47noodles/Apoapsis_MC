@@ -36,6 +36,7 @@ final class FlightEvents {
         if (!FlightDimensions.ORBIT.equals(level.dimension())) {
             return;
         }
+        Transitions.forget(ship.getUUID());
         Entity.RemovalReason reason = ship.getRemovalReason();
         if (reason == Entity.RemovalReason.KILLED || reason == Entity.RemovalReason.DISCARDED) {
             OrbitSlots.release(level.getServer(), FlightAttachments.state(ship).slot);

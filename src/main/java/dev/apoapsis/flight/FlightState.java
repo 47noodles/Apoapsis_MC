@@ -44,6 +44,8 @@ final class FlightState {
     boolean firstFlight;
     /** Ticks since the ship last left the ground, reset on landing. */
     int airborneTicks;
+    /** Server tick of the last surface or orbit transition; not saved. Starts far in the past, so no dwell applies. */
+    int transitionTick = -1_000_000;
 
     FlightState() {}
 

@@ -20,8 +20,6 @@ public final class TrajectoryPredictor {
     private static final double MIN_STEP = 1;
     private static final double MAX_STEP = 600;
     private static final double BISECTION_TOLERANCE = 1e-3;
-    /** Hard bound on bisection iterations; 64 halvings cover any interval the predictor uses. */
-    private static final int MAX_BISECTION_STEPS = 64;
     private static final double STEPS_PER_PERIOD = 720;
     private static final double STEPS_PER_RADIAN_OF_MOTION = 50;
 
@@ -208,8 +206,9 @@ public final class TrajectoryPredictor {
                                  double hi) {
         double low = lo;
         double high = hi;
-        // The cap bounds the loop when ut is so large that adjacent doubles are wider than the tolerance.
-        for (int i = 0; i < MAX_BISECTION_STEPS && high - low > BISECTION_TOLERANCE; i++) {
+        // The only other guard: when ut is so large that adjacent doubles are wider than the tolerance, mid stops
+        // lying strictly between low and high and the loop breaks. Every halving step ends that way in finite steps.
+        while (high - low > BISECTION_TOLERANCE) {
             double mid = 0.5 * (low + high);
             if (mid <= low || mid >= high) {
                 break;

@@ -70,9 +70,4 @@ public final class Flight {
         ut = ((ut % period) + period) % period;
         UniverseTime.get(server).setUt(ut);
     }
-
-    /** Universal time in seconds for this server (persisted). */
-    public static double universalTime(MinecraftServer server) {
-        return UniverseTime.get(server).ut();
-    }
 }

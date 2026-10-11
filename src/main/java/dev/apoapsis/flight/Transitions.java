@@ -1,5 +1,6 @@
 package dev.apoapsis.flight;
 
+import dev.apoapsis.Apoapsis;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Kepler;
 import dev.apoapsis.orbit.StateVector;
@@ -36,7 +37,11 @@ final class Transitions {
     /** Ticks between landing predictions and ticket refreshes, one second. The ENDER_PEARL ticket lasts 40 ticks. */
     static final int PREFETCH_INTERVAL_TICKS = 20;
     /** Game seconds ahead of a predicted crossing of the transition altitude at which landing chunks are requested. */
-    static final double PREFETCH_LEAD_S = 10.0;
+    static final double PREFETCH_LEAD_S = 30.0;
+    /** A prefetch keeps its previous column while the new prediction lies within this many chunks of it. */
+    static final int PREFETCH_KEEP_CHUNKS = 3;
+    /** A blocking landing-chunk load slower than this is logged, so a play-test shows whether it fires. */
+    private static final long BLOCKING_LOAD_WARN_NS = 50_000_000L;
     /** Game seconds per step of the crossing search. */
     private static final double PREFETCH_STEP_S = 0.5;
     /** Bisection steps that refine a crossing inside one search step (0.5 s / 2^8, about 2 ms). */
@@ -51,10 +56,18 @@ final class Transitions {
     private static final Map<UUID, PendingSeat> PENDING = new HashMap<>();
     /** Ships whose descent is waiting for its landing chunk, with the ticks waited so far. */
     private static final Map<UUID, Integer> WAITING = new HashMap<>();
+    /** The landing chunk each descending ship last asked for, so a small change in prediction does not retarget it. */
+    private static final Map<UUID, ChunkPos> PREFETCH_COLUMN = new HashMap<>();
 
     private Transitions() {}
 
     private record PendingSeat(ResourceKey<Level> dimension, UUID shipId, int ticksLeft) {}
+
+    /** Drops a ship's waiting and prefetch entries when it leaves the orbit level. */
+    static void forget(UUID shipId) {
+        WAITING.remove(shipId);
+        PREFETCH_COLUMN.remove(shipId);
+    }
 
     /** Surface to orbit: the ship goes up at its current inertial state, at a free orbit slot. */
     static void up(ShipEntity ship, FlightState old, ServerLevel surface) {
@@ -73,6 +86,7 @@ final class Transitions {
         int slot = OrbitSlots.claim(server, orbit);
         FlightState state = FlightState.inOrbit(body, new StateVector(r, v), UniverseTime.get(server).ut(), slot);
         state.firstFlight = old.firstFlight;
+        state.transitionTick = server.getTickCount();
 
         FlightMessages.toPilot(ship, Component.translatable("apoapsis.flight.enter_orbit",
                 FlightMessages.bodyName(body)));
@@ -111,6 +125,7 @@ final class Transitions {
         state.regime = FlightRegime.SURFACE;
         state.body = body;
         state.firstFlight = old.firstFlight;
+        state.transitionTick = server.getTickCount();
 
         FlightMessages.toPilot(ship, Component.translatable(body == BodyId.VERDANCE
                 ? "apoapsis.flight.enter_atmosphere"
@@ -182,6 +197,7 @@ final class Transitions {
     static void clearPending() {
         PENDING.clear();
         WAITING.clear();
+        PREFETCH_COLUMN.clear();
     }
 
     /**
@@ -206,8 +222,15 @@ final class Transitions {
             return;
         }
         Vec3d r = crossing.r();
-        requestLanding(surface, Frames.toSurfacePosition(r, sys.radius, FlightDimensions.seaLevel(st.body),
-                Frames.tangentAt(r)));
+        Vec3 landing = Frames.toSurfacePosition(r, sys.radius, FlightDimensions.seaLevel(st.body), Frames.tangentAt(r));
+        ChunkPos column = new ChunkPos(Mth.floor(landing.x) >> 4, Mth.floor(landing.z) >> 4);
+        ChunkPos kept = PREFETCH_COLUMN.get(ship.getUUID());
+        if (kept != null && Math.max(Math.abs(kept.x() - column.x()), Math.abs(kept.z() - column.z()))
+                <= PREFETCH_KEEP_CHUNKS) {
+            column = kept;
+        }
+        PREFETCH_COLUMN.put(ship.getUUID(), column);
+        requestLanding(surface, column);
     }
 
     /**
@@ -245,8 +268,11 @@ final class Transitions {
 
     /** Asks for the chunks around a landing point to be generated and kept, for {@link #LANDING_RADIUS} chunks. */
     private static void requestLanding(ServerLevel level, Vec3 pos) {
-        level.getChunkSource().addTicketWithRadius(TicketType.ENDER_PEARL,
-                new ChunkPos(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4), LANDING_RADIUS);
+        requestLanding(level, new ChunkPos(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4));
+    }
+
+    private static void requestLanding(ServerLevel level, ChunkPos chunk) {
+        level.getChunkSource().addTicketWithRadius(TicketType.ENDER_PEARL, chunk, LANDING_RADIUS);
     }
 
     /**
@@ -269,7 +295,12 @@ final class Transitions {
     /** Loads the chunk under a spawn point. A landing ticket usually has it ready; otherwise this call blocks. */
     private static void loadChunk(ServerLevel level, Vec3 pos) {
         if (!isLoaded(level, pos)) {
+            long start = System.nanoTime();
             level.getChunk(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4);
+            long took = System.nanoTime() - start;
+            if (took > BLOCKING_LOAD_WARN_NS) {
+                Apoapsis.LOG.warn("Blocking landing chunk load took {} ms", took / 1_000_000L);
+            }
         }
     }
 

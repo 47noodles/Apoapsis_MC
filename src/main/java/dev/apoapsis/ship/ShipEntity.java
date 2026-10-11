@@ -233,8 +233,9 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         return remote() ? entityData.get(THROTTLE) : throttle;
     }
 
+    /** Clamps to 0..1; NaN and negative values become 0. */
     public void setThrottle(float t) {
-        throttle = Math.max(0, Math.min(1, t));
+        throttle = t > 0f ? Math.min(1f, t) : 0f;
     }
 
     /** SAS mode, synced to clients. G cycles OFF, HOLD, PROGRADE, RETROGRADE. */
@@ -290,25 +291,6 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
             structure.setFuel(p, structure.getFuel(p) * keep);
         }
         return take;
-    }
-
-    /** Adds fuel up to capacity, shared across tanks in proportion to their free space; returns the amount added. */
-    public double refuel(double kg) {
-        double free = fuelCapacityKg() - structure.fuelKg();
-        if (kg <= 0 || free <= 0) {
-            return 0;
-        }
-        double add = Math.min(kg, free);
-        for (Map.Entry<BlockPos, BlockState> e : structure.blocks().entrySet()) {
-            double cap = ShipParts.tankCapacityKg(e.getValue());
-            BlockPos p = e.getKey();
-            double tankFree = cap - structure.getFuel(p);
-            if (cap <= 0 || tankFree <= 0) {
-                continue;
-            }
-            structure.setFuel(p, structure.getFuel(p) + add * tankFree / free);
-        }
-        return add;
     }
 
     /** Thrust direction (unit vector, body axes): the sum of the thrusters' reversed exhaust. Default +Y. */
@@ -460,7 +442,8 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         velocity = finite(new Vec3(input.getDoubleOr("vx", 0), input.getDoubleOr("vy", 0), input.getDoubleOr("vz", 0)));
         angularVelocity = finite(new Vec3(input.getDoubleOr("wx", 0), input.getDoubleOr("wy", 0),
                 input.getDoubleOr("wz", 0)));
-        throttle = Math.max(0f, Math.min(1f, input.getFloatOr("throttle", 0f)));
+        float saved = input.getFloatOr("throttle", 0f);
+        throttle = saved > 0f ? Math.min(1f, saved) : 0f;
         int mode = input.getIntOr("sasMode", -1);
         sasMode = mode >= 0 ? SasMode.byOrdinal(mode) : SasMode.HOLD;
         landed = input.getBooleanOr("landed", false);
@@ -542,8 +525,9 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         if (!env.orbital()) {
             ensureProbes();
         }
-        // Step 3: rotation.
-        stepRotation(env);
+        // Step 3: rotation. The broad phase is decided once here: rotation keeps the hull within halfExtent of the centre.
+        boolean clear = !env.orbital() && clearOfTerrain(getX(), getY(), getZ());
+        stepRotation(env, clear);
         if (env.orbital()) {
             // Step 4: the orbit model owns translation.
             double mass = Math.max(massKg(), 1.0);
@@ -552,7 +536,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
             landed = false;
         } else {
             // Step 5: surface physics with terrain collision.
-            double impactMps = stepSurface(env);
+            double impactMps = stepSurface(env, clear);
             if (impactMps >= 0) {
                 destroyOnImpact(impactMps);
                 return;
@@ -619,7 +603,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
      * Integrates the body rate (control or SAS torque, through the gyro limit). A step that puts the hull into terrain is
      * reverted and the angular velocity is zeroed for this tick, so no torque is carried into the next tick's contact.
      */
-    private void stepRotation(Environment env) {
+    private void stepRotation(Environment env, boolean clear) {
         ensureStructureCache();
         inertiaAndGyro(props);
         double gyro = props[3];
@@ -665,7 +649,8 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         orientation.integrate((float) DT, (float) worldRate.x, (float) worldRate.y, (float) worldRate.z);
         orientation.normalize();
 
-        if (!env.orbital()) {
+        // Clear of terrain: no probe can touch a solid cell, so the candidate orientation needs no test.
+        if (!env.orbital() && !clear) {
             buildProbes(orientation, spare);
             if (collidesWith(spare, getX(), getY(), getZ())) {
                 orientation.set(rotationBackup);
@@ -744,7 +729,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
      * Surface translation with terrain contact. Returns the impact speed (m/s) if the ship was destroyed this tick,
      * otherwise -1.
      */
-    private double stepSurface(Environment env) {
+    private double stepSurface(Environment env, boolean clear) {
         ensureStructureCache();
         double mass = Math.max(massKg(), 1.0);
         double thrustN = effectiveThrustN(env.pressureFraction());
@@ -759,8 +744,6 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         int steps = (int) Mth.clamp(Math.ceil(speed0 * DT / MAX_STEP_M), MIN_SUBSTEPS, MAX_SUBSTEPS);
         double h = DT / steps;
         boolean blockedBelow = false;
-        // Broad phase: far above terrain, no probe can touch a solid cell this tick, so the probe tests are skipped.
-        boolean clear = clearOfTerrain(x, y, z);
 
         for (int i = 0; i < steps; i++) {
             // Speed at the start of the substep: a collision response may never leave the ship faster than this.
@@ -1078,10 +1061,17 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         return a.x() == b.x() && a.y() == b.y() && a.z() == b.z() && a.w() == b.w();
     }
 
+    /** Columns per side up to which the broad phase reads every column of its square (17 x 17 = 289 lookups). */
+    private static final int CLEAR_FINE_MAX_COLUMNS = 17;
+    /** Column spacing of the broad phase's samples on a larger square; its edges are always sampled. */
+    private static final int CLEAR_GRID_STEP = 4;
+
     /**
      * True if the ship is far enough above terrain that no probe can reach a solid cell this tick: its lowest point,
-     * after a full tick of motion and one block of margin, lies above the motion-blocking heightmap at nine points of
-     * the footprint grown by the horizontal motion. An unloaded chunk counts as not clear.
+     * after a full tick of motion and one block of margin, lies above the highest motion-blocking column of the square
+     * covering the footprint grown by the horizontal motion. Every column is read while the square is at most
+     * {@link #CLEAR_FINE_MAX_COLUMNS} per side, so a one-block pillar cannot slip between samples; a larger square is
+     * sampled every {@link #CLEAR_GRID_STEP} columns, edges included. An unloaded chunk counts as not clear.
      */
     private boolean clearOfTerrain(double x, double y, double z) {
         if (!terrainCollision) {
@@ -1089,15 +1079,24 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         }
         double reach = halfExtent + Math.hypot(velocity.x, velocity.z) * DT + 1;
         double lowest = y - halfExtent - velocity.length() * DT - 1;
+        int x0 = Mth.floor(x - reach);
+        int x1 = Mth.floor(x + reach);
+        int z0 = Mth.floor(z - reach);
+        int z1 = Mth.floor(z + reach);
+        int step = Math.max(x1 - x0, z1 - z0) + 1 <= CLEAR_FINE_MAX_COLUMNS ? 1 : CLEAR_GRID_STEP;
         int top = Integer.MIN_VALUE;
-        for (int i = -1; i <= 1; i++) {
-            for (int j = -1; j <= 1; j++) {
-                int sx = Mth.floor(x + i * reach);
-                int sz = Mth.floor(z + j * reach);
+        for (int sx = x0; ; sx = Math.min(sx + step, x1)) {
+            for (int sz = z0; ; sz = Math.min(sz + step, z1)) {
                 if (!level().hasChunkAt(new BlockPos(sx, 0, sz))) {
                     return false;
                 }
                 top = Math.max(top, level().getHeight(Heightmap.Types.MOTION_BLOCKING, sx, sz));
+                if (sz == z1) {
+                    break;
+                }
+            }
+            if (sx == x1) {
+                break;
             }
         }
         return lowest >= top;

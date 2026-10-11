@@ -123,7 +123,7 @@ class TrajectoryPredictorTest {
 
         System.out.printf("TrajectoryPredictor.predict (Hohmann, 3000 s, warm): %.3f ms%n", elapsed / 1e6);
         assertFalse(patches.isEmpty());
-        assertTrue(elapsed < 2_000_000_000L, "predict took " + elapsed / 1e6 + " ms");
+        assertTrue(elapsed < 200_000_000L, "predict took " + elapsed / 1e6 + " ms");
     }
 
     @Test

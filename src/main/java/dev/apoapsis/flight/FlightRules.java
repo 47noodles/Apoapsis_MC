@@ -18,8 +18,15 @@ final class FlightRules {
     static final double FIRST_FLIGHT_ALTITUDE_M = 1500.0;
     /** Ticks between state sync packets. */
     static final int SYNC_INTERVAL_TICKS = 5;
+    /** Ticks after a transition before the reverse one may fire (2 s), so a hover at the boundary does not flip. */
+    static final int DWELL_TICKS = 40;
 
     private FlightRules() {}
+
+    /** True once {@link #DWELL_TICKS} have passed since the ship's last transition. */
+    private static boolean dwelled(MinecraftServer server, FlightState st) {
+        return server.getTickCount() - st.transitionTick >= DWELL_TICKS;
+    }
 
     static void afterTick(ShipEntity ship) {
         if (ship.isRemoved() || !(ship.level() instanceof ServerLevel level)) {
@@ -33,7 +40,7 @@ final class FlightRules {
         if (st.regime == FlightRegime.SURFACE) {
             st.body = FlightDimensions.surfaceBody(level.dimension());
             double alt = ship.getY() - FlightDimensions.seaLevel(st.body);
-            if (alt >= FlightDimensions.transitionAltitude(st.body)) {
+            if (alt >= FlightDimensions.transitionAltitude(st.body) && dwelled(server, st)) {
                 Transitions.up(ship, st, level);
                 return;
             }
@@ -52,7 +59,7 @@ final class FlightRules {
                 st.airborneTicks = Math.min(st.airborneTicks + 1, LANDING_TICKS + 1);
             }
         } else if (st.altitude() < FlightDimensions.transitionAltitude(st.body)
-                && st.r().dot(st.v()) < 0) {
+                && st.r().dot(st.v()) < 0 && dwelled(server, st)) {
             Transitions.down(ship, st, level);
             return;
         } else {
