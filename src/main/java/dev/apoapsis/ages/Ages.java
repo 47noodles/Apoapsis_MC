@@ -102,7 +102,10 @@ public final class Ages {
 
     /** Sends the player's effective Age to their client. */
     static void sync(ServerPlayer player) {
-        PacketDistributor.sendToPlayer(player, new AgeSyncPayload(getAge(player)));
+        // Fake players (GameTests, other mods' machines) have no client that knows our channel.
+        if (player.connection != null && player.connection.hasChannel(AgeSyncPayload.TYPE)) {
+            PacketDistributor.sendToPlayer(player, new AgeSyncPayload(getAge(player)));
+        }
     }
 
     /** Turns the sandbox flag on or off for the whole server and re-syncs every player. */

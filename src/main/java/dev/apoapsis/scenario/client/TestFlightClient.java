@@ -4,6 +4,7 @@ import dev.apoapsis.Apoapsis;
 import dev.apoapsis.scenario.TestFlight;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.AccessibilityOnboardingScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
@@ -34,7 +35,9 @@ public final class TestFlightClient {
 
     @SubscribeEvent
     static void onScreenInit(ScreenEvent.Init.Post event) {
-        if (opened || !TestFlight.enabled() || !(event.getScreen() instanceof TitleScreen)) {
+        // A first launch shows the accessibility welcome screen instead of the title screen; either one starts us.
+        if (opened || !TestFlight.enabled()
+                || !(event.getScreen() instanceof TitleScreen || event.getScreen() instanceof AccessibilityOnboardingScreen)) {
             return;
         }
         opened = true;
@@ -48,11 +51,15 @@ public final class TestFlightClient {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
-        if (!(mc.gui.screen() instanceof TitleScreen title)) {
+        Screen current = mc.gui.screen();
+        if (current instanceof AccessibilityOnboardingScreen) {
+            mc.options.onboardAccessibility = false;
+            mc.options.save();
+        } else if (!(current instanceof TitleScreen)) {
             return;
         }
         pending = false;
-        open(mc, title);
+        open(mc, new TitleScreen());
     }
 
     private static void open(Minecraft mc, Screen title) {

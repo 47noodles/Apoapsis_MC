@@ -4,6 +4,7 @@ import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.MapClient;
 import dev.apoapsis.client.ShipClient;
 import dev.apoapsis.client.SkyClient;
+import dev.apoapsis.client.TestDriver;
 import dev.apoapsis.net.AgeSyncPayload;
 import dev.apoapsis.net.OrbitStatePayload;
 import net.neoforged.api.distmarker.Dist;
@@ -20,6 +21,9 @@ public final class ApoapsisClient {
         MapClient.register(modBus);
         SkyClient.register(modBus);
         modBus.addListener(ApoapsisClient::onClientPayloads);
+        if (TestDriver.enabled()) {
+            TestDriver.register();
+        }
     }
 
     private static void onClientPayloads(RegisterClientPayloadHandlersEvent event) {

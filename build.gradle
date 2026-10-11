@@ -30,8 +30,10 @@ neoForge {
     version = project.neo_version
 
     runs {
+        // Client runs open at a usable size instead of Minecraft's default 854x480.
         client {
             client()
+            programArguments.addAll '--width', '1600', '--height', '900'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -40,6 +42,15 @@ neoForge {
         testFlight {
             client()
             systemProperty 'apoapsis.testFlight', 'true'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
+        // The test flight driven by a script: screenshots of flight, map and a burn into run/screenshots, then quits.
+        testDriver {
+            client()
+            systemProperty 'apoapsis.testFlight', 'true'
+            systemProperty 'apoapsis.testDriver', 'true'
+            programArguments.addAll '--width', '1600', '--height', '900'
         }
 
         server {

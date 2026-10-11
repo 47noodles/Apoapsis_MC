@@ -25,6 +25,9 @@ final class FlightSync {
             r = st.r();
             v = st.v();
         }
+        if (pilot.connection == null || !pilot.connection.hasChannel(OrbitStatePayload.TYPE)) {
+            return;
+        }
         PacketDistributor.sendToPlayer(pilot, new OrbitStatePayload(ship.getId(), (byte) st.body.ordinal(),
                 (byte) st.regime.ordinal(), ut, warp, r.x(), r.y(), r.z(), v.x(), v.y(), v.z()));
     }
