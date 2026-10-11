@@ -1,14 +1,39 @@
 package dev.apoapsis.ship;
 
+import dev.apoapsis.grid.FuelTankBlockEntity;
+import dev.apoapsis.grid.ShipParts;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Quaternionf;
 
 /**
- * Turns placed blocks into a {@link ShipEntity} and back. STUB from S0; node SHIP implements it.
+ * Turns placed blocks into a {@link ShipEntity} and back.
  */
 public final class ShipAssembler {
+    /** Removing ship blocks: client update only, no drops, no neighbour updates (so nothing cascades). */
+    private static final int REMOVE_FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS;
+    /** Largest lift tried when the blocks would overlap solid terrain, in blocks. */
+    private static final int MAX_LIFT = 3;
+    /** A ship more tilted than this cannot be turned back into blocks. */
+    private static final double MAX_LEVEL_DEG = 20.0;
+    /** Speed and spin limits for leaving the ship as blocks. */
+    private static final double MAX_STOPPED_SPEED = 1.0;
+    private static final double MAX_STOPPED_SPIN = 0.2;
+
     private ShipAssembler() {}
 
     /** Outcome of an assembly attempt: exactly one of {@code ship} and {@code error} is non-null. */
@@ -17,14 +42,131 @@ public final class ShipAssembler {
 
     /**
      * Flood-fills face-connected ship blocks from the cockpit, removes them from the world, spawns the ship, and
-     * seats {@code pilot} if non-null.
+     * seats {@code pilot} if non-null. Nothing changes in the world if the attempt fails.
      */
     public static Result assemble(ServerLevel level, BlockPos cockpitPos, Player pilot) {
-        return new Result(null, Component.literal("Not implemented"));
+        if (!ShipParts.isCockpit(level.getBlockState(cockpitPos))) {
+            return new Result(null, Component.translatable("message.apoapsis.ship.no_cockpit"));
+        }
+
+        Set<BlockPos> found = new LinkedHashSet<>();
+        Deque<BlockPos> queue = new ArrayDeque<>();
+        BlockPos start = cockpitPos.immutable();
+        found.add(start);
+        queue.add(start);
+        while (!queue.isEmpty()) {
+            BlockPos at = queue.poll();
+            for (Direction d : Direction.values()) {
+                BlockPos next = at.relative(d);
+                if (found.contains(next) || !level.hasChunkAt(next)
+                        || !ShipParts.isShipBlock(level.getBlockState(next))) {
+                    continue;
+                }
+                if (found.size() >= ShipStructure.MAX_BLOCKS) {
+                    return new Result(null, Component.translatable("message.apoapsis.ship.too_many_blocks"));
+                }
+                BlockPos imm = next.immutable();
+                found.add(imm);
+                queue.add(imm);
+            }
+        }
+
+        ShipStructure structure = new ShipStructure();
+        for (BlockPos p : found) {
+            BlockPos local = new BlockPos(p.getX() - cockpitPos.getX(), p.getY() - cockpitPos.getY(),
+                    p.getZ() - cockpitPos.getZ());
+            structure.put(local, level.getBlockState(p));
+            if (level.getBlockEntity(p) instanceof FuelTankBlockEntity tank) {
+                structure.setFuel(local, tank.getFuelKg());
+            }
+        }
+
+        for (BlockPos p : found) {
+            level.removeBlockEntity(p);
+        }
+        for (BlockPos p : found) {
+            level.setBlock(p, Blocks.AIR.defaultBlockState(), REMOVE_FLAGS);
+        }
+
+        // Block centres are at local + 0.5, so the world centre of mass is the cockpit corner plus the local centre.
+        Vec3 com = structure.centerOfMassLocal();
+        Vec3 comWorld = new Vec3(cockpitPos.getX() + com.x, cockpitPos.getY() + com.y, cockpitPos.getZ() + com.z);
+        ShipEntity ship = ShipEntity.spawn(level, structure, comWorld, new Quaternionf());
+        if (pilot != null) {
+            ship.seatPilot(pilot);
+        }
+        return new Result(ship, null);
     }
 
     /** Places the ship back as blocks if it is landed and slow; returns an error message or null on success. */
     public static Component disassemble(ShipEntity ship) {
-        return Component.literal("Not implemented");
+        if (!(ship.level() instanceof ServerLevel level)) {
+            return Component.translatable("message.apoapsis.ship.not_landed");
+        }
+        if (!ship.isLanded() || ship.getVelocity().length() >= MAX_STOPPED_SPEED
+                || ship.getAngularVelocity().length() >= MAX_STOPPED_SPIN) {
+            return Component.translatable("message.apoapsis.ship.not_landed");
+        }
+        ShipGeometry.Snap snap = ShipGeometry.snap(ship.getOrientation());
+        if (snap.angleDeg() > MAX_LEVEL_DEG) {
+            return Component.translatable("message.apoapsis.ship.not_level");
+        }
+
+        ShipStructure structure = ship.getStructure();
+        Vec3 com = ship.getCenterOfMassLocal();
+        Vec3 base = ship.position();
+        Vec3 origin = null;
+        Map<BlockPos, BlockPos> targets = null;
+        for (int lift = 0; lift <= MAX_LIFT && origin == null; lift++) {
+            Vec3 candidate = base.add(0, lift, 0);
+            Map<BlockPos, BlockPos> cells = targetCells(level, structure, snap, com, candidate);
+            if (cells != null) {
+                origin = candidate;
+                targets = cells;
+            }
+        }
+        if (origin == null || targets == null) {
+            return Component.translatable("message.apoapsis.ship.no_room");
+        }
+
+        for (Map.Entry<BlockPos, BlockPos> e : targets.entrySet()) {
+            BlockPos local = e.getKey();
+            BlockPos cell = e.getValue();
+            BlockState state = ShipGeometry.rotateFacing(structure.get(local), snap);
+            level.setBlock(cell, state, Block.UPDATE_ALL);
+            if (level.getBlockEntity(cell) instanceof FuelTankBlockEntity tank) {
+                tank.setFuelKg(structure.getFuel(local));
+            }
+        }
+
+        // Move the entity to the placed pose so the pilot is put down beside the cockpit as it now is.
+        ship.setOrientation(snap.quaternion());
+        ship.setPos(origin);
+        Player pilot = ship.getPilot();
+        if (pilot != null) {
+            pilot.stopRiding();
+        }
+        ship.remove(Entity.RemovalReason.DISCARDED);
+        return null;
+    }
+
+    /**
+     * Target cell of each block: floor(origin + snapped(p + 0.5 - com)). Null if any target is occupied by a
+     * block that cannot be replaced, lies outside the loaded world, or is above or below the build height.
+     */
+    private static Map<BlockPos, BlockPos> targetCells(ServerLevel level, ShipStructure structure,
+                                                       ShipGeometry.Snap snap, Vec3 com, Vec3 origin) {
+        Map<BlockPos, BlockPos> cells = new LinkedHashMap<>();
+        for (BlockPos local : structure.blocks().keySet()) {
+            Vec3 offset = snap.apply(new Vec3(local.getX() + 0.5 - com.x, local.getY() + 0.5 - com.y,
+                    local.getZ() + 0.5 - com.z));
+            BlockPos cell = BlockPos.containing(origin.x + offset.x, origin.y + offset.y, origin.z + offset.z);
+            if (!level.hasChunkAt(cell) || level.isOutsideBuildHeight(cell)
+                    || !level.getBlockState(cell).canBeReplaced()) {
+                return null;
+            }
+            cells.put(local, cell);
+        }
+        return cells;
     }
 }
