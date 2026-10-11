@@ -1,0 +1,24 @@
+version = 1
+
+[[annotations]]
+path = ["docs/design/**", "docs/releases/**", "README.md", "CONTRIBUTING.md", "CHANGELOG.md"]
+SPDX-FileCopyrightText = "2026 The Apoapsis contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Research notes: our own text is CC BY 4.0. Short quotations and restated wiki
+# data inside them remain under their sources' licences (see docs/research/README.md).
+[[annotations]]
+path = ["docs/research/**"]
+SPDX-FileCopyrightText = "2026 The Apoapsis contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Concept art: CC BY 4.0, each image credited to its artist in docs/design/13-art-direction.md (Concept art log).
+[[annotations]]
+path = ["docs/concept/**"]
+SPDX-FileCopyrightText = "2026 The Apoapsis contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = ["tools/**", "REUSE.toml", ".gitignore"]
+SPDX-FileCopyrightText = "2026 The Apoapsis contributors"
+SPDX-License-Identifier = "MIT"
