@@ -43,6 +43,8 @@ public final class GameTests {
                 new ApoapsisGameTest("assembly_roundtrip", environment, 600, GameTests::assemblyRoundtrip));
         event.registerTest(TestSupport.id("ship_falls_without_thrust"),
                 new ApoapsisGameTest("ship_falls_without_thrust", environment, 400, GameTests::shipFallsWithoutThrust));
+        event.registerTest(TestSupport.id("ship_crashes_on_hard_impact"),
+                new ApoapsisGameTest("ship_crashes_on_hard_impact", environment, 200, GameTests::shipCrashesOnHardImpact));
         event.registerTest(TestSupport.id("ship_climbs_with_thrust"),
                 new ApoapsisGameTest("ship_climbs_with_thrust", environment, 120, GameTests::shipClimbsWithThrust));
         event.registerTest(TestSupport.id("orbit_spawn"),
@@ -114,10 +116,13 @@ public final class GameTests {
                 .thenSucceed();
     }
 
-    /** With no throttle, a ship 10 blocks up is lower after 60 ticks and then lands on the floor. */
+    /**
+     * With no throttle, a ship 6 blocks up is lower after 60 ticks and then lands on the floor. Six blocks hit at about
+     * 11 m/s, a hard landing below the 12 m/s crash limit.
+     */
     private static void shipFallsWithoutThrust(GameTestHelper helper, ShipCleanup ships) {
         TestSupport.stoneFloor(helper);
-        ShipEntity ship = ships.track(TestSupport.spawnAboveFloor(helper, TestSupport.threeBlockShip(helper, 600.0), 10));
+        ShipEntity ship = ships.track(TestSupport.spawnAboveFloor(helper, TestSupport.threeBlockShip(helper, 600.0), 6));
         ship.setThrottle(0f);
         double startY = ship.getY();
 
@@ -129,6 +134,17 @@ public final class GameTests {
                 })
                 .thenWaitUntil(() -> helper.assertTrue(ship.isLanded(),
                         "the ship has not landed on the floor; entity y is " + ship.getY()))
+                .thenSucceed();
+    }
+
+    /** A ship dropped from 25 blocks hits at about 22 m/s, above the 12 m/s limit, and is destroyed. */
+    private static void shipCrashesOnHardImpact(GameTestHelper helper, ShipCleanup ships) {
+        TestSupport.stoneFloor(helper);
+        ShipEntity ship = ships.track(TestSupport.spawnAboveFloor(helper, TestSupport.threeBlockShip(helper, 600.0), 25));
+        ship.setThrottle(0f);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(!ship.isAlive(),
+                        "the ship survived a 25-block fall; entity y is " + ship.getY()))
                 .thenSucceed();
     }
 
