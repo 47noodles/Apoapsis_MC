@@ -36,12 +36,12 @@ import org.jspecify.annotations.Nullable;
  * thread, kept, cached, and sent to clients as a {@link PlanetMapPayload}. Never blocks the server thread.
  */
 public final class PlanetMaps {
-    /** Cache format version; bump it when the colouring or a body's terrain changes (3: biome colours, smooth relief). */
-    static final int CACHE_VERSION = 3;
+    /** Cache format version; bump it when the colouring or terrain changes (5: 3x3 supersampling, Pale 512x256). */
+    static final int CACHE_VERSION = 5;
     private static final int POOL_THREADS = 2;
     private static final List<Spec> SPECS = List.of(
             new Spec(BodyId.VERDANCE, 512, 256),
-            new Spec(BodyId.PALE, 256, 128));
+            new Spec(BodyId.PALE, 512, 256));
 
     /** Server thread only. Non-null while a server runs. */
     private static @Nullable MinecraftServer server;

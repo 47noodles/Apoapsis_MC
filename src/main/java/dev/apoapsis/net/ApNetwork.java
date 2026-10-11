@@ -1,5 +1,6 @@
 package dev.apoapsis.net;
 
+import dev.apoapsis.planet.TerrainTiles;
 import dev.apoapsis.ship.ShipControls;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -19,5 +20,8 @@ public final class ApNetwork {
         r.playToClient(OrbitStatePayload.TYPE, OrbitStatePayload.STREAM_CODEC);
         r.playToClient(AgeSyncPayload.TYPE, AgeSyncPayload.STREAM_CODEC);
         r.playToClient(PlanetMapPayload.TYPE, PlanetMapPayload.STREAM_CODEC);
+        r.playToClient(TerrainTilePayload.TYPE, TerrainTilePayload.STREAM_CODEC);
+        r.playToServer(TerrainTilePayload.Request.TYPE, TerrainTilePayload.Request.STREAM_CODEC,
+                TerrainTiles::handleRequest);
     }
 }

@@ -10,6 +10,7 @@ import dev.apoapsis.flight.FlightHooks;
 import dev.apoapsis.flight.FlightRules;
 import dev.apoapsis.grid.FuelRefineryBlockEntity;
 import dev.apoapsis.grid.FuelTankBlockEntity;
+import dev.apoapsis.net.TerrainTilePayload;
 import dev.apoapsis.ownership.ShipOwnership;
 import dev.apoapsis.ship.ShipAssembler;
 import dev.apoapsis.ship.ShipEntities;
@@ -74,6 +75,10 @@ public final class GameTests {
         event.registerTest(TestSupport.id("playback_teleport_and_sleep"),
                 new ApoapsisGameTest("playback_teleport_and_sleep", environment, 40,
                         PlaybackTests::teleportsAndSleepRestart));
+        event.registerTest(TestSupport.id("terrain_payload"),
+                new ApoapsisGameTest("terrain_payload", environment, 40, GameTests::terrainPayload));
+        event.registerTest(TestSupport.id("terrain_sampler_probe"),
+                new ApoapsisGameTest("terrain_sampler_probe", environment, 40, GameTests::terrainSamplerProbe));
         event.registerTest(TestSupport.id("start_age_three"),
                 new ApoapsisGameTest("start_age_three", environment, 40, GameTests::startAgeThree));
         event.registerTest(TestSupport.id("first_flight_needs_landing"),
@@ -411,6 +416,72 @@ public final class GameTests {
                             "the refinery did not refine: heat is still " + refinery.getHeatTicks() + " ticks");
                 })
                 .thenSucceed();
+    }
+
+    /** The terrain tile payload survives its codec, and malformed shapes and lengths are refused. */
+    private static void terrainPayload(GameTestHelper helper, ShipCleanup ships) {
+        int n = TerrainTilePayload.sizeOf(0);
+        short[] heights = new short[n * n];
+        byte[] rgb = new byte[3 * n * n];
+        for (int i = 0; i < heights.length; i++) {
+            heights[i] = (short) (i % 300 - 20);
+            rgb[3 * i] = (byte) i;
+            rgb[3 * i + 1] = (byte) (i >> 3);
+            rgb[3 * i + 2] = (byte) (i >> 6);
+        }
+        TerrainTilePayload tile = new TerrainTilePayload("pale", 0, -64, 96, TerrainTilePayload.spacingOf(0), n, heights, rgb);
+        helper.assertTrue(tile.valid(), "a well-formed tile reports invalid");
+        net.minecraft.network.RegistryFriendlyByteBuf buf = new net.minecraft.network.RegistryFriendlyByteBuf(
+                io.netty.buffer.Unpooled.buffer(), helper.getLevel().getServer().registryAccess());
+        TerrainTilePayload.STREAM_CODEC.encode(buf, tile);
+        TerrainTilePayload back = TerrainTilePayload.STREAM_CODEC.decode(buf);
+        helper.assertTrue(back.centerX() == -64 && back.centerZ() == 96 && back.level() == 0 && back.size() == n
+                && java.util.Arrays.equals(back.heights(), heights) && java.util.Arrays.equals(back.rgb(), rgb),
+                "the tile changed in the codec round trip");
+
+        helper.assertTrue(!new TerrainTilePayload("pale", 0, 0, 0, 8, n, new short[3], rgb).valid(), "short heights accepted");
+        helper.assertTrue(!new TerrainTilePayload("pale", 0, 0, 0, 8, n, heights, new byte[5]).valid(), "short colours accepted");
+        helper.assertTrue(!new TerrainTilePayload("Pale!", 0, 0, 0, 8, n, heights, rgb).valid(), "bad body name accepted");
+        helper.assertTrue(!TerrainTilePayload.validShape(3, 0, 0, 8, 129), "level 3 accepted");
+        helper.assertTrue(!TerrainTilePayload.validShape(0, 0, 0, 8, 128), "an even size accepted");
+        helper.assertTrue(!TerrainTilePayload.validShape(0, 0, 0, 8, 100_001), "an oversized grid accepted");
+        helper.assertTrue(!TerrainTilePayload.validShape(0, Integer.MAX_VALUE, 0, 8, 129), "a huge centre accepted");
+
+        net.minecraft.network.RegistryFriendlyByteBuf bad = new net.minecraft.network.RegistryFriendlyByteBuf(
+                io.netty.buffer.Unpooled.buffer(), helper.getLevel().getServer().registryAccess());
+        bad.writeUtf("pale", 32);
+        bad.writeVarInt(0);
+        bad.writeInt(0);
+        bad.writeInt(0);
+        bad.writeVarInt(8);
+        bad.writeVarInt(100_001);
+        boolean refused = false;
+        try {
+            TerrainTilePayload.STREAM_CODEC.decode(bad);
+        } catch (io.netty.handler.codec.DecoderException e) {
+            refused = true;
+        }
+        helper.assertTrue(refused, "the codec decoded a tile with an oversized grid");
+        helper.succeed();
+    }
+
+    /** Logs the far-terrain height sampler's error and cost against getBaseHeight on both bodies. */
+    private static void terrainSamplerProbe(GameTestHelper helper, ShipCleanup ships) {
+        net.minecraft.core.RegistryAccess access = helper.getLevel().getServer().registryAccess();
+        TerrainProbe.Body pale = TerrainProbe.pale(access);
+        TerrainProbe.Body verdance = TerrainProbe.verdance(access);
+        TerrainProbe.Error paleError = TerrainProbe.compare(pale, 2000, 1L);
+        TerrainProbe.Error verdanceError = TerrainProbe.compare(verdance, 600, 2L);
+        helper.assertTrue(paleError.max() == 0, "Pale heights are exact, but the sampler differs by " + paleError.max());
+        helper.assertTrue(verdanceError.rms() < 6 && verdanceError.p95() < 8,
+                "Verdance sampler error too large: rms " + verdanceError.rms() + ", p95 " + verdanceError.p95());
+        helper.assertTrue(verdanceError.samplerMicros() * 10 < verdanceError.exactMicros(),
+                "the Verdance sampler is not 10 times cheaper than getBaseHeight");
+        TerrainProbe.timeTiles(pale, 1234, -5678);
+        TerrainProbe.timeTiles(verdance, 1234, -5678);
+        TerrainProbe.timeMap(pale, 512, 256, 2);
+        TerrainProbe.timeMap(verdance, 512, 256, 2);
+        helper.succeed();
     }
 
     /**
