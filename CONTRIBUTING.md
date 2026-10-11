@@ -20,6 +20,6 @@ Game mechanics and ideas can't be owned. Code, art, sounds and written text can.
 7. **No Minecraft code in the repo.** Don't paste vanilla methods into mixins (`@Overwrite` copies, "copy then modify" from the 26.x sources). Inject or wrap instead, and re-implement behaviour from scratch. Mojang's code is proprietary and can't be MIT.
 8. **No edited vanilla textures or shaders.** Draw every texture from scratch (matching the *style* is fine; deriving from the *pixels* isn't), and write our own shaders.
 9. **Sounds, music and fonts:** use only original, CC0 or CC BY sounds and music (no NC or Sampling+ licences), and OFL fonts. Record the source of anything you didn't make.
-10. **AI-assisted work:** AI-assisted code and art get human review like any other contribution. AI art comes through the art pipeline as reproducible source (scripts, Blockbench JSON, SVG) and is labelled in its licence metadata ([16 §16.2](docs/design/16-production-and-polish.md)). Never prompt with, or trace, another game's or mod's art.
+10. **AI-assisted work:** AI-assisted code and art get human review like any other contribution. AI art comes through the art pipeline as reproducible source (scripts, Blockbench JSON, SVG) and is labelled in its licence metadata ([16 §16.2](docs/design/16-production-and-polish.md)). Never prompt with, or trace, another game's or mod's art. Agents working in this repo follow [AGENTS.md](AGENTS.md).
 
 Full detail: [docs/design/09-open-source-and-dependencies.md](docs/design/09-open-source-and-dependencies.md) §9.3.

@@ -26,7 +26,8 @@ Update the JSON as work moves, then re-render. Statuses: pending, running, revie
   - **release:** a public version.
   - **decision:** an ADR.
 - **Owners:**
-  - **agents:** Haiku and Sonnet build agents under Opus review.
+  - **sonnet:** rendering, visual UI, worldgen, cross-system work and second-round nodes, under Opus review.
+  - **haiku:** scoped server logic, data, hardening, small fixes, docs and research, under Opus review.
   - **opus:** design, architecture and integration.
   - **47noodles:** every gate and release.
   - **CallMeCarlos:** concept and block art.
@@ -34,6 +35,8 @@ Update the JSON as work moves, then re-render. Statuses: pending, running, revie
   - **playtesters:** the exit playtests.
 - **Gates** are the design rule from `12` §12.3. Each stage's screens and blocks are designed and approved one stage ahead, and no UI code starts until its gate passes. There are 10 gates in all: Stage 0's go/no-go, the Stage 1 to Stage 8 design gates, and the 1.0 sign-off.
 - **Every stage ends the same way:** an exit playtest, a release with patch notes, then a version hop to the latest Minecraft drop with a tested save migration.
+
+How agents are organised: [AGENTS.md](../../AGENTS.md).
 
 ## Where things stand (11 Oct 2026)
 
