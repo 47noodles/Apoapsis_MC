@@ -23,9 +23,10 @@ import org.joml.Vector3f;
 
 /**
  * Space Engineers style cockpit camera. While the local player rides a ship, the view is the ship's orientation
- * (as the renderer draws it) times the mouse look, so the world stays fixed to the cockpit and the pilot rotates the
- * ship to change the view. Boarding converts the player's world look to cockpit-relative angles once, so the view
- * does not jump. Across an orbit and surface transition the view is held: the last ridden orientation is mapped the
+ * (as the renderer draws it) times a cockpit head rotation, so the world stays fixed to the cockpit and the pilot rotates
+ * the ship to change the view. The mouse turns the head freely about its own axes, with no pitch limit, so the pilot
+ * can look straight up and over. Boarding converts the player's world look to a cockpit-relative head once, so the
+ * view does not jump. Across an orbit and surface transition the view is held: the last ridden orientation is mapped the
  * way the server maps the ship, for up to {@link #HOLD_TICKS} client ticks, until the pilot is re-seated. After a
  * dismount the last ridden orientation is kept for up to {@link #LINGER_TICKS} in the same dimension, then the look
  * is converted back to world angles. Vanilla free look applies otherwise. Client only.
@@ -50,6 +51,8 @@ public final class CockpitCamera {
     private static boolean active;
     /** The camera rotation applied on the last frame while active. */
     private static Quaternionf applied;
+    /** The cockpit-relative look while riding, unclamped; the camera is the ship's orientation times this. */
+    private static Quaternionf head = new Quaternionf();
 
     private CockpitCamera() {}
 
@@ -64,6 +67,22 @@ public final class CockpitCamera {
         held = null;
         active = false;
         applied = null;
+        head = new Quaternionf();
+    }
+
+    /** True while the cockpit view is in use. The Entity.turn mixin hands mouse turns to {@link #turn} only then. */
+    public static boolean isActive() {
+        return active;
+    }
+
+    /**
+     * One mouse turn of the cockpit head, in the head's own axes: yaw about its local up, pitch about its local right,
+     * each 0.15 degrees per unit as vanilla. MouseHandler has already applied the invert-mouse options.
+     */
+    public static void turn(double xo, double yo) {
+        head.mul(new Quaternionf().rotationY((float) (-xo * 0.15 * DEG)));
+        head.mul(new Quaternionf().rotationX((float) (-yo * 0.15 * DEG)));
+        head.normalize();
     }
 
     /**
@@ -87,27 +106,22 @@ public final class CockpitCamera {
 
         if (player.getVehicle() instanceof ShipEntity ship) {
             Quaternionf q = ShipRenderCache.entry(ship.getId()).orientation(ship.getOrientation(), partialTick);
-            float yaw = event.getYaw();
-            float pitch = event.getPitch();
             if (!active) {
-                // Boarding: the player's angles are world angles. Make them cockpit-relative once, keeping the view.
-                Quaternionf rel = new Quaternionf(q).conjugate().mul(vanilla(player.getYRot(), player.getXRot()));
-                float[] look = anglesOf(viewOf(rel));
+                // Boarding: the player's angles are world angles. Make the head cockpit-relative once, keeping the view.
+                head = new Quaternionf(q).conjugate().mul(vanilla(player.getYRot(), player.getXRot()));
+                float[] look = anglesOf(viewOf(head));
                 setLook(player, look[0], look[1]);
-                yaw = look[0];
-                pitch = look[1];
             }
             active = true;
             last = remember(q, ship, dimension, partialTick);
             held = null;
-            applied = new Quaternionf(q).mul(vanilla(yaw, pitch));
+            applied = new Quaternionf(q).mul(head);
             apply(event, applied);
             return;
         }
         if (!active || last == null) {
             return;
         }
-        Quaternionf head = vanilla(event.getYaw(), event.getPitch());
         Quaternionf cam = null;
         if (last.dimension().equals(dimension)) {
             // Dismount: keep the last ridden orientation for a few ticks, since a transition dismounts first.

@@ -9,7 +9,8 @@
   ],
   "client": [
     "client.HudAccessor",
-    "client.SkyRendererMixin"
+    "client.SkyRendererMixin",
+    "client.EntityTurnMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }
