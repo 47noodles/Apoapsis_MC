@@ -15,6 +15,6 @@
   "apoapsis.flight.warp.orbit": "Warp works in orbit only",
   "apoapsis.flight.warp.pilot": "Warp needs a pilot aboard",
   "apoapsis.flight.warp.singleplayer": "Warp works in singleplayer only",
-  "apoapsis.flight.warp.surface": "Real time to stay clear of the surface",
+  "apoapsis.flight.warp.surface": "Warp off to stay clear of the surface",
   "apoapsis.flight.warp.too_close": "Too close to %s for warp"
 }

@@ -33,7 +33,24 @@ final class Transitions {
     /** Ticks to wait for a pilot to reach the target level before the seat is dropped. */
     private static final int SEAT_TIMEOUT_TICKS = 40;
 
+    /** Ticks between landing predictions and ticket refreshes, one second. The ENDER_PEARL ticket lasts 40 ticks. */
+    static final int PREFETCH_INTERVAL_TICKS = 20;
+    /** Game seconds ahead of a predicted crossing of the transition altitude at which landing chunks are requested. */
+    static final double PREFETCH_LEAD_S = 10.0;
+    /** Game seconds per step of the crossing search. */
+    private static final double PREFETCH_STEP_S = 0.5;
+    /** Bisection steps that refine a crossing inside one search step (0.5 s / 2^8, about 2 ms). */
+    private static final int PREFETCH_REFINE_STEPS = 8;
+    /** Chunk radius of the landing ticket around the predicted column. */
+    static final int LANDING_RADIUS = 2;
+    /** Ticks a descent may wait in orbit for its landing chunk before it loads the chunk and descends at once. */
+    static final int POSTPONE_LIMIT_TICKS = 20;
+    /** Ticks ahead at which a waiting descent requests the column it will be over, so the chunk can generate. */
+    static final int POSTPONE_LEAD_TICKS = 10;
+
     private static final Map<UUID, PendingSeat> PENDING = new HashMap<>();
+    /** Ships whose descent is waiting for its landing chunk, with the ticks waited so far. */
+    private static final Map<UUID, Integer> WAITING = new HashMap<>();
 
     private Transitions() {}
 
@@ -64,7 +81,11 @@ final class Transitions {
         move(ship, orbit, FlightDimensions.slotPosition(slot), q, state, Vec3.ZERO);
     }
 
-    /** Orbit to surface: the ship comes down at the sub-point of its inertial position, on the body's surface. */
+    /**
+     * Orbit to surface: the ship comes down at the sub-point of its inertial position, on the body's surface. While the
+     * landing chunk is still generating, the ship stays in orbit for up to {@link #POSTPONE_LIMIT_TICKS} ticks, each
+     * time only if the next tick keeps it above the surface; then the chunk is loaded and the descent goes ahead.
+     */
     static void down(ShipEntity ship, FlightState old, ServerLevel orbit) {
         MinecraftServer server = orbit.getServer();
         BodyId body = old.body;
@@ -76,6 +97,14 @@ final class Transitions {
         Vec3d r = old.r();
         Frames.Tangent t = Frames.tangentAt(r);
         Vec3 pos = Frames.toSurfacePosition(r, sys.radius, FlightDimensions.seaLevel(body), t);
+        if (!isLoaded(surface, pos) && canWait(server, ship.getUUID(), old, sys)) {
+            // The ship moves over the ground while it waits, so the column it will be over in a few ticks is requested.
+            requestLanding(surface, pos);
+            requestLanding(surface, surfacePointAfter(old, sys, body,
+                    POSTPONE_LEAD_TICKS * FlightEvents.TICK_SECONDS * FlightWarp.factor(server)));
+            return;
+        }
+        WAITING.remove(ship.getUUID());
         Vec3 vel = Frames.toSurfaceVelocity(old.v(), t);
         Quaternionf q = Frames.orbitToSurfaceOrientation(ship.getOrientation(), t);
         FlightState state = new FlightState();
@@ -152,36 +181,101 @@ final class Transitions {
     /** Forgets all pending seats (server stop). */
     static void clearPending() {
         PENDING.clear();
+        WAITING.clear();
     }
 
     /**
-     * Asks for the landing chunk one tick before a descent is due, so {@link #down} finds it loaded rather than
-     * blocking. Does nothing unless the next tick at the current warp takes the ship below its transition altitude.
+     * Requests the landing chunks of a descent that is coming, once a second, while the ship coasts down in orbit.
+     * It finds when the orbit first drops through the transition altitude, at the current warp's game time. If that is
+     * within {@link #PREFETCH_LEAD_S} game seconds, a ticket goes around the column it crosses above, so {@link #down}
+     * finds the chunks generated. Does nothing when the ship is not descending.
      */
-    static void prefetchLanding(MinecraftServer server, FlightState st) {
+    static void prefetchLanding(MinecraftServer server, ShipEntity ship, FlightState st) {
+        WAITING.remove(ship.getUUID());
+        if (ship.tickCount % PREFETCH_INTERVAL_TICKS != 0) {
+            return;
+        }
         CelestialBody sys = FlightDimensions.system(st.body);
-        StateVector next = Kepler.propagate(sys.mu, st.stateVector(),
-                FlightEvents.TICK_SECONDS * FlightWarp.factor(server));
-        Vec3d r = next.r();
-        if (r.length() - sys.radius >= FlightDimensions.transitionAltitude(st.body) || r.dot(next.v()) >= 0) {
+        if (st.altitude() < FlightDimensions.transitionAltitude(st.body) || st.r().dot(st.v()) >= 0) {
             return;
         }
         ServerLevel surface = server.getLevel(FlightDimensions.surfaceDimension(st.body));
-        if (surface == null) {
+        StateVector crossing = predictCrossing(sys, st.stateVector(),
+                sys.radius + FlightDimensions.transitionAltitude(st.body));
+        if (surface == null || crossing == null) {
             return;
         }
-        Vec3 pos = Frames.toSurfacePosition(r, sys.radius, FlightDimensions.seaLevel(st.body), Frames.tangentAt(r));
-        surface.getChunkSource().addTicketWithRadius(TicketType.ENDER_PEARL,
-                new ChunkPos(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4), 1);
+        Vec3d r = crossing.r();
+        requestLanding(surface, Frames.toSurfacePosition(r, sys.radius, FlightDimensions.seaLevel(st.body),
+                Frames.tangentAt(r)));
     }
 
-    /** Loads the chunk under a spawn point. A prefetch ticket usually has it ready; otherwise this call blocks. */
-    private static void loadChunk(ServerLevel level, Vec3 pos) {
-        int cx = Mth.floor(pos.x) >> 4;
-        int cz = Mth.floor(pos.z) >> 4;
-        if (level.getChunkSource().getChunkNow(cx, cz) == null) {
-            level.getChunk(cx, cz);
+    /**
+     * The state at which the orbit first falls below {@code floor} metres from the body centre, within
+     * {@link #PREFETCH_LEAD_S} seconds of {@code now}, or null. Searches in steps, then bisects the step where it crosses.
+     */
+    private static StateVector predictCrossing(CelestialBody sys, StateVector now, double floor) {
+        StateVector start = now;
+        int steps = (int) Math.round(PREFETCH_LEAD_S / PREFETCH_STEP_S);
+        for (int i = 0; i < steps; i++) {
+            StateVector end = Kepler.propagate(sys.mu, start, PREFETCH_STEP_S);
+            if (end.r().length() < floor) {
+                double lo = 0.0;
+                double hi = PREFETCH_STEP_S;
+                for (int k = 0; k < PREFETCH_REFINE_STEPS; k++) {
+                    double mid = 0.5 * (lo + hi);
+                    if (Kepler.propagate(sys.mu, start, mid).r().length() < floor) {
+                        hi = mid;
+                    } else {
+                        lo = mid;
+                    }
+                }
+                return Kepler.propagate(sys.mu, start, hi);
+            }
+            start = end;
         }
+        return null;
+    }
+
+    /** The surface point under the state of {@code st} after {@code dt} seconds of coasting. */
+    private static Vec3 surfacePointAfter(FlightState st, CelestialBody sys, BodyId body, double dt) {
+        Vec3d r = Kepler.propagate(sys.mu, st.stateVector(), dt).r();
+        return Frames.toSurfacePosition(r, sys.radius, FlightDimensions.seaLevel(body), Frames.tangentAt(r));
+    }
+
+    /** Asks for the chunks around a landing point to be generated and kept, for {@link #LANDING_RADIUS} chunks. */
+    private static void requestLanding(ServerLevel level, Vec3 pos) {
+        level.getChunkSource().addTicketWithRadius(TicketType.ENDER_PEARL,
+                new ChunkPos(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4), LANDING_RADIUS);
+    }
+
+    /**
+     * Decides whether a descent whose landing chunk is not loaded may wait one more tick. It may, while it has waited
+     * fewer than {@link #POSTPONE_LIMIT_TICKS} ticks and the next tick (at the current warp) keeps the orbit above the
+     * surface. Otherwise it returns false and the caller loads the chunk at once.
+     */
+    private static boolean canWait(MinecraftServer server, UUID shipId, FlightState st, CelestialBody sys) {
+        int waited = WAITING.getOrDefault(shipId, 0);
+        StateVector next = Kepler.propagate(sys.mu, st.stateVector(),
+                FlightEvents.TICK_SECONDS * FlightWarp.factor(server));
+        if (waited >= POSTPONE_LIMIT_TICKS || next.r().length() <= sys.radius) {
+            WAITING.remove(shipId);
+            return false;
+        }
+        WAITING.put(shipId, waited + 1);
+        return true;
+    }
+
+    /** Loads the chunk under a spawn point. A landing ticket usually has it ready; otherwise this call blocks. */
+    private static void loadChunk(ServerLevel level, Vec3 pos) {
+        if (!isLoaded(level, pos)) {
+            level.getChunk(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4);
+        }
+    }
+
+    /** True when the chunk under a point is already loaded, without waiting for generation. */
+    private static boolean isLoaded(ServerLevel level, Vec3 pos) {
+        return level.getChunkSource().getChunkNow(Mth.floor(pos.x) >> 4, Mth.floor(pos.z) >> 4) != null;
     }
 
     /** Lifts a spawn point to one metre above the top solid block at its x and z when the point lies inside terrain. */
