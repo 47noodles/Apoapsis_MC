@@ -1,6 +1,7 @@
 package dev.apoapsis.flight;
 
 import dev.apoapsis.ages.Ages;
+import dev.apoapsis.ages.Firsts;
 import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -79,6 +80,7 @@ public final class FlightRules {
             return;
         } else {
             Transitions.prefetchLanding(server, ship, st);
+            Firsts.checkOrbit(pilot, ship.getThrottle() <= 0f, st.body, st.r(), st.v());
         }
 
         if (pilot != null && ship.tickCount % SYNC_INTERVAL_TICKS == 0) {

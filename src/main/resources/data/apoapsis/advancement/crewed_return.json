@@ -1,0 +1,22 @@
+{
+  "parent": "apoapsis:pale_landing",
+  "display": {
+    "icon": {
+      "id": "apoapsis:cockpit"
+    },
+    "title": {
+      "translate": "apoapsis.advancement.crewed_return.title"
+    },
+    "description": {
+      "translate": "apoapsis.advancement.crewed_return.description"
+    },
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "code": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

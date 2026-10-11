@@ -374,6 +374,26 @@ def hydrolox_canister():
     return c
 
 
+def pale_sample():
+    """Item sprite: a sealed vial of Pale regolith, steel cap and brass label, transparent background."""
+    glass = mix(STEEL_500, HYDROGEN, 0.2)
+    c = Canvas()
+    c.fill(5, 1, 10, 3, STEEL_600)                # cap
+    c.hline(5, 10, 1, STEEL_400)
+    c.hline(5, 10, 3, STEEL_950)
+    c.fill(5, 4, 10, 13, glass)                   # glass
+    c.fill(5, 9, 10, 13, REG_BASE)                # regolith fill
+    c.hline(5, 10, 9, REG_LIGHT)                  # fill surface
+    c.put(7, 11, REG_DARK)
+    c.put(9, 12, REG_DEEP)
+    c.put(6, 13, REG_LIGHT)
+    c.hline(5, 10, 6, BRASS)                      # label band
+    c.vline(4, 4, 14, STEEL_950)                  # outline
+    c.vline(11, 4, 14, STEEL_950)
+    c.hline(4, 11, 14, STEEL_950)
+    return c
+
+
 def hazard(x, y, period):
     """Diagonal hazard stripe: brass or steel-950 by the pixel's diagonal band."""
     return BRASS if ((x + y) // period) % 2 == 0 else STEEL_950
@@ -515,6 +535,7 @@ TEXTURES = [
     ("block/spark_thruster_side", spark_thruster_side),
     ("block/regolith", regolith),
     ("item/hydrolox_canister", hydrolox_canister),
+    ("item/pale_sample", pale_sample),
 ]
 
 

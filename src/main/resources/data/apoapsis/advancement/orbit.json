@@ -1,0 +1,22 @@
+{
+  "parent": "apoapsis:suborbital",
+  "display": {
+    "icon": {
+      "id": "apoapsis:gyroscope"
+    },
+    "title": {
+      "translate": "apoapsis.advancement.orbit.title"
+    },
+    "description": {
+      "translate": "apoapsis.advancement.orbit.description"
+    },
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "code": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

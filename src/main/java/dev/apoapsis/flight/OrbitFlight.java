@@ -1,5 +1,6 @@
 package dev.apoapsis.flight;
 
+import dev.apoapsis.ages.Firsts;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Integrator;
 import dev.apoapsis.orbit.Kepler;
@@ -85,6 +86,7 @@ final class OrbitFlight {
                 StateVector s = st.stateVector();
                 st.setState(new StateVector(rel, s.v().sub(palePos.v())));
                 st.body = BodyId.PALE;
+                Firsts.paleFlyby(ship.getPilot());
                 FlightWarp.clear();
                 FlightMessages.toPilot(ship, Component.translatable("apoapsis.flight.soi.enter_pale"));
             }

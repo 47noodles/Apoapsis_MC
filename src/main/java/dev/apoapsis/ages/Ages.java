@@ -45,6 +45,7 @@ public final class Ages {
         AgeEvents.register();
         AgeGates.register();
         AgeCommands.register();
+        AgeItems.register(modBus);
     }
 
     /** The player's Age, 0..6. Works on both sides (client reads the synced value). */
@@ -109,15 +110,32 @@ public final class Ages {
     public static void onFirstFlight(ServerPlayer player) {
         // Uses the stored value: sandbox must not leak a raised Age into the save.
         setAge(player, Math.max(stored(player), FIRST_FLIGHT_AGE));
+        // The Age 4 line already speaks for First Flight: record it (and its advancement) without a second line.
+        Firsts.record(player, Firsts.First.FIRST_FLIGHT, false);
     }
 
-    /** Milestone: the player landed a ship on a body. */
+    /**
+     * Milestone: the player landed a ship on a body. Pale records PALE_LANDING; a Verdance landing after that records
+     * CREWED_RETURN. A pale sample carried home then grants Age 5. PALE_ANNOUNCED keeps the old Pale line silent on
+     * saves that already showed it.
+     */
     public static void onLanded(ServerPlayer player, BodyId body) {
-        if (body != BodyId.PALE || player.getData(AgeData.PALE_ANNOUNCED.get())) {
+        if (body == BodyId.PALE) {
+            boolean announced = player.getData(AgeData.PALE_ANNOUNCED.get());
+            player.setData(AgeData.PALE_ANNOUNCED.get(), true);
+            Firsts.record(player, Firsts.First.PALE_LANDING, !announced);
             return;
         }
-        player.setData(AgeData.PALE_ANNOUNCED.get(), true);
-        AgeAnnounce.custodian(player, Component.translatable("apoapsis.ages.line.pale"));
+        boolean paleLanding = Firsts.has(player, Firsts.First.PALE_LANDING);
+        boolean sampleDue = Firsts.sampleAgeDue(paleLanding, body == BodyId.VERDANCE, Firsts.carriesSample(player));
+        if (body == BodyId.VERDANCE && paleLanding) {
+            // On the landing that brings a sample home, the sample's line speaks for the return as well.
+            Firsts.record(player, Firsts.First.CREWED_RETURN, !sampleDue);
+        }
+        if (sampleDue) {
+            Firsts.record(player, Firsts.First.PALE_SAMPLE);
+            setAge(player, Math.max(stored(player), Firsts.SAMPLE_AGE));
+        }
     }
 
     /** Display name, for example "Age 4 · Ascent". */

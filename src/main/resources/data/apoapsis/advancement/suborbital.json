@@ -1,0 +1,22 @@
+{
+  "parent": "apoapsis:first_flight",
+  "display": {
+    "icon": {
+      "id": "apoapsis:spark_thruster"
+    },
+    "title": {
+      "translate": "apoapsis.advancement.suborbital.title"
+    },
+    "description": {
+      "translate": "apoapsis.advancement.suborbital.description"
+    },
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "code": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

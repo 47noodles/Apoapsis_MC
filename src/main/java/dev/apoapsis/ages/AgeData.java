@@ -2,6 +2,7 @@ package dev.apoapsis.ages;
 
 import com.mojang.serialization.Codec;
 import dev.apoapsis.Apoapsis;
+import java.util.List;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -27,6 +28,14 @@ final class AgeData {
             "started",
             () -> AttachmentType.builder(() -> false)
                     .serialize(Codec.BOOL.optionalFieldOf("started", false))
+                    .copyOnDeath()
+                    .build());
+
+    /** The ids of the firsts this player has recorded, in the order they were recorded. See {@link Firsts}. */
+    static final DeferredHolder<AttachmentType<?>, AttachmentType<List<String>>> FIRSTS = ATTACHMENTS.register(
+            "firsts",
+            () -> AttachmentType.builder(() -> List.<String>of())
+                    .serialize(Codec.STRING.listOf().optionalFieldOf("firsts", List.of()))
                     .copyOnDeath()
                     .build());
 

@@ -2,6 +2,7 @@ package dev.apoapsis.test;
 
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.ages.Ages;
+import dev.apoapsis.ages.Firsts;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.Flight;
 import dev.apoapsis.flight.FlightHooks;
@@ -12,6 +13,7 @@ import dev.apoapsis.ship.ShipAssembler;
 import dev.apoapsis.ship.ShipEntity;
 import dev.apoapsis.test.ApoapsisGameTest.ShipCleanup;
 import java.util.List;
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
@@ -66,6 +68,61 @@ public final class GameTests {
         event.registerTest(TestSupport.id("fuel_refinery_source_water_is_unlimited"),
                 new ApoapsisGameTest("fuel_refinery_source_water_is_unlimited", environment, 300,
                         GameTests::fuelRefinerySourceWaterIsUnlimited));
+        event.registerTest(TestSupport.id("firsts_record_once"),
+                new ApoapsisGameTest("firsts_record_once", environment, 40, GameTests::firstsRecordOnce));
+        event.registerTest(TestSupport.id("suborbital_advancement_awarded"),
+                new ApoapsisGameTest("suborbital_advancement_awarded", environment, 40,
+                        GameTests::suborbitalAdvancementAwarded));
+        event.registerTest(TestSupport.id("pale_sample_grants_age_five"),
+                new ApoapsisGameTest("pale_sample_grants_age_five", environment, 40, GameTests::paleSampleGrantsAgeFive));
+    }
+
+    /** Recording SUBORBITAL twice leaves one entry on the player's attachment: the second call does nothing. */
+    @SuppressWarnings("removal")
+    private static void firstsRecordOnce(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Firsts.record(player, Firsts.First.SUBORBITAL);
+        Firsts.record(player, Firsts.First.SUBORBITAL);
+        List<String> recorded = Firsts.recorded(player);
+        helper.assertTrue(recorded.equals(List.of("suborbital")),
+                "after two records of SUBORBITAL the firsts are " + recorded + ", expected [suborbital]");
+        helper.succeed();
+    }
+
+    /** Recording SUBORBITAL awards apoapsis:suborbital, so its advancement progress is done. */
+    @SuppressWarnings("removal")
+    private static void suborbitalAdvancementAwarded(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Firsts.record(player, Firsts.First.SUBORBITAL);
+        AdvancementHolder holder = helper.getLevel().getServer().getAdvancements().get(TestSupport.id("suborbital"));
+        helper.assertTrue(holder != null, "apoapsis:suborbital is not in the server's advancement manager");
+        helper.assertTrue(player.getAdvancements().getOrStartProgress(holder).isDone(),
+                "apoapsis:suborbital is not awarded after SUBORBITAL was recorded");
+        helper.succeed();
+    }
+
+    /**
+     * A pilot at Age 4 with PALE_LANDING recorded and a sample in the inventory, landing on Verdance, reaches Age 5 and
+     * keeps the sample.
+     */
+    @SuppressWarnings("removal")
+    private static void paleSampleGrantsAgeFive(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer pilot = helper.makeMockServerPlayerInLevel();
+        Ages.setAge(pilot, 4, false);
+        Firsts.record(pilot, Firsts.First.PALE_LANDING);
+        pilot.getInventory().add(new ItemStack(TestSupport.item(helper, "pale_sample")));
+        helper.assertTrue(Firsts.sampleAgeDue(true, true, true),
+                "the landing decision is not due after PALE_LANDING, a Verdance landing and a sample");
+        helper.assertTrue(!Firsts.sampleAgeDue(false, true, true),
+                "the landing decision is due without PALE_LANDING");
+        Ages.onLanded(pilot, BodyId.VERDANCE);
+        helper.assertTrue(Ages.getAge(pilot) == 5,
+                "after the Verdance landing with a sample the pilot is at Age " + Ages.getAge(pilot) + ", expected 5");
+        helper.assertTrue(Firsts.has(pilot, Firsts.First.CREWED_RETURN), "CREWED_RETURN was not recorded");
+        helper.assertTrue(Firsts.has(pilot, Firsts.First.PALE_SAMPLE), "PALE_SAMPLE was not recorded");
+        helper.assertTrue(pilot.getInventory().countItem(TestSupport.item(helper, "pale_sample")) == 1,
+                "the pale sample was taken from the inventory; it should be kept");
+        helper.succeed();
     }
 
     /**

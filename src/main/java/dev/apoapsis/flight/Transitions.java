@@ -1,6 +1,7 @@
 package dev.apoapsis.flight;
 
 import dev.apoapsis.Apoapsis;
+import dev.apoapsis.ages.Firsts;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Kepler;
 import dev.apoapsis.orbit.StateVector;
@@ -93,6 +94,7 @@ final class Transitions {
         FlightWarp.clear();
         loadChunk(orbit, FlightDimensions.slotPosition(slot));
         move(ship, orbit, FlightDimensions.slotPosition(slot), q, state, Vec3.ZERO);
+        Firsts.suborbital(ship.getPilot());
     }
 
     /**

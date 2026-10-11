@@ -1,0 +1,22 @@
+{
+  "display": {
+    "icon": {
+      "id": "apoapsis:hull_plate"
+    },
+    "title": {
+      "translate": "apoapsis.advancement.root.title"
+    },
+    "description": {
+      "translate": "apoapsis.advancement.root.description"
+    },
+    "background": "apoapsis:textures/block/regolith.png",
+    "show_toast": false,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "tick": {
+      "trigger": "minecraft:tick"
+    }
+  }
+}

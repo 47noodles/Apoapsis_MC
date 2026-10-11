@@ -1,0 +1,22 @@
+{
+  "parent": "apoapsis:crewed_return",
+  "display": {
+    "icon": {
+      "id": "apoapsis:pale_sample"
+    },
+    "title": {
+      "translate": "apoapsis.advancement.pale_sample.title"
+    },
+    "description": {
+      "translate": "apoapsis.advancement.pale_sample.description"
+    },
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "code": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

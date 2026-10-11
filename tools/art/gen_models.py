@@ -127,12 +127,16 @@ MODELS = {
         "parent": "minecraft:item/generated",
         "textures": {"layer0": f"{NS}:item/hydrolox_canister"},
     },
+    "item/pale_sample": {
+        "parent": "minecraft:item/generated",
+        "textures": {"layer0": f"{NS}:item/pale_sample"},
+    },
 }
 
 # Items that use their block model.
 BLOCK_ITEMS = ["hull_plate", "cockpit", "gyroscope", "fuel_tank", "fuel_refinery", "spark_thruster", "nose_cone", "fin", "window",
                "regolith"]
-ITEM_ONLY = ["hydrolox_canister"]
+ITEM_ONLY = ["hydrolox_canister", "pale_sample"]
 
 
 def item_definition(model):

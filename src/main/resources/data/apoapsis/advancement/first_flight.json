@@ -1,0 +1,22 @@
+{
+  "parent": "apoapsis:root",
+  "display": {
+    "icon": {
+      "id": "apoapsis:fin"
+    },
+    "title": {
+      "translate": "apoapsis.advancement.first_flight.title"
+    },
+    "description": {
+      "translate": "apoapsis.advancement.first_flight.description"
+    },
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "code": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

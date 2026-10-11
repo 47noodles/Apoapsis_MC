@@ -27,14 +27,14 @@ BLOCK_VARIANTS = {
     "window": {""},
     "regolith": {""},
 }
-ITEM_ONLY = ["hydrolox_canister"]
+ITEM_ONLY = ["hydrolox_canister", "pale_sample"]
 TEXTURES = {
     "block/hull_plate", "block/cockpit_front", "block/cockpit_side", "block/cockpit_top",
     "block/cockpit_back", "block/gyroscope_top", "block/gyroscope_side", "block/fuel_tank_side",
     "block/fuel_tank_end", "block/fuel_refinery_side", "block/fuel_refinery_top", "block/fuel_refinery_front",
     "block/fuel_refinery_front_lit", "block/spark_thruster_exhaust", "block/spark_thruster_powerhead",
     "block/spark_thruster_side", "block/nose_cone_side", "block/nose_cone_tip", "block/fin",
-    "block/window_side", "block/regolith", "item/hydrolox_canister",
+    "block/window_side", "block/regolith", "item/hydrolox_canister", "item/pale_sample",
 }
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 

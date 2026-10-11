@@ -1,0 +1,22 @@
+{
+  "parent": "apoapsis:orbit",
+  "display": {
+    "icon": {
+      "id": "apoapsis:regolith"
+    },
+    "title": {
+      "translate": "apoapsis.advancement.pale_flyby.title"
+    },
+    "description": {
+      "translate": "apoapsis.advancement.pale_flyby.description"
+    },
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "code": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}
