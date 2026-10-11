@@ -2,6 +2,7 @@ package dev.apoapsis;
 
 import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.MapClient;
+import dev.apoapsis.client.SeamlessTransitions;
 import dev.apoapsis.client.ShipClient;
 import dev.apoapsis.client.SkyClient;
 import dev.apoapsis.client.TestDriver;
@@ -20,6 +21,7 @@ public final class ApoapsisClient {
         ShipClient.register(modBus);
         MapClient.register(modBus);
         SkyClient.register(modBus);
+        SeamlessTransitions.register(modBus);
         modBus.addListener(ApoapsisClient::onClientPayloads);
         if (TestDriver.enabled()) {
             TestDriver.register();

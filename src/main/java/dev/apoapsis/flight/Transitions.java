@@ -136,6 +136,10 @@ final class Transitions {
             Entity ship = level == null ? null : level.getEntity(seat.shipId());
             if (ship instanceof ShipEntity s && s.isAlive() && player.level().dimension().equals(seat.dimension())) {
                 s.seatPilot(player);
+                if (s.hasData(FlightAttachments.FLIGHT.get())) {
+                    FlightSync.send(player, s, FlightAttachments.state(s), UniverseTime.get(server).ut(),
+                            FlightWarp.factor(server));
+                }
                 it.remove();
             } else if (seat.ticksLeft <= 1) {
                 it.remove();
