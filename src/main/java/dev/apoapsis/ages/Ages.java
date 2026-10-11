@@ -4,14 +4,19 @@ import dev.apoapsis.Apoapsis;
 import dev.apoapsis.client.ClientState;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.net.AgeSyncPayload;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -25,8 +30,15 @@ public final class Ages {
 
     public static final int MAX_AGE = 6;
 
+    /** Age a new survival player starts at, from {@link #start}. */
+    static final int START_AGE = 3;
+
     /** Milestone Age reached by {@link #onFirstFlight}. */
     static final int FIRST_FLIGHT_AGE = 4;
+
+    /** The ship part recipes (data/apoapsis/recipe) a player is awarded at {@link #start}: the Age 3 parts. */
+    private static final List<String> START_RECIPES = List.of("cockpit", "fin", "fuel_tank", "gyroscope",
+            "hull_plate", "hydrolox_canister", "nose_cone", "spark_thruster", "window");
 
     public static void register(IEventBus modBus) {
         AgeData.ATTACHMENTS.register(modBus);
@@ -75,7 +87,25 @@ public final class Ages {
         return getAge(player) >= requiredAge(stack);
     }
 
-    /** Milestone: the player flew a ship they built above 1,500 m (Age 3 to 4). */
+    /**
+     * Once per player: Age 3 (never lower than they have), the ship part recipes, and one Custodian line. Existing
+     * players who have not started get it at their next login. Sandbox still reports MAX_AGE on top of this.
+     */
+    public static void start(ServerPlayer player) {
+        if (player.getData(AgeData.STARTED.get())) {
+            return;
+        }
+        player.setData(AgeData.STARTED.get(), true);
+        setAge(player, Math.max(stored(player), START_AGE), false);
+        List<ResourceKey<Recipe<?>>> recipes = new ArrayList<>();
+        for (String name : START_RECIPES) {
+            recipes.add(ResourceKey.create(Registries.RECIPE, Identifier.fromNamespaceAndPath(Apoapsis.MODID, name)));
+        }
+        player.awardRecipesByKey(recipes);
+        AgeAnnounce.custodian(player, Component.translatable("apoapsis.ages.line.start"));
+    }
+
+    /** Milestone: the player flew a ship above 1,500 m and landed it on Verdance (Age 3 to 4). */
     public static void onFirstFlight(ServerPlayer player) {
         // Uses the stored value: sandbox must not leak a raised Age into the save.
         setAge(player, Math.max(stored(player), FIRST_FLIGHT_AGE));

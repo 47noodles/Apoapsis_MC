@@ -43,6 +43,7 @@ final class AgeEvents {
 
     static void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            Ages.start(player);
             Ages.sync(player);
         }
     }

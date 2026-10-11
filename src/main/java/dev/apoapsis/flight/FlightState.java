@@ -23,7 +23,8 @@ final class FlightState {
             Codec.DOUBLE.fieldOf("epoch_ut").forGetter(s -> s.epochUt),
             Codec.INT.fieldOf("slot").forGetter(s -> s.slot),
             Codec.BOOL.optionalFieldOf("first_flight", false).forGetter(s -> s.firstFlight),
-            Codec.INT.optionalFieldOf("airborne_ticks", 0).forGetter(s -> s.airborneTicks)
+            Codec.INT.optionalFieldOf("airborne_ticks", 0).forGetter(s -> s.airborneTicks),
+            Codec.BOOL.optionalFieldOf("reached_high", false).forGetter(s -> s.reachedHigh)
     ).apply(i, FlightState::fromSaved));
 
     /** Regime; the ship's dimension decides it in practice. */
@@ -42,6 +43,8 @@ final class FlightState {
     int slot = -1;
     /** Milestone flag: First Flight has been granted for this ship. */
     boolean firstFlight;
+    /** Altitude step of First Flight: 1,500 m reached above Verdance. The next landing with the pilot aboard grants it. */
+    boolean reachedHigh;
     /** Ticks since the ship last left the ground, reset on landing. */
     int airborneTicks;
     /** Server tick of the last surface or orbit transition; not saved. Starts far in the past, so no dwell applies. */
@@ -50,7 +53,8 @@ final class FlightState {
     FlightState() {}
 
     private static FlightState fromSaved(int regime, int body, double rx, double ry, double rz, double vx, double vy,
-                                         double vz, double epochUt, int slot, boolean firstFlight, int airborneTicks) {
+                                         double vz, double epochUt, int slot, boolean firstFlight, int airborneTicks,
+                                         boolean reachedHigh) {
         FlightState s = new FlightState();
         s.regime = FlightRegime.byOrdinal(regime);
         s.body = BodyId.byOrdinal(body);
@@ -64,6 +68,7 @@ final class FlightState {
         s.slot = slot;
         s.firstFlight = firstFlight;
         s.airborneTicks = airborneTicks;
+        s.reachedHigh = reachedHigh;
         return s;
     }
 

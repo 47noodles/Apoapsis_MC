@@ -11,7 +11,7 @@ import net.minecraft.server.level.ServerPlayer;
  * End-of-tick flight rules for one ship: regime transitions, the First Flight and landing milestones, warp
  * validation, and the orbit-state sync to the pilot every 5 ticks.
  */
-final class FlightRules {
+public final class FlightRules {
     /** Airborne time before a landing counts as a landing (10 s at 0.05 s per tick). */
     static final int LANDING_TICKS = 200;
     /** Altitude for First Flight above Verdance, metres. */
@@ -22,6 +22,16 @@ final class FlightRules {
     static final int DWELL_TICKS = 40;
 
     private FlightRules() {}
+
+    /**
+     * First Flight for one tick, as a pure decision so GameTests can call it without a client. Reaching 1,500 m only
+     * sets {@code reachedHigh} (the caller does that); the milestone is due on the first landing on Verdance after it,
+     * with the pilot aboard, and only once per ship state.
+     */
+    public static boolean firstFlightDue(boolean reachedHigh, boolean granted, boolean onVerdance, boolean landed,
+                                         boolean pilotAboard) {
+        return reachedHigh && !granted && onVerdance && landed && pilotAboard;
+    }
 
     /** True once {@link #DWELL_TICKS} have passed since the ship's last transition. */
     private static boolean dwelled(MinecraftServer server, FlightState st) {
@@ -44,7 +54,12 @@ final class FlightRules {
                 Transitions.up(ship, st, level);
                 return;
             }
-            if (st.body == BodyId.VERDANCE && alt >= FIRST_FLIGHT_ALTITUDE_M && pilot != null && !st.firstFlight) {
+            if (st.body == BodyId.VERDANCE && alt >= FIRST_FLIGHT_ALTITUDE_M && pilot != null && !st.reachedHigh) {
+                st.reachedHigh = true;
+                FlightMessages.toPilot(ship, Component.translatable("apoapsis.flight.first_flight_high"));
+            }
+            boolean landed = ship.isLanded() && st.airborneTicks > LANDING_TICKS;
+            if (firstFlightDue(st.reachedHigh, st.firstFlight, st.body == BodyId.VERDANCE, landed, pilot != null)) {
                 st.firstFlight = true;
                 Ages.onFirstFlight(pilot);
             }

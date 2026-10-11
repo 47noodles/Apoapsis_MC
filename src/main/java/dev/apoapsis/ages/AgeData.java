@@ -22,6 +22,14 @@ final class AgeData {
                     .copyOnDeath()
                     .build());
 
+    /** Whether this player has had the start (Age 3, ship recipes, first Custodian line). See {@link Ages#start}. */
+    static final DeferredHolder<AttachmentType<?>, AttachmentType<Boolean>> STARTED = ATTACHMENTS.register(
+            "started",
+            () -> AttachmentType.builder(() -> false)
+                    .serialize(Codec.BOOL.optionalFieldOf("started", false))
+                    .copyOnDeath()
+                    .build());
+
     /** Whether the one-off "first landing on Pale" line has been shown to this player. */
     static final DeferredHolder<AttachmentType<?>, AttachmentType<Boolean>> PALE_ANNOUNCED = ATTACHMENTS.register(
             "pale_landing_announced",

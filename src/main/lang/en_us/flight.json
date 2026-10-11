@@ -2,6 +2,7 @@
   "apoapsis.flight.body.pale": "Pale",
   "apoapsis.flight.body.verdance": "Verdance",
   "apoapsis.flight.enter_atmosphere": "Entering the atmosphere",
+  "apoapsis.flight.first_flight_high": "1,500 m. Now bring it down in one piece.",
   "apoapsis.flight.enter_orbit": "Entering orbit around %s",
   "apoapsis.flight.landed": "Landed on %s",
   "apoapsis.flight.leave_orbit": "Leaving orbit",

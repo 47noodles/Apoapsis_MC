@@ -5,6 +5,7 @@ import dev.apoapsis.ages.Ages;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.Flight;
 import dev.apoapsis.flight.FlightHooks;
+import dev.apoapsis.flight.FlightRules;
 import dev.apoapsis.grid.FuelTankBlockEntity;
 import dev.apoapsis.ship.ShipAssembler;
 import dev.apoapsis.ship.ShipEntity;
@@ -49,6 +50,64 @@ public final class GameTests {
                 new ApoapsisGameTest("ship_climbs_with_thrust", environment, 120, GameTests::shipClimbsWithThrust));
         event.registerTest(TestSupport.id("orbit_spawn"),
                 new ApoapsisGameTest("orbit_spawn", environment, 40, GameTests::orbitSpawn));
+        event.registerTest(TestSupport.id("start_age_three"),
+                new ApoapsisGameTest("start_age_three", environment, 40, GameTests::startAgeThree));
+        event.registerTest(TestSupport.id("first_flight_needs_landing"),
+                new ApoapsisGameTest("first_flight_needs_landing", environment, 40, GameTests::firstFlightNeedsLanding));
+        event.registerTest(TestSupport.id("first_flight_grants_once"),
+                new ApoapsisGameTest("first_flight_grants_once", environment, 40, GameTests::firstFlightGrantsOnce));
+        event.registerTest(TestSupport.id("landing_without_altitude_grants_nothing"),
+                new ApoapsisGameTest("landing_without_altitude_grants_nothing", environment, 40,
+                        GameTests::landingWithoutAltitudeGrantsNothing));
+    }
+
+    /**
+     * A fresh player is at Age 3 once the login start has run (makeMockServerPlayerInLevel fires the login event), and a
+     * second Ages.start leaves a player who has already started alone.
+     */
+    @SuppressWarnings("removal")
+    private static void startAgeThree(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        int start = Ages.getAge(player);
+        helper.assertTrue(start == 3, "after the login start the player is at Age " + start + ", expected 3");
+        Ages.setAge(player, 5, false);
+        Ages.start(player);
+        int again = Ages.getAge(player);
+        helper.assertTrue(again == 5, "a second Ages.start changed the Age to " + again + ", expected 5");
+        helper.succeed();
+    }
+
+    /** Reaching 1,500 m alone grants nothing: the milestone waits for a landing with the pilot aboard. */
+    @SuppressWarnings("removal")
+    private static void firstFlightNeedsLanding(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer pilot = helper.makeMockServerPlayerInLevel();
+        helper.assertTrue(!FlightRules.firstFlightDue(true, false, true, false, true),
+                "First Flight was due at 1,500 m before any landing");
+        helper.assertTrue(Ages.getAge(pilot) == 3, "reaching 1,500 m moved the pilot to Age " + Ages.getAge(pilot));
+        helper.succeed();
+    }
+
+    /** 1,500 m, then a landing on Verdance with the pilot aboard grants Age 4 once. */
+    @SuppressWarnings("removal")
+    private static void firstFlightGrantsOnce(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer pilot = helper.makeMockServerPlayerInLevel();
+        boolean due = FlightRules.firstFlightDue(true, false, true, true, true);
+        helper.assertTrue(due, "a landing on Verdance after 1,500 m with the pilot aboard should grant First Flight");
+        Ages.onFirstFlight(pilot);
+        helper.assertTrue(Ages.getAge(pilot) == 4, "after First Flight the pilot is at Age " + Ages.getAge(pilot) + ", expected 4");
+        helper.assertTrue(!FlightRules.firstFlightDue(true, true, true, true, true),
+                "First Flight was due a second time after it was granted");
+        helper.succeed();
+    }
+
+    /** A landing without having reached 1,500 m grants nothing. */
+    @SuppressWarnings("removal")
+    private static void landingWithoutAltitudeGrantsNothing(GameTestHelper helper, ShipCleanup ships) {
+        ServerPlayer pilot = helper.makeMockServerPlayerInLevel();
+        helper.assertTrue(!FlightRules.firstFlightDue(false, false, true, true, true),
+                "First Flight was due on a landing that never reached 1,500 m");
+        helper.assertTrue(Ages.getAge(pilot) == 3, "a landing without altitude moved the pilot to Age " + Ages.getAge(pilot));
+        helper.succeed();
     }
 
     /**
@@ -60,8 +119,8 @@ public final class GameTests {
     private static void agesDefaultAndSet(GameTestHelper helper, ShipCleanup ships) {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         int start = Ages.getAge(player);
-        helper.assertTrue(start == 0,
-                "a new player should start at Age 0 (sandbox is off by default), but Ages.getAge returned " + start);
+        helper.assertTrue(start == 3,
+                "a new survival player should start at Age 3 (the login start), but Ages.getAge returned " + start);
 
         Ages.setAge(player, 4);
         int after = Ages.getAge(player);
