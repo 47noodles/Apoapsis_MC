@@ -3,6 +3,7 @@ package dev.apoapsis.client.sky;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.client.ClientState;
+import dev.apoapsis.client.OrbitNow;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.orbit.CelestialBody;
@@ -91,17 +92,20 @@ public final class SkyBodies {
             return;
         }
         OrbitStatePayload orbit = ClientState.orbit;
+        float partialTick = event.getLevelRenderState().worldPartialTicks;
         Identifier dim = level.dimension().identifier();
         List<Disc> discs;
         if (dim.equals(ORBIT_ID)) {
             if (orbit == null) {
                 return;
             }
-            discs = orbitDiscs(orbit);
+            discs = orbitDiscs(orbit, partialTick);
         } else if (Level.OVERWORLD.equals(level.dimension())) {
-            discs = surfaceDiscs(MeridianSystem.VERDANCE, MeridianSystem.PALE, time(orbit, level), camera(event));
+            discs = surfaceDiscs(MeridianSystem.VERDANCE, MeridianSystem.PALE, time(orbit, level, partialTick),
+                    camera(event));
         } else if (dim.equals(PALE_ID)) {
-            discs = surfaceDiscs(MeridianSystem.PALE, MeridianSystem.VERDANCE, time(orbit, level), camera(event));
+            discs = surfaceDiscs(MeridianSystem.PALE, MeridianSystem.VERDANCE, time(orbit, level, partialTick),
+                    camera(event));
         } else {
             return;
         }
@@ -123,21 +127,21 @@ public final class SkyBodies {
         }
     }
 
-    /** Universal time: the piloted ship's, else the level's game time in seconds. */
-    private static double time(OrbitStatePayload orbit, Level level) {
-        return orbit != null ? orbit.ut() : level.getGameTime() / 20.0;
+    /** Universal time now: the piloted ship's, advanced to this frame, else the level's game time in seconds. */
+    private static double time(OrbitStatePayload orbit, Level level, float partialTick) {
+        return orbit != null ? OrbitNow.utNow(orbit, partialTick) : level.getGameTime() / 20.0;
     }
 
     private static Vec3 camera(SubmitCustomGeometryEvent event) {
         return event.getLevelRenderState().cameraRenderState.pos;
     }
 
-    /** The central body (in -r) and the other body, seen from the piloted ship. */
-    private static List<Disc> orbitDiscs(OrbitStatePayload o) {
+    /** The central body (in -r) and the other body, seen from the piloted ship now. */
+    private static List<Disc> orbitDiscs(OrbitStatePayload o, float partialTick) {
         CelestialBody central = MeridianSystem.byId(BodyId.byOrdinal(o.body()).id);
         CelestialBody other = central == MeridianSystem.VERDANCE ? MeridianSystem.PALE : MeridianSystem.VERDANCE;
-        double ut = o.ut();
-        Vec3d r = new Vec3d(o.rx(), o.ry(), o.rz());
+        double ut = OrbitNow.utNow(o, partialTick);
+        Vec3d r = OrbitNow.stateNow(o, partialTick).r();
         List<Disc> out = new ArrayList<>(2);
 
         double rl = r.length();

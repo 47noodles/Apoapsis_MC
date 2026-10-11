@@ -1,9 +1,11 @@
 package dev.apoapsis.client.map;
 
+import dev.apoapsis.client.OrbitNow;
 import dev.apoapsis.flight.FlightRegime;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Elements;
+import dev.apoapsis.orbit.StateVector;
 import dev.apoapsis.ship.SasMode;
 import dev.apoapsis.ship.ShipEntity;
 import net.minecraft.client.DeltaTracker;
@@ -81,9 +83,13 @@ public final class FlightHud {
         Canvas c = new Canvas(graphics);
         CelestialBody body = Bodies.of(p);
         boolean orbit = FlightRegime.byOrdinal(p.regime()) == FlightRegime.ORBIT;
-        double r = Math.sqrt(p.rx() * p.rx() + p.ry() * p.ry() + p.rz() * p.rz());
-        double speed = Math.sqrt(p.vx() * p.vx() + p.vy() * p.vy() + p.vz() * p.vz());
-        double vs = r > 0 ? (p.vx() * p.rx() + p.vy() * p.ry() + p.vz() * p.rz()) / r : 0;
+        // In orbit the state is advanced to this frame; on the surface the payload's own state is already smooth.
+        StateVector s = orbit
+                ? OrbitNow.stateNow(p, deltaTracker.getGameTimeDeltaPartialTick(false))
+                : Bodies.stateOf(p);
+        double r = s.r().length();
+        double speed = s.v().length();
+        double vs = r > 0 ? s.r().dot(s.v()) / r : 0;
         double alt = r - body.radius;
         double gravity = body.gravity(r);
         double pf = Bodies.pressureFraction(body, alt);
@@ -93,7 +99,7 @@ public final class FlightHud {
         double fuel = capacity > 0 ? ship.fuelKg() / capacity : 0;
 
         drawRow(c, ship, alt, speed, vs, fuel, twr, pf);
-        drawTopRight(c, p, body, orbit, ship.getSasMode(), noseCue(ship, p, orbit));
+        drawTopRight(c, p, body, orbit, ship.getSasMode(), noseCue(ship, s, orbit));
     }
 
     /** The two clusters on the bottom corners: the throttle, fuel and delta-v on the left, altitude and flight on the right. */
@@ -226,16 +232,16 @@ public final class FlightHud {
      * orientation applied to the thrust direction. The velocity is in the ship's dimension axes: in orbit the
      * inertial velocity mapped to (X, Z, -Y), on the surface the ship's own. Null below {@link #NOSE_MIN_SPEED}.
      */
-    private static NoseCue noseCue(ShipEntity ship, OrbitStatePayload p, boolean orbit) {
+    private static NoseCue noseCue(ShipEntity ship, StateVector s, boolean orbit) {
         Vec3 t = ship.thrustDirectionBody();
         Vector3f nose = ship.getOrientation().transform(new Vector3f((float) t.x, (float) t.y, (float) t.z));
         double vx;
         double vy;
         double vz;
         if (orbit) {
-            vx = p.vx();
-            vy = p.vz();
-            vz = -p.vy();
+            vx = s.v().x();
+            vy = s.v().z();
+            vz = -s.v().y();
         } else {
             Vec3 v = ship.getVelocity();
             vx = v.x;
