@@ -1,0 +1,29 @@
+license="${mod_license}"
+issueTrackerURL="https://github.com/47noodles/Apoapsis_MC/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+displayURL="https://github.com/47noodles/Apoapsis_MC"
+authors="The Apoapsis contributors"
+description='''
+Stage 0 prototype. Build a ship from blocks and fly it (Space Engineers), reach orbit and transfer to the moon Pale on real orbital mechanics (KSP), and unlock parts by Age (SevTech). Placeholder art and UI.
+'''
+
+[[mixins]]
+config="${mod_id}.mixins.json"
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"

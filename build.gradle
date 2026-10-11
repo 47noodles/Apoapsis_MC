@@ -1,0 +1,133 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+    id 'idea'
+}
+
+evaluationDependsOn(':orbit')
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+// Mojang ships Java 25 to players on 26.3.
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+sourceSets.main.resources {
+    srcDir('src/generated/resources')
+    exclude('**/*.bbmodel')
+    exclude('src/generated/**/.cache')
+}
+
+repositories {
+    mavenCentral()
+}
+
+neoForge {
+    version = project.neo_version
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        // Opens straight into the test world: a ready-built rocket in low Verdance orbit.
+        // Run `gradlew makeTestSaves` once first (it builds the saves headlessly).
+        testFlight {
+            client()
+            programArguments.addAll '--quickPlaySingleplayer', 'Apoapsis Test Flight'
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        gameTestServer {
+            type = 'gameTestServer'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+            sourceSet(project(':orbit').sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    implementation project(':orbit')
+}
+
+// The orbit library ships inside the mod jar, so players install one file.
+tasks.named('jar', Jar) {
+    from(project(':orbit').sourceSets.main.output)
+    from('LICENSE') { rename { "LICENSE_${mod_id}" } }
+    archiveVersion = "${mod_version}+${minecraft_version}"
+}
+
+var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+// Each module keeps its own strings in src/main/lang/<locale>/<module>.json; they are merged here so
+// parallel work never edits one shared file. A key defined twice fails the build.
+var mergeLang = tasks.register('mergeLang') {
+    var srcDir = file('src/main/lang')
+    var outDir = layout.buildDirectory.dir('generated/sources/lang')
+    inputs.dir(srcDir)
+    outputs.dir(outDir)
+    doLast {
+        var slurper = new groovy.json.JsonSlurper()
+        srcDir.eachDir { localeDir ->
+            var merged = new TreeMap<String, Object>()
+            localeDir.listFiles().findAll { it.name.endsWith('.json') }.sort { it.name }.each { f ->
+                (slurper.parse(f) as Map).each { k, v ->
+                    if (merged.containsKey(k)) throw new GradleException("Duplicate lang key ${k} in ${f.name}")
+                    merged[k] = v
+                }
+            }
+            var out = outDir.get().file("assets/${mod_id}/lang/${localeDir.name}.json").asFile
+            out.parentFile.mkdirs()
+            out.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(merged)), 'UTF-8')
+        }
+    }
+}
+sourceSets.main.resources.srcDir(files(layout.buildDirectory.dir('generated/sources/lang')).builtBy(mergeLang))
+neoForge.ideSyncTask mergeLang
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}
