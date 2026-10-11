@@ -58,9 +58,17 @@ MODELS = {
         "parent": "minecraft:block/cube_all",
         "textures": {"all": tex("hull_plate")},
     },
+    # A full cube with tintindex 0 on every face, so Pale can tint its regolith (client/planet/PlanetBlockTints).
+    # Parent block/block for the display transforms, as vanilla's tinted grass_block does.
     "block/regolith": {
-        "parent": "minecraft:block/cube_all",
-        "textures": {"all": tex("regolith")},
+        "parent": "minecraft:block/block",
+        "textures": {"all": tex("regolith"), "particle": tex("regolith")},
+        "elements": [{
+            "from": [0, 0, 0],
+            "to": [16, 16, 16],
+            "faces": {face: {"texture": "#all", "cullface": face, "tintindex": 0}
+                      for face in ("down", "up", "north", "south", "west", "east")},
+        }],
     },
     "block/gyroscope": {
         "parent": "minecraft:block/cube_column",
