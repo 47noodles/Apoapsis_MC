@@ -44,7 +44,9 @@ public final class Ages {
         AgeData.ATTACHMENTS.register(modBus);
         AgeEvents.register();
         AgeGates.register();
+        Guide.register();
         AgeCommands.register();
+        GuideCommands.register();
         AgeItems.register(modBus);
     }
 
@@ -91,11 +93,14 @@ public final class Ages {
     /**
      * Once per player: Age 3 (never lower than they have), the ship part recipes, and one Custodian line. Existing
      * players who have not started get it at their next login. Sandbox still reports MAX_AGE on top of this.
-     * It also backfills PALE_LANDING for saves that already announced Pale, on every login.
+     * It also backfills PALE_LANDING for saves that already announced Pale, on every login. A new player then gets the
+     * first guide step; a player from a save that began before the guide is marked as past the steps their progress
+     * covers (see {@link Guide}), quietly.
      */
     public static void start(ServerPlayer player) {
         backfillPaleLanding(player);
         if (player.getData(AgeData.STARTED.get())) {
+            Guide.catchUp(player);
             return;
         }
         player.setData(AgeData.STARTED.get(), true);
@@ -106,6 +111,7 @@ public final class Ages {
         }
         player.awardRecipesByKey(recipes);
         AgeAnnounce.custodian(player, Component.translatable("apoapsis.ages.line.start"));
+        Guide.reach(player, Guide.Step.PARTS);
     }
 
     /**
@@ -114,7 +120,7 @@ public final class Ages {
      */
     static void backfillPaleLanding(ServerPlayer player) {
         if (player.getData(AgeData.PALE_ANNOUNCED.get()) && !Firsts.has(player, Firsts.First.PALE_LANDING)) {
-            Firsts.record(player, Firsts.First.PALE_LANDING, false);
+            Firsts.record(player, Firsts.First.PALE_LANDING, false, false);
         }
     }
 

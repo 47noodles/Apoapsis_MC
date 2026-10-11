@@ -119,6 +119,8 @@ Low Verdance orbit at 15 km is ≈ 713 m/s with an 11.6-minute period.
 
 Gates: the crafting result is withheld, and placing or using the item is refused with a calm action-bar line ("Needs Age 3 · Current"). Tooltips show the Age. `/apoapsis age`, `/apoapsis age get <player>`, `/apoapsis age set <player> <0-6>`, `/apoapsis age sandbox <on|off>` (set and sandbox need permission level 2). Sandbox (everything unlocked) is a per-world flag.
 
+**Custodian guide.** Ten short chat steps from the Custodian walk the survival loop (parts, build, launch, Age 4, orbit, map and burn, landing on Pale, sample, home, loop closed). Each opens once, on the event it is about (the login start, crafting a cockpit, first boarding, a first, coming back into Verdance's sphere of influence), and is stored per player (`apoapsis:guide`). `/apoapsis guide` shows the current step again; `/apoapsis guide book` gives all steps as a written book. The text is in `lang/en_us/guide.json`.
+
 **Control frame.** The nose is the thrust direction. Forward is the cockpit's facing. Right = forward × nose. Pitch turns about right (W tips the nose toward forward), yaw about forward (D tips the nose right), and roll about the nose (E turns the view right). Rotation is rate-controlled: gyros drive the angular rate toward the input. With SAS on and no input, the rate is driven to zero.
 
 ## Test worlds

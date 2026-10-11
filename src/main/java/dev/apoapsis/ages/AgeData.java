@@ -39,6 +39,14 @@ final class AgeData {
                     .copyOnDeath()
                     .build());
 
+    /** The ids of the guide steps this player has been shown, in the order they were shown. See {@link Guide}. */
+    static final DeferredHolder<AttachmentType<?>, AttachmentType<List<String>>> GUIDE = ATTACHMENTS.register(
+            "guide",
+            () -> AttachmentType.builder(() -> List.<String>of())
+                    .serialize(Codec.STRING.listOf().optionalFieldOf("guide", List.of()))
+                    .copyOnDeath()
+                    .build());
+
     /** Whether the one-off "first landing on Pale" line has been shown to this player. */
     static final DeferredHolder<AttachmentType<?>, AttachmentType<Boolean>> PALE_ANNOUNCED = ATTACHMENTS.register(
             "pale_landing_announced",

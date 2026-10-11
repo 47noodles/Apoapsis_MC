@@ -1,6 +1,7 @@
 package dev.apoapsis.flight;
 
 import dev.apoapsis.ages.Firsts;
+import dev.apoapsis.ages.Guide;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Integrator;
 import dev.apoapsis.orbit.Kepler;
@@ -94,6 +95,7 @@ final class OrbitFlight {
             StateVector s = st.stateVector();
             st.setState(new StateVector(s.r().add(palePos.r()), s.v().add(palePos.v())));
             st.body = BodyId.VERDANCE;
+            Guide.homeward(ship.getPilot());
             FlightWarp.clear();
             FlightMessages.toPilot(ship, Component.translatable("apoapsis.flight.soi.enter_verdance"));
         }

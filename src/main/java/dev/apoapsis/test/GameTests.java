@@ -137,6 +137,22 @@ public final class GameTests {
         ManeuverTests.register(event, environment);
         SiteTests.register(event, environment);
         SphereTests.register(event, environment);
+        event.registerTest(TestSupport.id("guide_first_step_on_start"),
+                new ApoapsisGameTest("guide_first_step_on_start", environment, 40, GuideTests::guideFirstStepOnStart));
+        event.registerTest(TestSupport.id("guide_firsts_open_steps"),
+                new ApoapsisGameTest("guide_firsts_open_steps", environment, 40, GuideTests::guideFirstsOpenSteps));
+        event.registerTest(TestSupport.id("guide_step_shown_once"),
+                new ApoapsisGameTest("guide_step_shown_once", environment, 40, GuideTests::guideStepShownOnce));
+        event.registerTest(TestSupport.id("guide_cockpit_craft_opens_build"),
+                new ApoapsisGameTest("guide_cockpit_craft_opens_build", environment, 40, GuideTests::guideCockpitCraftOpensBuild));
+        event.registerTest(TestSupport.id("guide_progress_survives_save"),
+                new ApoapsisGameTest("guide_progress_survives_save", environment, 40, GuideTests::guideProgressSurvivesSave));
+        event.registerTest(TestSupport.id("guide_old_save_is_caught_up_quietly"),
+                new ApoapsisGameTest("guide_old_save_is_caught_up_quietly", environment, 40, GuideTests::guideOldSaveIsCaughtUp));
+        event.registerTest(TestSupport.id("guide_command_shows_current"),
+                new ApoapsisGameTest("guide_command_shows_current", environment, 40, GuideTests::guideCommandShowsCurrent));
+        event.registerTest(TestSupport.id("guide_text_is_complete"),
+                new ApoapsisGameTest("guide_text_is_complete", environment, 40, GuideTests::guideTextIsComplete));
     }
 
     /** Scoreboard team names used by the ownership tests; each test removes its teams when it is done. */

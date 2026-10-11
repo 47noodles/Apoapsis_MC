@@ -1,7 +1,7 @@
 {
  "title": "Apoapsis: work graph to 1.0",
  "request": "Every piece of work from today (the Stage 0 prototype) to the 1.0 modpack: design gates, playtests, releases and version hops. Left to right by dependency; each stage is a band.",
- "updated": "2026-10-11 19:10:13",
+ "updated": "2026-10-11 21:26:33",
  "stages": {
   "0": "Foundations",
   "1": "Engineers",
@@ -1049,7 +1049,7 @@
     0.5,
     1
    ],
-   "status": "pending",
+   "status": "done",
    "exit": "",
    "ref": ""
   },

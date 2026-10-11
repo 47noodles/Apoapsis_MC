@@ -1,5 +1,6 @@
 package dev.apoapsis.ship;
 
+import dev.apoapsis.ages.Guide;
 import dev.apoapsis.flight.Environment;
 import dev.apoapsis.flight.FlightHooks;
 import dev.apoapsis.grid.ShipParts;
@@ -495,7 +496,9 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
 
     /** Seats a player in the cockpit (server side). */
     public void seatPilot(Player player) {
-        player.startRiding(this, true, false);
+        if (player.startRiding(this, true, false)) {
+            Guide.onBoard(player);
+        }
     }
 
     /** Stores the pilot's stick and pedal values (each -1..1) and restarts the input timeout. */

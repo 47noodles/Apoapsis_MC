@@ -44,6 +44,14 @@ public final class Firsts {
 
     /** As {@link #record(ServerPlayer, First)}; {@code line} is false for a first whose line was shown before (old saves). */
     static void record(ServerPlayer player, First first, boolean line) {
+        record(player, first, line, true);
+    }
+
+    /**
+     * As above; {@code guide} is false to record a first without opening its step of the {@link Guide} (the quiet
+     * old-save backfill).
+     */
+    static void record(ServerPlayer player, First first, boolean line, boolean guide) {
         if (has(player, first)) {
             return;
         }
@@ -57,6 +65,9 @@ public final class Firsts {
                 .get(Identifier.fromNamespaceAndPath(Apoapsis.MODID, first.id()));
         if (holder != null) {
             player.getAdvancements().award(holder, "code");
+        }
+        if (guide) {
+            Guide.onFirst(player, first);
         }
     }
 
