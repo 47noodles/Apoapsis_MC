@@ -1,5 +1,6 @@
 package dev.apoapsis.client;
 
+import dev.apoapsis.client.ship.CockpitCamera;
 import dev.apoapsis.client.ship.EngineParticles;
 import dev.apoapsis.client.ship.PilotInput;
 import dev.apoapsis.client.ship.PilotKeys;
@@ -36,6 +37,7 @@ public final class ShipClient {
         NeoForge.EVENT_BUS.addListener(ShipClient::onClientTickPost);
         NeoForge.EVENT_BUS.addListener(ShipClient::onLoggingOut);
         NeoForge.EVENT_BUS.addListener(ShipClient::onLevelUnload);
+        CockpitCamera.register();
     }
 
     private static void onRegisterKeys(RegisterKeyMappingsEvent event) {

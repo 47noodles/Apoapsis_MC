@@ -405,10 +405,18 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         return InteractionResult.SUCCESS;
     }
 
-    /** Puts the pilot's feet at the bottom of the cockpit block. */
+    /**
+     * Keeps the pilot's eye fixed in the ship frame: the eye is the cockpit centre plus the body-frame offset
+     * (0, eyeHeight - 0.5, 0) turned into the world, so a ship on its side does not put the eye outside the cockpit.
+     * The feet are the eye minus the eye height along world Y, where the first-person camera stands. At identity
+     * orientation the eye is the cockpit centre plus (0, eyeHeight - 0.5, 0), so the feet are the cockpit centre plus
+     * (0, -0.5, 0), as before.
+     */
     @Override
     protected void positionRider(Entity passenger, Entity.MoveFunction moveFunction) {
-        Vec3 feet = cockpitCentre().add(0, -0.5, 0);
+        double eyeHeight = passenger.getEyeHeight();
+        Vec3 eye = cockpitCentre().add(rotate(new Vec3(0, eyeHeight - 0.5, 0)));
+        Vec3 feet = eye.add(0, -eyeHeight, 0);
         moveFunction.accept(passenger, feet.x, feet.y, feet.z);
     }
 

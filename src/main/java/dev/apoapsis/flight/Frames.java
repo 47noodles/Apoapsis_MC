@@ -9,7 +9,7 @@ import org.joml.Quaternionfc;
  * Surface and orbit frame conversions (contract "Frames"). The surface dimension is a tangent map around
  * (lat 0, lon 0): lon = x / R, lat = -z / R. Orientation maps body axes into dimension axes.
  */
-final class Frames {
+public final class Frames {
     private static final double SQRT_HALF = Math.sqrt(0.5);
     /** Inertial (X, Y, Z) to orbit-dimension axes (X, Z, -Y): a rotation of -90 degrees about X. */
     static final Quaternionf INERTIAL_TO_ORBIT = new Quaternionf((float) -SQRT_HALF, 0f, 0f, (float) SQRT_HALF);
@@ -17,7 +17,7 @@ final class Frames {
     private Frames() {}
 
     /** Local basis at a surface point: east, north, up (the radial direction), and the frame matrix (E, U, -N). */
-    record Tangent(double lat, double lon, Vec3d e, Vec3d n, Vec3d u, Quaternionf frame) {
+    public record Tangent(double lat, double lon, Vec3d e, Vec3d n, Vec3d u, Quaternionf frame) {
 
         static Tangent at(double lat, double lon) {
             double sl = Math.sin(lat), cl = Math.cos(lat), so = Math.sin(lon), co = Math.cos(lon);
@@ -64,12 +64,12 @@ final class Frames {
     }
 
     /** Tangent basis at the surface point under a surface position (x, y, z) on a body of radius R. */
-    static Tangent tangentAt(Vec3 surface, double radius) {
+    public static Tangent tangentAt(Vec3 surface, double radius) {
         return Tangent.at(-surface.z / radius, surface.x / radius);
     }
 
     /** Tangent basis at an inertial position relative to the body centre. */
-    static Tangent tangentAt(Vec3d r) {
+    public static Tangent tangentAt(Vec3d r) {
         double len = r.length();
         return Tangent.at(Math.asin(clamp(r.z() / len)), Math.atan2(r.y(), r.x()));
     }
@@ -100,13 +100,13 @@ final class Frames {
     }
 
     /** Orbit-dimension orientation of a surface orientation: P * (M * q). */
-    static Quaternionf surfaceToOrbitOrientation(Quaternionfc surfaceOrientation, Tangent t) {
+    public static Quaternionf surfaceToOrbitOrientation(Quaternionfc surfaceOrientation, Tangent t) {
         Quaternionf inertial = new Quaternionf(t.frame()).mul(surfaceOrientation);
         return new Quaternionf(INERTIAL_TO_ORBIT).mul(inertial);
     }
 
     /** Surface orientation of an orbit-dimension orientation: M^-1 * (P^-1 * q). */
-    static Quaternionf orbitToSurfaceOrientation(Quaternionfc orbitOrientation, Tangent t) {
+    public static Quaternionf orbitToSurfaceOrientation(Quaternionfc orbitOrientation, Tangent t) {
         Quaternionf inertial = conjugate(INERTIAL_TO_ORBIT).mul(orbitOrientation);
         return conjugate(t.frame()).mul(inertial).normalize();
     }
