@@ -101,6 +101,9 @@ final class TestDriverTransfer {
                 if (phaseTicks == 40) {
                     MapClient.openMap();
                 }
+                if (phaseTicks == 80) {
+                    shot(mc, "transfer-01b-map-encounter.png");
+                }
                 if (phaseTicks > 6000) {
                     logOrbit(p, "no SOI change after 300 s of coasting");
                     next(Phase.DONE, p, "giving up");

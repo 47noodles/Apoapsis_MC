@@ -24,8 +24,10 @@ import java.util.Random;
  * The full-screen system map (the System map key, M by default). Full-bleed, no panel, does not pause the game. Shows
  * the piloted ship's orbit and predicted coast over Verdance and Pale. Client only.
  *
- * <p>Frame rule: every patch and mark is drawn at its body's position now (the current extrapolated time), so a Pale
- * patch sits around Pale's disc. A future encounter also shows a faint ghost of Pale where it will be at that time.
+ * <p>Frame rule: the current patch and its marks are drawn at their body's position now (the current extrapolated
+ * time), so a Pale patch the ship is in sits around Pale's disc. A future patch around a non-root body (Pale) is drawn
+ * at that body's position when the ship enters it, so the predicted line meets the encounter's white dot. The encounter
+ * shows a faint ghost of Pale where it will be at that time: its outline and a dashed sphere of influence.
  */
 public final class MapScreen extends Screen {
     private static final int RECOMPUTE_FRAMES = 10;
@@ -264,11 +266,12 @@ public final class MapScreen extends Screen {
         if (prediction.patchCount() == 0) {
             return;
         }
-        // The predicted coast: later patches first so the current one is drawn on top. Each patch is offset by its
-        // body's position now, so a Pale patch is drawn around Pale's disc.
+        // The predicted coast: later patches first so the current one is drawn on top. Each patch is offset by
+        // patchCentre. Known limitation, not fixed: after a flyby the next Verdance patch is drawn at its true
+        // positions, so it starts away from the ghost-drawn Pale patch by Pale's motion during the flyby.
         int cur = prediction.indexAt(nowUt);
         for (int i = prediction.patchCount() - 1; i >= cur; i--) {
-            Vec3d o = Bodies.rootState(prediction.bodyOf(i), nowUt).r();
+            Vec3d o = patchCentre(prediction, i, cur, nowUt);
             double[] xs = prediction.xs(i);
             double[] ys = prediction.ys(i);
             int n = Math.min(xs.length, bufX.length);
@@ -287,7 +290,7 @@ public final class MapScreen extends Screen {
             if (!orbit && (m.kind() == MapPrediction.Kind.APOAPSIS || m.kind() == MapPrediction.Kind.PERIAPSIS)) {
                 continue;
             }
-            drawMark(c, labels, m, nowUt);
+            drawMark(c, labels, prediction, m, cur, nowUt);
         }
 
         // Ship marker: a small triangle pointing along the velocity relative to the body it is around (screen y is -Y).
@@ -308,18 +311,32 @@ public final class MapScreen extends Screen {
                 Palette.SIGNAL);
     }
 
-    private void drawMark(Canvas c, Labels labels, MapPrediction.Mark m, double nowUt) {
-        Vec3d at = Bodies.placeNow(m.anchor(), nowUt, m.x(), m.y());
-        double mx = view.sx(at.x());
-        double my = view.sy(at.y());
+    /**
+     * The root-frame point a patch's coordinates are offset by. The current patch and Verdance's patches use their
+     * body now; a future patch around another body uses that body at the patch's start, the moment the ship enters it.
+     * Verdance sits at the origin, so for it both give the same point.
+     */
+    private static Vec3d patchCentre(MapPrediction prediction, int index, int cur, double nowUt) {
+        double ut = index > cur ? prediction.startUt(index) : nowUt;
+        return Bodies.rootState(prediction.bodyOf(index), ut).r();
+    }
+
+    private void drawMark(Canvas c, Labels labels, MapPrediction prediction, MapPrediction.Mark m, int cur,
+                          double nowUt) {
+        // The encounter's dot stays where its body is now (it lies on the Verdance line). Other marks sit on the drawn
+        // line of their patch, so they use patchCentre.
+        Vec3d base = m.kind() == MapPrediction.Kind.ENCOUNTER
+                ? Bodies.rootState(m.anchor(), nowUt).r()
+                : patchCentre(prediction, m.patch(), cur, nowUt);
+        double mx = view.sx(base.x() + m.x());
+        double my = view.sy(base.y() + m.y());
         if (mx < -MARGIN_PX || my < -MARGIN_PX || mx > c.width + MARGIN_PX || my > c.height + MARGIN_PX) {
             return;
         }
         switch (m.kind()) {
             case APOAPSIS, PERIAPSIS -> {
-                Vec3d centre = Bodies.rootState(m.anchor(), nowUt).r();
-                double bx = view.sx(centre.x());
-                double by = view.sy(centre.y());
+                double bx = view.sx(base.x());
+                double by = view.sy(base.y());
                 double dx = mx - bx;
                 double dy = my - by;
                 double len = Math.hypot(dx, dy);
@@ -344,13 +361,14 @@ public final class MapScreen extends Screen {
                 if (m.body().isEmpty()) {
                     return;
                 }
-                // The entered body where it will be at the encounter: a faint outline, labelled.
+                // The entered body where it will be at the encounter: a faint outline and sphere of influence, labelled.
                 CelestialBody entered = MeridianSystem.byId(m.body());
                 Vec3d ghost = Bodies.rootState(entered, m.ut()).r();
                 double gx = view.sx(ghost.x());
                 double gy = view.sy(ghost.y());
                 double gr = Math.max(2, view.px(entered.radius));
                 c.ring(gx, gy, gr, Palette.STEEL_500);
+                c.dashedRing(gx, gy, view.px(entered.soiRadius()), Palette.alpha(Palette.SIGNAL_EDGE, 0x80), 6);
                 Component label = Component.translatable("apoapsis.map.mark.encounter",
                         Component.translatable("apoapsis.map.body." + m.body()),
                         Fmt.mono(Fmt.clock(m.ut() - nowUt)));

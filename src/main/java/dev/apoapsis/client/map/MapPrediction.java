@@ -41,8 +41,9 @@ final class MapPrediction {
      * @param y      offset of the mark from {@code anchor}'s centre in the inertial plane, m
      * @param altM   altitude above the anchor's surface (apsides), m
      * @param body   id of the body entered (encounters), else empty
+     * @param patch  index of the patch the mark sits on (its anchor is that patch's body)
      */
-    record Mark(Kind kind, double ut, CelestialBody anchor, double x, double y, double altM, String body) {}
+    record Mark(Kind kind, double ut, CelestialBody anchor, double x, double y, double altM, String body, int patch) {}
 
     /** The payload this prediction was made from. */
     final OrbitStatePayload source;
@@ -144,11 +145,11 @@ final class MapPrediction {
         Elements el = Elements.of(body.mu, first.startState());
         if (Double.isFinite(el.timeToApoapsis()) && t0 + el.timeToApoapsis() <= t1) {
             double ut = t0 + el.timeToApoapsis();
-            marks.add(apsis(Kind.APOAPSIS, first, ut, el.apoapsisRadius() - body.radius));
+            marks.add(apsis(Kind.APOAPSIS, first, 0, ut, el.apoapsisRadius() - body.radius));
         }
         if (Double.isFinite(el.timeToPeriapsis()) && el.timeToPeriapsis() >= 0 && t0 + el.timeToPeriapsis() <= t1) {
             double ut = t0 + el.timeToPeriapsis();
-            marks.add(apsis(Kind.PERIAPSIS, first, ut, el.periapsisRadius() - body.radius));
+            marks.add(apsis(Kind.PERIAPSIS, first, 0, ut, el.periapsisRadius() - body.radius));
         }
         for (int i = 0; i < patches.size(); i++) {
             Patch patch = patches.get(i);
@@ -156,10 +157,10 @@ final class MapPrediction {
             switch (patch.end()) {
                 case ENCOUNTER -> {
                     String entered = i + 1 < patches.size() ? patches.get(i + 1).body().id : "";
-                    marks.add(point(Kind.ENCOUNTER, patch, ut, entered));
+                    marks.add(point(Kind.ENCOUNTER, patch, i, ut, entered));
                 }
-                case ATMOSPHERE -> marks.add(point(Kind.ATMOSPHERE, patch, ut, ""));
-                case IMPACT -> marks.add(point(Kind.IMPACT, patch, ut, ""));
+                case ATMOSPHERE -> marks.add(point(Kind.ATMOSPHERE, patch, i, ut, ""));
+                case IMPACT -> marks.add(point(Kind.IMPACT, patch, i, ut, ""));
                 default -> {
                 }
             }
@@ -167,14 +168,14 @@ final class MapPrediction {
         return marks;
     }
 
-    private static Mark apsis(Kind kind, Patch patch, double ut, double altM) {
+    private static Mark apsis(Kind kind, Patch patch, int index, double ut, double altM) {
         Vec3d at = patch.stateAt(ut).r();
-        return new Mark(kind, ut, patch.body(), at.x(), at.y(), altM, "");
+        return new Mark(kind, ut, patch.body(), at.x(), at.y(), altM, "", index);
     }
 
-    private static Mark point(Kind kind, Patch patch, double ut, String body) {
+    private static Mark point(Kind kind, Patch patch, int index, double ut, String body) {
         Vec3d at = patch.stateAt(ut).r();
-        return new Mark(kind, ut, patch.body(), at.x(), at.y(), 0, body);
+        return new Mark(kind, ut, patch.body(), at.x(), at.y(), 0, body, index);
     }
 
     /** Index of the patch the ship is on at {@code ut}. */
@@ -186,6 +187,11 @@ final class MapPrediction {
             }
         }
         return index;
+    }
+
+    /** Universal time patch {@code index} starts, s. */
+    double startUt(int index) {
+        return patches.get(index).startUt();
     }
 
     /** The body patch {@code index} is around. */
