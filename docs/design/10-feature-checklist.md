@@ -153,7 +153,7 @@
 
 ## Visual design (13)
 - [ ] Brand identity: logo, palette tokens, OFL fonts, key art
-- [ ] UI kit (SVG) with gamepad-first focus states, motion rules, UI sounds and the Classic UI toggle
+- [ ] UI kit (SVG) with keyboard-and-mouse-first hover and focus states (gamepad via Controlify), motion rules, UI sounds and the Classic UI toggle
 - [ ] Title screen with live orbital scene, universe browser, world-creation wizard, themed loading and transitions, restyled settings, revival sequence (Clone Bay from Age 4), auto-credits
 - [ ] Helmet HUD with visor overlays; cockpit HUD with projected markers and live screens
 - [ ] Grid terminal, reskinned inventories and machines, survey, system and galaxy maps with continuous zoom, Codex, Discovery viewer, radio console

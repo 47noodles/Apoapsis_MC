@@ -67,6 +67,7 @@ You wake in an escape pod on **Verdance**, a round world circling the orange sta
 | Android proxies you link into over the comms network | 47noodles (chat) | `14` §14.1 |
 | Multiplayer is a core pillar; radio rides the same network as proxies | 47noodles (chat) | `15` |
 | Comms networks are owned, independent and closed by default, easy to open | 47noodles (chat) | `15` §15.6 |
+| Java Edition: keyboard and mouse first in every screen and key hint; gamepad support through Controlify | 47noodles (chat) | `13` §13.2 |
 | UI and visuals are designed and approved before they're implemented (design gate, one stage ahead) | 47noodles (chat) | `12` §12.3, `13` §13.10 |
 | Start on vanilla worldgen; every world gets its own vanilla-derived generator with at least 50 biomes on every major world and its own life | 47noodles (chat) | `17` |
 | AI-created art with human review | 47noodles (chat) | `16` §16.2 |

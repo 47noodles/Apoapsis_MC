@@ -23,7 +23,7 @@
 
 A single component kit, authored as SVG by the AI art pipeline and documented in Penpot (open source):
 - **Panels:** dark translucent "glass" with thin teal borders and a subtle depth shadow. Content sits on a 4 px grid.
-- **Controls:** buttons, toggles, sliders, tabs, dropdowns, search fields and steppers, each with hover, focus, pressed and disabled states. **Focus states are designed for gamepads first** (Controlify, `16` §16.5).
+- **Controls:** buttons, toggles, sliders, tabs, dropdowns, search fields and steppers, each with hover, focus, pressed and disabled states. **Hover and focus states are designed for keyboard and mouse first**, because this is Java Edition. Gamepads are supported through Controlify (`16` §16.5), but mockups and key hints show keyboard and mouse.
 - **Data display:** tables, Δv bar charts, gauges, arcs, sparklines and tooltips with stat comparison.
 - **Feedback:** toasts, mission tracker, confirmation modals, progress rings.
 - **Icons:** an original set of about 300 icons on one grid and stroke weight.
@@ -91,7 +91,7 @@ A single component kit, authored as SVG by the AI art pipeline and documented in
 
 ## 13.6 Feedback ("juice") for key actions
 
-| Action | Visual | Audio | Controller |
+| Action | Visual | Audio | Gamepad rumble (Controlify) |
 |---|---|---|---|
 | Welding a block | Sparks, glow, build-up shimmer through construction stages | Arc crackle rising in pitch | Light buzz |
 | Stage separation | Decoupler flash, debris, plume swap | A deep thunk, then the new engine's roar | Strong jolt |
@@ -126,7 +126,7 @@ UI scale, a high-contrast theme, colour-blind palettes for the HUD and maps, *re
 
 - Other mods' screens get our theme on standard vanilla widgets but keep their own layouts.
 - JEI overlays are supported.
-- Every screen is navigable with a gamepad.
+- Every screen works with keyboard and mouse first, and is also navigable with Tab, the arrow keys or a gamepad.
 - The Classic UI toggle is always one click away.
 
 ## 13.10 Visual design by stage (`12`)
@@ -147,7 +147,7 @@ Each row is **designed and approved one stage earlier** (the design gate, `12` �
 ## 13.11 Feature checklist: visual design
 
 - [ ] Brand identity: logo, palette tokens, OFL fonts, key art
-- [ ] UI kit (SVG) with gamepad-first focus states, motion rules, UI sounds and the Classic UI toggle
+- [ ] UI kit (SVG) with keyboard-and-mouse-first hover and focus states (gamepad via Controlify), motion rules, UI sounds and the Classic UI toggle
 - [ ] Title screen with live orbital scene, universe browser, world-creation wizard, themed loading and transitions, restyled settings, revival sequence (Clone Bay from Age 4), auto-credits
 - [ ] Helmet HUD with visor overlays; cockpit HUD with projected markers and live screens
 - [ ] Grid terminal, reskinned inventories and machines, survey, system and galaxy maps with continuous zoom, Codex, Discovery viewer, radio console
