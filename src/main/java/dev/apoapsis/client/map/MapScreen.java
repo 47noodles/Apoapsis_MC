@@ -331,7 +331,8 @@ public final class MapScreen extends Screen {
             if (i == cur) {
                 c.glowPolyline(bufX, bufY, n, 0, Palette.SIGNAL, Palette.alpha(Palette.SIGNAL, 0x40));
             } else {
-                c.glowPolyline(bufX, bufY, n, DASH_PX, Palette.HYDROGEN, Palette.alpha(Palette.HYDROGEN, 0x30));
+                // Future patches are plain dashes: a halo turns short dashes into blobs.
+                c.glowPolyline(bufX, bufY, n, DASH_PX, Palette.HYDROGEN, 0);
             }
         }
 

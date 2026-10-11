@@ -11,12 +11,11 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.level.LevelEvent;
 
 /**
  * Bodies drawn in the sky: Verdance and Pale from the orbit dimension, Pale from Verdance, Verdance from Pale.
  * Client only. The drawing lives in {@link SkyBodies}; the surface maps in {@link PlanetTextures}, which are dropped on
- * logout and when a client level unloads.
+ * logout. They are kept across dimension changes (each unloads the client level), since the server sends them once.
  */
 public final class SkyClient {
     private SkyClient() {}
@@ -27,11 +26,6 @@ public final class SkyClient {
         NeoForge.EVENT_BUS.addListener(ViewportEvent.ComputeFogColor.class, SkyClient::climbFogColour);
         NeoForge.EVENT_BUS.addListener(ViewportEvent.RenderFog.class, SkyClient::climbFogFar);
         NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingOut.class, e -> PlanetTextures.clear());
-        NeoForge.EVENT_BUS.addListener(LevelEvent.Unload.class, e -> {
-            if (e.getLevel() instanceof ClientLevel) {
-                PlanetTextures.clear();
-            }
-        });
     }
 
     /** The climb's share at the camera now, 0 outside the surface dimensions. */

@@ -49,7 +49,7 @@ public final class PlanetTextures {
         return IDS.get(bodyId);
     }
 
-    /** Forgets every map (logout, level unload), closing each texture. */
+    /** Forgets every map (logout), closing each texture. */
     public static void clear() {
         TextureManager textures = Minecraft.getInstance().getTextureManager();
         for (Identifier id : IDS.values()) {

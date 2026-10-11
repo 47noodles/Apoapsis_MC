@@ -89,11 +89,14 @@ final class Canvas {
 
     /**
      * A path with a soft glow: a faint halo one pixel off on each diagonal, then the one-pixel core on top. With
-     * {@code dashPx} above zero the path is dashed by arc length (the dashes and halo alike). {@code n} is the point count.
+     * {@code dashPx} above zero the path is dashed by arc length (the dashes and halo alike); a fully transparent
+     * {@code haloArgb} draws no halo. {@code n} is the point count.
      */
     void glowPolyline(double[] xs, double[] ys, int n, double dashPx, int argb, int haloArgb) {
-        shifted(xs, ys, n, -1, -1, dashPx, haloArgb);
-        shifted(xs, ys, n, 1, 1, dashPx, haloArgb);
+        if ((haloArgb >>> 24) != 0) {
+            shifted(xs, ys, n, -1, -1, dashPx, haloArgb);
+            shifted(xs, ys, n, 1, 1, dashPx, haloArgb);
+        }
         shifted(xs, ys, n, 0, 0, dashPx, argb);
     }
 
