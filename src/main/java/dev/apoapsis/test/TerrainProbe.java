@@ -1,29 +1,34 @@
 package dev.apoapsis.test;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.net.PlanetMapPayload;
 import dev.apoapsis.net.TerrainTilePayload;
 import dev.apoapsis.planet.PlanetMapGen;
 import dev.apoapsis.planet.TerrainSampler;
 import dev.apoapsis.planet.TerrainTileGen;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
-import net.minecraft.core.Holder;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator;
-import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 
 /**
  * Builds the two bodies' generators outside any level, for tests: the vanilla normal overworld (Verdance) and the
- * datapack dimension apoapsis:pale, each with a {@link RandomState} for a fixed seed. The GameTest server bakes its
- * world flat and without datapack dimensions, so a test cannot take these from the level.
+ * datapack dimension apoapsis:pale, each with a {@link RandomState} for a seed (the real save's by default). The
+ * GameTest server bakes its world flat and without datapack dimensions, so a test cannot take these from the level.
  */
 final class TerrainProbe {
     /** Timed passes of the sampler in {@link #compare}; the fastest counts. */
@@ -39,28 +44,44 @@ final class TerrainProbe {
     private TerrainProbe() {}
 
     static Body verdance(RegistryAccess access) {
+        return verdance(access, SEED);
+    }
+
+    /** Verdance under the vanilla normal overworld preset, for the given world seed. */
+    static Body verdance(RegistryAccess access, long seed) {
         LevelStem stem = WorldPresets.getNormalOverworld(access);
-        return body("verdance", stem, access, 64_000);
+        return body("verdance", stem.generator(), access, 64_000, seed);
+    }
+
+    static Body pale(RegistryAccess access) {
+        return pale(access, SEED);
     }
 
     /**
-     * Pale's noise settings under the overworld's biome source: the dimension itself is missing from the GameTest
-     * registries, but its noise settings are there, and heights do not depend on the biome source.
+     * Pale as the mod ships it, for the given world seed: the {@code apoapsis:pale} dimension file decoded against the
+     * test registries. The dimension itself is missing from the GameTest registries (its world is baked flat), but its
+     * noise settings, biomes and features are all there, so the generator comes out the same as the real one.
      */
-    static Body pale(RegistryAccess access) {
-        ResourceKey<NoiseGeneratorSettings> key = ResourceKey.create(Registries.NOISE_SETTINGS, TestSupport.id("pale"));
-        Holder<NoiseGeneratorSettings> settings = access.lookupOrThrow(Registries.NOISE_SETTINGS).getOrThrow(key);
-        ChunkGenerator overworld = WorldPresets.getNormalOverworld(access).generator();
-        return body("pale", new NoiseBasedChunkGenerator(overworld.getBiomeSource(), settings), access, 20_000);
+    static Body pale(RegistryAccess access, long seed) {
+        return body("pale", paleStem(access).generator(), access, 20_000, seed);
     }
 
-    private static Body body(String name, LevelStem stem, RegistryAccess access, int radius) {
-        return body(name, stem.generator(), access, radius);
+    private static LevelStem paleStem(RegistryAccess access) {
+        try (InputStream in = TerrainProbe.class.getResourceAsStream("/data/apoapsis/dimension/pale.json")) {
+            if (in == null) {
+                throw new IllegalStateException("dimension file apoapsis:pale is not on the classpath");
+            }
+            JsonElement json = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            return LevelStem.CODEC.parse(RegistryOps.create(JsonOps.INSTANCE, access), json)
+                    .getOrThrow(IllegalStateException::new);
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot read dimension file apoapsis:pale", e);
+        }
     }
 
-    private static Body body(String name, ChunkGenerator generator, RegistryAccess access, int radius) {
+    private static Body body(String name, ChunkGenerator generator, RegistryAccess access, int radius, long seed) {
         NoiseBasedChunkGenerator noise = (NoiseBasedChunkGenerator) generator;
-        RandomState randomState = RandomState.create(access.lookupOrThrow(Registries.NOISE), SEED,
+        RandomState randomState = RandomState.create(access.lookupOrThrow(Registries.NOISE), seed,
                 noise.generatorSettings().value());
         int minY = noise.generatorSettings().value().noiseSettings().minY();
         int height = noise.generatorSettings().value().noiseSettings().height();

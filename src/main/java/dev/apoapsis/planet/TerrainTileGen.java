@@ -2,11 +2,6 @@ package dev.apoapsis.planet;
 
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.net.TerrainTilePayload;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
-import net.minecraft.core.QuartPos;
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.RandomState;
 
@@ -40,13 +35,10 @@ public final class TerrainTileGen {
         int spacing = TerrainTilePayload.spacingOf(level);
         int size = TerrainTilePayload.sizeOf(level);
         int half = (size - 1) / 2;
-        boolean pale = body.equals(BodyId.PALE.id);
-        int seaLevel = sampler.seaLevel();
-        TerrainSampler.Worker worker = sampler.worker();
-        BiomeResolver biomes = generator.getBiomeSource().createCachingResolver(randomState);
+        SurfaceColumns columns = SurfaceColumns.create(sampler, generator, randomState, body.equals(BodyId.PALE.id),
+                true);
         short[] heights = new short[size * size];
         byte[] rgb = new byte[3 * size * size];
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int j = 0; j < size; j++) {
             if (Thread.currentThread().isInterrupted()) {
                 return null;
@@ -54,10 +46,9 @@ public final class TerrainTileGen {
             int z = cz + (j - half) * spacing;
             for (int i = 0; i < size; i++) {
                 int x = cx + (i - half) * spacing;
-                int h = Math.round(worker.ground(x, z));
-                Holder<Biome> biome = biomes.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(h),
-                        QuartPos.fromBlock(z));
-                int c = SurfaceColors.at(pale, biome, pos.set(x, h, z), h, seaLevel);
+                columns.at(x, z);
+                int h = columns.height();
+                int c = columns.colour();
                 int k = j * size + i;
                 heights[k] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, h));
                 rgb[3 * k] = (byte) (c >> 16);

@@ -10,12 +10,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
-import net.minecraft.core.QuartPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.RandomState;
 
@@ -47,7 +42,6 @@ public final class PlanetMapGen {
     public static PlanetMapPayload generate(TerrainSampler sampler, ChunkGenerator generator, RandomState randomState,
             String body, double radius, int width, int height, int ss) {
         boolean pale = body.equals(BodyId.PALE.id);
-        int seaLevel = sampler.seaLevel();
         int n = width * height;
         int[] ground = new int[n];
         int[] colors = new int[n];
@@ -66,7 +60,7 @@ public final class PlanetMapGen {
                 int row = v;
                 futures.add(rows.submit(() -> {
                     if (!cancelled.get()) {
-                        sampleRow(sampler, generator, randomState, pale, seaLevel, radius, width, height, ss, row,
+                        sampleRow(sampler, generator, randomState, pale, radius, width, height, ss, row,
                                 ground, colors);
                     }
                 }));
@@ -119,10 +113,9 @@ public final class PlanetMapGen {
 
     /** One row of texels: average colour and height over the supersamples of each. */
     private static void sampleRow(TerrainSampler sampler, ChunkGenerator generator, RandomState randomState,
-            boolean pale, int seaLevel, double radius, int width, int height, int ss, int v, int[] ground,
+            boolean pale, double radius, int width, int height, int ss, int v, int[] ground,
             int[] colors) {
-        TerrainSampler.Worker worker = sampler.worker();
-        BiomeResolver biomes = generator.getBiomeSource().createCachingResolver(randomState);
+        SurfaceColumns columns = SurfaceColumns.create(sampler, generator, randomState, pale, false);
         int samples = ss * ss;
         for (int u = 0; u < width; u++) {
             long r = 0, g = 0, b = 0;
@@ -133,10 +126,9 @@ public final class PlanetMapGen {
                 for (int su = 0; su < ss; su++) {
                     double lon = -Math.PI + 2 * Math.PI * (u + (su + 0.5) / ss) / width;
                     int x = (int) Math.round(lon * radius);
-                    int h = Math.round(worker.ground(x, z));
-                    Holder<Biome> biome = biomes.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(h),
-                            QuartPos.fromBlock(z));
-                    int c = SurfaceColors.at(pale, biome, new BlockPos(x, h, z), h, seaLevel);
+                    columns.at(x, z);
+                    int h = columns.height();
+                    int c = columns.colour();
                     r += (c >> 16) & 0xFF;
                     g += (c >> 8) & 0xFF;
                     b += c & 0xFF;

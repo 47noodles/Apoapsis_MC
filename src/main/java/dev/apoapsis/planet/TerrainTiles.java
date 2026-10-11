@@ -6,6 +6,7 @@ import dev.apoapsis.Apoapsis;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.FlightDimensions;
 import dev.apoapsis.net.TerrainTilePayload;
+import dev.apoapsis.ship.ShipEntity;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -44,6 +45,9 @@ import org.jspecify.annotations.Nullable;
  * ({@link TerrainTilePayload.Request}); the tile is generated off the server thread by {@link TerrainTileGen} and
  * sent back as a {@link TerrainTilePayload}. The flight state (and so the sub-ship point of a ship in orbit) is not
  * readable from here, which is why the client, which already tracks it, does the asking.
+ *
+ * <p>Who may ask: only the pilot of a ship, or a player in the orbit dimension ({@link #mayRequest}); a request from
+ * anyone else is dropped without a reply or a log line.
  *
  * <p>Limits: at most one request per level and player is kept (a newer one replaces an older one still waiting); a
  * player may send one request per level every {@link #MIN_GAP_TICKS} ticks; at most {@link #MAX_QUEUED} jobs wait in
@@ -176,6 +180,9 @@ public final class TerrainTiles {
         if (s == null || exec == null || !(context.player() instanceof ServerPlayer player)) {
             return;
         }
+        if (!mayRequest(player)) {
+            return; // a stranger to the far terrain: nothing is generated, queued or sent, and nothing is logged
+        }
         int level = request.level();
         BodyId body = bodyOf(request.body());
         if (body == null || level < 0 || level >= TerrainTilePayload.LEVELS
@@ -214,6 +221,25 @@ public final class TerrainTiles {
         Job job = new Job(player.getUUID(), ctx, key);
         state.latest[level] = job;
         exec.execute(job);
+    }
+
+    /**
+     * Whether a player may ask for far terrain: the pilot of a ship, or anyone in the orbit dimension (the orbit regime
+     * looks down on the body). Every other client gets nothing, however politely it asks: the far terrain is for flight,
+     * and a tile costs the server a few hundred milliseconds of work.
+     */
+    public static boolean mayRequest(Player player) {
+        return mayRequest(FlightDimensions.ORBIT.equals(player.level().dimension()), player);
+    }
+
+    /** As {@link #mayRequest(Player)}, with the regime given: {@code inOrbit} is true in the orbit dimension. */
+    public static boolean mayRequest(boolean inOrbit, Player player) {
+        return inOrbit || player.getVehicle() instanceof ShipEntity ship && ship.getPilot() == player;
+    }
+
+    /** True when the player has got a request past the gate and the rate limit since the server started. */
+    public static boolean hasRequested(UUID player) {
+        return PLAYERS.containsKey(player);
     }
 
     private static @Nullable BodyId bodyOf(String id) {
@@ -291,8 +317,9 @@ public final class TerrainTiles {
 
     /**
      * Debug: builds the three tiles around the player on this thread, then compares {@code count} random vertices of
-     * each with the height of the real chunk there (the generated chunk's ocean-floor world-gen heightmap, which loads
-     * the chunk). Logs per level the generation time and the error in blocks, and tells the caller.
+     * each with the height of the real chunk there (the generated chunk's ocean-floor heightmap, which loads the chunk;
+     * the world-gen one on Verdance, which leaves the trees out, the final one on Pale, which has the craters in).
+     * Logs per level the generation time and the error in blocks, and tells the caller.
      */
     private static int check(CommandContext<CommandSourceStack> c, int count) {
         CommandSourceStack source = c.getSource();
@@ -307,6 +334,7 @@ public final class TerrainTiles {
         RandomState randomState = level.getChunkSource().randomState();
         int px = (int) Math.floor(source.getPosition().x);
         int pz = (int) Math.floor(source.getPosition().z);
+        Heightmap.Types realHeights = body == BodyId.PALE ? Heightmap.Types.OCEAN_FLOOR : Heightmap.Types.OCEAN_FLOOR_WG;
         java.util.Random rnd = new java.util.Random(7);
         for (int lv = 0; lv < TerrainTilePayload.LEVELS; lv++) {
             long t0 = System.nanoTime();
@@ -324,7 +352,7 @@ public final class TerrainTiles {
                 int x = tile.centerX() + (i - (n - 1) / 2) * tile.spacing();
                 int z = tile.centerZ() + (j - (n - 1) / 2) * tile.spacing();
                 ChunkAccess chunk = level.getChunk(x >> 4, z >> 4);
-                int real = chunk.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x & 15, z & 15);
+                int real = chunk.getHeight(realHeights, x & 15, z & 15);
                 double err = tile.heights()[j * n + i] - real;
                 sum += err;
                 sumSq += err * err;

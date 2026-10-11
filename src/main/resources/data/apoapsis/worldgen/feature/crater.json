@@ -1,0 +1,5 @@
+{
+  "type": "apoapsis:crater",
+  "chance": 0.8,
+  "maria_chance": 0.35
+}

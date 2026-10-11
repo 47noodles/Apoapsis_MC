@@ -1,5 +1,5 @@
 {
-  "feature": "apoapsis:crater_highlands",
+  "feature": "apoapsis:crater",
   "placement": [
     { "type": "minecraft:count", "count": 1 },
     { "type": "minecraft:in_square" }

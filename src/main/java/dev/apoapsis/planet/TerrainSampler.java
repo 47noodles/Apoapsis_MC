@@ -1,6 +1,7 @@
 package dev.apoapsis.planet;
 
 import dev.apoapsis.Apoapsis;
+import dev.apoapsis.planet.terrain.PaleSurface;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -29,7 +30,9 @@ import org.jspecify.annotations.Nullable;
  * overworld final density is built from, without the caves. A first guess comes from the quantised preliminary surface
  * level, then eight-block steps find the bracket and one interpolation inside it gives a sub-block height. Terrain
  * whose settings are not one of the three overworld presets (Pale, whose density is a 2D noise and already cheap) uses
- * {@code getBaseHeight} itself, so its heights are exact.
+ * {@code getBaseHeight} itself, so its heights are exact (and equal to the real chunks': the GameTests compare them).
+ * What the world generator adds on top of the noise terrain, Pale's craters, is not in {@code ground}; see
+ * {@link #paleSurface}.
  *
  * <p>A sampler is shared between threads; each thread takes its own {@link Worker}.
  */
@@ -49,15 +52,19 @@ public final class TerrainSampler {
     private final @Nullable DensitySampler cheese;
     /** The (quantised) preliminary surface level sampler; non-null exactly when {@link #cheese} is. */
     private final @Nullable DensitySampler prelim;
+    /** Pale's craters and surface materials, or null on any other body. */
+    private final @Nullable PaleSurface paleSurface;
 
     private TerrainSampler(ChunkGenerator generator, RandomState randomState, LevelHeightAccessor heightAccessor,
-            int seaLevel, @Nullable DensitySampler cheese, @Nullable DensitySampler prelim) {
+            int seaLevel, @Nullable DensitySampler cheese, @Nullable DensitySampler prelim,
+            @Nullable PaleSurface paleSurface) {
         this.generator = generator;
         this.randomState = randomState;
         this.heightAccessor = heightAccessor;
         this.seaLevel = seaLevel;
         this.cheese = cheese;
         this.prelim = prelim;
+        this.paleSurface = paleSurface;
     }
 
     /** The sampler for a loaded level's own generator. */
@@ -89,7 +96,16 @@ public final class TerrainSampler {
                 }
             }
         }
-        return new TerrainSampler(generator, randomState, heightAccessor, generator.getSeaLevel(), cheese, prelim);
+        return new TerrainSampler(generator, randomState, heightAccessor, generator.getSeaLevel(), cheese, prelim,
+                PaleSurface.create(generator, randomState, registries));
+    }
+
+    /**
+     * What Pale's surface adds to {@link Worker#ground}: its craters and which of basalt or regolith lies on top; null
+     * for any other body. {@code ground} itself never includes the craters, so it stays the exact terrain height.
+     */
+    public @Nullable PaleSurface paleSurface() {
+        return paleSurface;
     }
 
     /** The density function names of the overworld preset that {@code generator} uses,

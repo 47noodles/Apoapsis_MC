@@ -81,6 +81,13 @@ public final class GameTests {
                 new ApoapsisGameTest("terrain_payload", environment, 40, GameTests::terrainPayload));
         event.registerTest(TestSupport.id("terrain_sampler_probe"),
                 new ApoapsisGameTest("terrain_sampler_probe", environment, 40, GameTests::terrainSamplerProbe));
+        event.registerTest(TestSupport.id("terrain_accuracy_pale"),
+                new ApoapsisGameTest("terrain_accuracy_pale", environment, 40, AccuracyTests::pale));
+        event.registerTest(TestSupport.id("terrain_accuracy_verdance"),
+                new ApoapsisGameTest("terrain_accuracy_verdance", environment, 40, AccuracyTests::verdance));
+        event.registerTest(TestSupport.id("terrain_requests_need_a_pilot"),
+                new ApoapsisGameTest("terrain_requests_need_a_pilot", environment, 40,
+                        TerrainGateTests::requestsNeedAPilot));
         event.registerTest(TestSupport.id("start_age_three"),
                 new ApoapsisGameTest("start_age_three", environment, 40, GameTests::startAgeThree));
         event.registerTest(TestSupport.id("first_flight_needs_landing"),

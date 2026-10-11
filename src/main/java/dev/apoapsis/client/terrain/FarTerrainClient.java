@@ -2,6 +2,7 @@ package dev.apoapsis.client.terrain;
 
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.net.TerrainTilePayload;
+import dev.apoapsis.planet.TerrainTiles;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.fog.FogData;
 import net.minecraft.world.level.material.FogType;
@@ -155,6 +156,9 @@ public final class FarTerrainClient {
         speedBody = view.body().id;
         lastSubX = view.subX();
         lastSubZ = view.subZ();
+        if (!TerrainTiles.mayRequest(mc.player)) {
+            return; // the server answers only pilots and the orbit regime; flying without a ship asks for nothing
+        }
         for (int level = 0; level < TerrainTilePayload.LEVELS; level++) {
             if (view.altitude() >= WANTED_BELOW_M[level] || groundSpeed > MAX_SPEED_M_S[level]) {
                 continue;

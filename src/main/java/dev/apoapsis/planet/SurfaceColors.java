@@ -1,6 +1,6 @@
 package dev.apoapsis.planet;
 
-import dev.apoapsis.Apoapsis;
+import dev.apoapsis.planet.terrain.PaleFeatures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.Identifier;
@@ -16,18 +16,21 @@ final class SurfaceColors {
     private static final int OCEAN_SHALLOW = 0x3F76E4;
     private static final int OCEAN_DEEP = 0x0E2A6B;
     private static final int ICE = 0xC9E4F5;
-    private static final int SNOW = 0xF2F6FA;
-    private static final int SAND = 0xE3D08A;
-    private static final int TERRACOTTA = 0xB9673A;
-    private static final int STONE = 0x7D7D7D;
+    // The rock, sand and snow colours are the mean colour of the texture of the block the ground really is (snow block,
+    // sand, stone, the top of basalt, our regolith), so a far tile matches the real chunks it meets. The accuracy
+    // GameTests hold them to 3 percent. Terracotta stands for badlands, whose top is red sand over terracotta bands.
+    private static final int SNOW = 0xF9FEFE;
+    private static final int SAND = 0xDBCFA3;
+    private static final int TERRACOTTA = 0xAB6232;
+    private static final int STONE = 0x7E7E7E;
     private static final int PLAINS = 0x8DB360;
     private static final int FOREST = 0x6E9A44;
     private static final int JUNGLE = 0x4E9E2E;
     private static final int TAIGA = 0x7A9C7A;
     private static final int SAVANNA = 0xB5AD57;
-    private static final int BASALT = 0x3A3A40;
-    private static final int REGOLITH = 0x9A958C;
-    private static final Identifier PALE_MARIA = Identifier.fromNamespaceAndPath(Apoapsis.MODID, "pale_maria");
+    private static final int BASALT = 0x515156;
+    private static final int REGOLITH = 0x979793;
+    private static final Identifier PALE_MARIA = PaleFeatures.MARIA;
 
     /** Ground this far above sea level is stone grey, in blocks. */
     private static final int STONE_LINE = 50;
@@ -84,6 +87,11 @@ final class SurfaceColors {
     /** Pale has no grass or water: dark basalt maria, light regolith highlands. */
     static int pale(Holder<Biome> biome) {
         return biome.is(PALE_MARIA) ? BASALT : REGOLITH;
+    }
+
+    /** Pale's ground by the block on top: regolith or basalt. */
+    static int pale(boolean regolith) {
+        return regolith ? REGOLITH : BASALT;
     }
 
     /** Blends two RGB colours; t = 0 gives a, t = 1 gives b. */
