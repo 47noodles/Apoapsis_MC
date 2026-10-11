@@ -6,6 +6,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.storage.PrimaryLevelData;
 
 /**
  * The self-creating test save, server half. Active only when the JVM property {@value #PROPERTY} is "true" (set by the
@@ -28,6 +29,11 @@ public final class TestFlight {
             return;
         }
         MinecraftServer server = player.level().getServer();
+        // Vanilla counts any world with extra dimensions as experimental and asks for a backup each time the save is
+        // reopened; the test save is ours, so record the warning as seen (written to level.dat on the next save).
+        if (server.getWorldData() instanceof PrimaryLevelData data) {
+            data.withConfirmedWarning(true);
+        }
         Scenarios.runNextTick(() -> setUp(server, player));
     }
 
