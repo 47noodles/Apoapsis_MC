@@ -12,4 +12,8 @@ public final class MapClient {
     /** Called from {@code ApoapsisClient} with the mod event bus. */
     public static void register(IEventBus modBus) {
     }
+
+    /** Opens the full-screen system map (SHIPC's M key calls this). */
+    public static void openMap() {
+    }
 }

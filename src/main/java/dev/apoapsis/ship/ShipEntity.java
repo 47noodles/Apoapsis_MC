@@ -27,6 +27,7 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
     private Vec3 angularVelocity = Vec3.ZERO;
     private float throttle;
     private boolean sas = true;
+    private boolean transferring;
 
     public ShipEntity(EntityType<? extends ShipEntity> type, Level level) {
         super(type, level);
@@ -92,6 +93,15 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
 
     public void setSas(boolean on) {
         sas = on;
+    }
+
+    /** True while FLT moves the ship between dimensions: the pilot may dismount and physics is paused. */
+    public boolean isTransferring() {
+        return transferring;
+    }
+
+    public void setTransferring(boolean transferring) {
+        this.transferring = transferring;
     }
 
     /** Dry mass plus fuel, kg. */
