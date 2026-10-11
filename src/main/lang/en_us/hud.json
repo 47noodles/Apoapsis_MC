@@ -1,4 +1,20 @@
 {
   "apoapsis.hud.pe": "Pe %s",
-  "apoapsis.hud.escape": "Escape"
+  "apoapsis.hud.escape": "Escape",
+  "apoapsis.hud.none": "--",
+  "apoapsis.hud.label.ap": "AP",
+  "apoapsis.hud.label.pe": "PE",
+  "apoapsis.hud.label.orb": "ORB",
+  "apoapsis.hud.prograde": "PROGRADE",
+  "apoapsis.hud.retrograde": "RETROGRADE",
+  "apoapsis.hud.target": "%1$s · %2$s",
+  "apoapsis.hud.pill.fuel": "FUEL %1$s  Δv %2$s",
+  "apoapsis.hud.pill.dry": "NO FUEL",
+  "apoapsis.hud.hint": "[%1$s] %2$s",
+  "apoapsis.hud.keys": "%1$s/%2$s",
+  "apoapsis.hud.hint.sas": "SAS",
+  "apoapsis.hud.hint.throttle": "Throttle",
+  "apoapsis.hud.hint.roll": "Roll",
+  "apoapsis.hud.hint.warp": "Warp",
+  "apoapsis.hud.hint.map": "Map"
 }
