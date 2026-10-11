@@ -1,7 +1,7 @@
 {
  "title": "Apoapsis: work graph to 1.0",
- "request": "Every piece of work from today (Stage 0 prototype) to the 1.0 modpack, with design gates, playtests, releases and version hops. Columns run left to right by dependency; stages are bands.",
- "updated": "2026-10-11",
+ "request": "Every piece of work from today (the Stage 0 prototype) to the 1.0 modpack: design gates, playtests, releases and version hops. Left to right by dependency; each stage is a band.",
+ "updated": "2026-10-11 15:09:42",
  "stages": {
   "0": "Foundations",
   "1": "Engineers",
@@ -96,7 +96,7 @@
     1,
     2
    ],
-   "status": "running",
+   "status": "done",
    "exit": "",
    "ref": "orbit/"
   },
@@ -116,7 +116,7 @@
     0.5,
     1
    ],
-   "status": "running",
+   "status": "done",
    "exit": "",
    "ref": ""
   },
@@ -177,7 +177,7 @@
     0.5,
     1
    ],
-   "status": "running",
+   "status": "done",
    "exit": "",
    "ref": ""
   },
@@ -197,7 +197,7 @@
     0.5,
     1.5
    ],
-   "status": "running",
+   "status": "done",
    "exit": "",
    "ref": ""
   },
@@ -258,7 +258,7 @@
     0.5,
     1
    ],
-   "status": "running",
+   "status": "done",
    "exit": "",
    "ref": ""
   },
@@ -2510,7 +2510,7 @@
    "stage": 4,
    "track": "story",
    "kind": "content",
-   "name": "Story bible Ages 0 to 4",
+   "name": "Story bible: Ages 0–4",
    "does": "Custodian arc and voice lines, logs, faction voices",
    "depends": [
     "0.01"
@@ -3990,5 +3990,6 @@
    "exit": "",
    "ref": ""
   }
- ]
+ ],
+ "live": false
 }

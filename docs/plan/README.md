@@ -2,7 +2,7 @@
 
 > Planned by Opus, at 47noodles' request (11 Oct 2026): *"a work graph, comprehensive, from now until full modpack. put it in the repo too, and HTML it."* It turns the staged roadmap (`../design/12-roadmap.md`) and the feature checklist (`../design/10-feature-checklist.md`) into 191 work items with dependencies.
 
-**Open [work-graph.html](work-graph.html)** in a browser (download it, or clone the repo; GitHub shows HTML as source). It reads left to right: every item sits to the right of everything it needs, and each stage is a band. The first work is on the far left, and 1.0 is on the far right. Click a card to see what it needs, what it unblocks and when it counts as done. Search and filter by track, owner or status.
+**Open [work-graph.html](work-graph.html)** in a browser (download it, or clone the repo; GitHub shows HTML as source). It reads left to right: every item sits to the right of everything it needs, columns are centred, and each stage is a band. The first work is on the far left, and 1.0 is on the far right. Click a card to see what it needs, what it unblocks and when it counts as done. The stage links at the top jump along the page.
 
 ## Files
 
@@ -10,7 +10,7 @@
 |---|---|
 | `work-graph.json` | The source of truth: every item with its stage, track, kind, owner, estimate, status and dependencies |
 | `work-graph.html` | The rendered page, generated from the JSON |
-| `../../tools/plan/render_plan.py` | The renderer. `python tools/plan/render_plan.py` re-renders, and `--set <id> <status>` updates an item first |
+| `../../tools/plan/render_graph.py` | The renderer. `python tools/plan/render_graph.py docs/plan/work-graph.json` re-renders, and `--set <id> <status>` updates an item first |
 
 Update the JSON as work moves, then re-render. Statuses: pending, running, review, redeploy, done, failed, self.
 
