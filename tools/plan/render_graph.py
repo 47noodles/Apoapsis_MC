@@ -49,7 +49,13 @@ from datetime import datetime
 
 STATUSES = ["pending", "running", "review", "redeploy", "done", "failed", "self"]
 FINISHED = {"done", "failed", "self"}
-W, H, GAP_X, GAP_Y, PAD = 172, 44, 56, 10, 14
+# Text colour on each status pill, per theme. Every pair clears WCAG AA (4.5:1) against its fill.
+PILL_INK = {
+    "light": {"pending": "#1d1d1b", "running": "#ffffff", "review": "#1d1d1b", "redeploy": "#1d1d1b",
+              "done": "#ffffff", "failed": "#ffffff", "self": "#ffffff"},
+    "dark": {s: "#141412" for s in STATUSES},
+}
+W, H, GAP_X, GAP_Y, PAD = 188, 44, 56, 10, 14
 BAND_HEAD = 46  # room above the cards for stage names
 
 
@@ -212,17 +218,22 @@ def render(g):
     refresh = '<meta http-equiv="refresh" content="10">' if live else ""
     data = json.dumps([{k: v for k, v in n.items() if k in (
         "id", "name", "does", "model", "writes", "depends", "status", "note", "stage", "kind", "owner", "track",
-        "ref", "exit", "est_weeks")} for n in nodes], ensure_ascii=False).replace("</", "<\\/")
+        "ref", "exit", "est_weeks")} for n in nodes], ensure_ascii=False)
+    # Safe for any field text inside the <script>: no raw "<" (so no "</script>" or "<!--"), no raw U+2028/U+2029.
+    data = data.replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+    ink_light = "".join(f"--on-{s}:{PILL_INK['light'][s]};" for s in STATUSES)
+    ink_dark = "".join(f"--on-{s}:{PILL_INK['dark'][s]};" for s in STATUSES)
     dark = ("--bg:#141412;--panel:#1d1d1a;--ink:#ecece6;--muted:#a3a39b;--line:#33332e;--edge:#5f5f58;--edge-done:#4fbf7d;"
             "--pending:#8f8f88;--running:#5b93f0;--review:#e0a922;--redeploy:#ef8243;--done:#45b072;--failed:#e05656;--self:#a07ae6;"
-            "--band0:#191916;--band1:#141412;--hi:#5b93f0")
+            "--band0:#191916;--band1:#141412;--hi:#5b93f0;") + ink_dark
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
 {refresh}<title>{esc(g.get('title', 'Work graph'))}</title>
 <style>
 :root{{--bg:#f6f6f3;--panel:#fff;--ink:#1d1d1b;--muted:#6b6b66;--line:#dcdcd5;--edge:#b3b3ab;--edge-done:#3f9d63;
---pending:#8a8a84;--running:#2f6fdb;--review:#c58a00;--redeploy:#d9631e;--done:#2e8b57;--failed:#c62f2f;--self:#7a4fc9;
---band0:#efefe9;--band1:#f6f6f3;--hi:#2f6fdb}}
+--pending:#8a8a84;--running:#2f6fdb;--review:#c58a00;--redeploy:#d9631e;--done:#2a7f4f;--failed:#c62f2f;--self:#7a4fc9;
+--band0:#efefe9;--band1:#f6f6f3;--hi:#2f6fdb;{ink_light}}}
 @media (prefers-color-scheme: dark){{:root:not([data-theme="light"]){{{dark}}}}}
 :root[data-theme="dark"]{{{dark}}}
 *{{box-sizing:border-box}} body{{margin:0;background:var(--bg);color:var(--ink);font:13px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}}
@@ -245,14 +256,14 @@ svg{{position:absolute;inset:0;overflow:visible;pointer-events:none}}
 .card.hub{{border-width:2px 2px 2px 5px;box-shadow:0 2px 10px rgba(0,0,0,.08)}}
 .card.k-gate,.card.k-release{{border-top-color:var(--review);border-right-color:var(--review);border-bottom-color:var(--review)}}
 .card.dim{{opacity:.2}} .card.sel{{box-shadow:0 0 0 2px var(--hi)}}
-.l1{{display:flex;align-items:center;gap:5px;font-size:10.5px;line-height:15px}}
+.l1{{display:flex;align-items:center;gap:5px;font-size:10.5px;line-height:15px}} .l1>*{{flex-shrink:0}}
 .nid{{font-weight:700;font-family:ui-monospace,Consolas,monospace;font-size:11px}}
-.model{{color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.model{{color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0}}
 .round{{color:var(--redeploy);font-weight:700}}
 .l1 .st{{margin-left:auto}}
 .name{{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:20px}}
-.st{{font-size:10px;padding:0 6px;border-radius:999px;color:#fff;background:var(--pending);white-space:nowrap;line-height:15px}}
-{''.join(f'.t-{s}{{background:var(--{s})}} .s-{s}{{border-left-color:var(--{s})}}' for s in STATUSES)}
+.st{{font-size:10px;padding:0 6px;border-radius:999px;color:var(--on-pending);background:var(--pending);white-space:nowrap;line-height:15px}}
+{''.join(f'.t-{s}{{background:var(--{s});color:var(--on-{s})}} .s-{s}{{border-left-color:var(--{s})}}' for s in STATUSES)}
 .s-running{{box-shadow:0 0 0 2px color-mix(in srgb,var(--running) 30%,transparent)}}
 #panel{{position:fixed;right:16px;bottom:16px;width:min(400px,calc(100vw - 32px));max-height:60vh;overflow:auto;background:var(--panel);
 border:1px solid var(--line);border-radius:8px;padding:12px 14px;box-shadow:0 6px 24px rgba(0,0,0,.18);display:none;z-index:5}}
@@ -281,19 +292,19 @@ th,td{{text-align:left;vertical-align:top;padding:5px 7px;border-bottom:1px soli
 <div class="lower"><details><summary>Node details</summary><div class="tablewrap"><table><thead><tr><th>node</th><th>name</th><th>does</th><th>model</th><th>writes</th><th>depends on</th><th>status</th><th>round</th><th>latest note</th></tr></thead>
 <tbody>{''.join(rows)}</tbody></table></div></details></div>
 <script>
-const N={data},by=Object.fromEntries(N.map(n=>[n.id,n])),kids={{}},P=document.getElementById('panel');
-N.forEach(n=>(n.depends||[]).forEach(d=>(kids[d]=kids[d]||[]).push(n.id)));
+const N={data},by=new Map(N.map(n=>[n.id,n])),kids=new Map(),P=document.getElementById('panel');
+N.forEach(n=>(n.depends||[]).forEach(d=>{{if(!kids.has(d))kids.set(d,[]);kids.get(d).push(n.id)}}));
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}})[c]);
 function reach(id,f,seen=new Set()){{(f(id)||[]).forEach(x=>{{if(!seen.has(x)){{seen.add(x);reach(x,f,seen)}}}});return seen}}
-const lk=i=>by[i]?`<a data-go="${{e(i)}}">${{e(i)}} ${{e(by[i].name)}}</a>`:e(i);
-function show(id){{const n=by[id],up=reach(id,i=>by[i].depends),dn=reach(id,i=>kids[i]);
+const lk=i=>by.has(i)?`<a data-go="${{e(i)}}">${{e(i)}} ${{e(by.get(i).name)}}</a>`:e(i);
+function show(id){{const n=by.get(id),up=reach(id,i=>(by.get(i)||{{}}).depends),dn=reach(id,i=>kids.get(i));
 document.querySelectorAll('.card').forEach(c=>{{const i=c.dataset.id;c.classList.toggle('dim',i!==id&&!up.has(i)&&!dn.has(i));c.classList.toggle('sel',i===id)}});
 document.querySelectorAll('.edge').forEach(p=>p.classList.toggle('hi',p.dataset.a===id||p.dataset.b===id));
 const meta=[n.stage!==undefined?'Stage '+n.stage:'',n.kind,n.owner||n.model,n.status,n.est_weeks?n.est_weeks[0]+'–'+n.est_weeks[1]+' weeks':''].filter(Boolean).map(e).join(' · ');
 P.innerHTML=`<button aria-label="Close">×</button><h2>${{e(n.id)}} · ${{e(n.name)}}</h2><div class="m">${{meta}}</div><p>${{e(n.does)}}</p>`+
 (n.exit?`<p><b>Done when:</b> ${{e(n.exit)}}</p>`:'')+(n.writes&&n.writes.length?`<p class="m">Writes: ${{n.writes.map(e).join(', ')}}</p>`:'')+
 (n.ref?`<p class="m">See ${{e(n.ref)}}</p>`:'')+(n.note?`<p class="m">Note: ${{e(n.note)}}</p>`:'')+
-`<p><b>Needs:</b> ${{(n.depends||[]).map(lk).join(', ')||'nothing'}}</p><p><b>Unblocks:</b> ${{(kids[id]||[]).map(lk).join(', ')||'nothing'}}</p>`;
+`<p><b>Needs:</b> ${{(n.depends||[]).map(lk).join(', ')||'nothing'}}</p><p><b>Unblocks:</b> ${{(kids.get(id)||[]).map(lk).join(', ')||'nothing'}}</p>`;
 P.style.display='block';P.querySelector('button').onclick=clear;
 P.querySelectorAll('[data-go]').forEach(a=>a.onclick=()=>go(a.dataset.go))}}
 function clear(){{P.style.display='none';document.querySelectorAll('.card').forEach(c=>c.classList.remove('dim','sel'));document.querySelectorAll('.edge').forEach(p=>p.classList.remove('hi'))}}

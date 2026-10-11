@@ -10,27 +10,15 @@ The **Stage 0 prototype** (0.0.2-alpha.1) is the first playable slice, with plac
 
 ### From source (recommended)
 
-You need Git and any JDK 21 or newer to start Gradle. Gradle fetches Java 25 itself. Until the branch is merged, use `stage0-prototype`:
+You need Git and any JDK 21 or newer to start Gradle. Gradle fetches Java 25 itself. On a fresh machine, paste this into a terminal:
 
 ```bash
-git clone https://github.com/47noodles/Apoapsis_MC.git
+git clone -b stage0-prototype https://github.com/47noodles/Apoapsis_MC.git && cd Apoapsis_MC && ./gradlew runTestFlight
 ```
 
-```bash
-cd Apoapsis_MC
-```
+On Windows, run `gradlew.bat runTestFlight` from the `Apoapsis_MC` folder instead of `./gradlew runTestFlight`. The first run downloads Minecraft and NeoForge, so it takes a while. The window opens at 1600x900.
 
-```bash
-git checkout stage0-prototype
-```
-
-Then start the test flight. The first run downloads Minecraft and NeoForge, so it takes a while. On Windows, use `gradlew.bat runTestFlight`.
-
-```bash
-./gradlew runTestFlight
-```
-
-It opens straight into the test save, **Apoapsis Test Flight**, with a Kestrel rocket already in orbit and a second one on a pad at spawn. To start the normal game instead:
+It opens straight into the test save, **Apoapsis Test Flight**, with a Kestrel rocket already in orbit and a second one on a pad at spawn. To reset the test save, delete `run/saves/Apoapsis Test Flight`, or run `/apoapsis scenario orbit` to get the same start again. To start the normal game instead:
 
 ```bash
 ./gradlew runClient
@@ -38,7 +26,7 @@ It opens straight into the test save, **Apoapsis Test Flight**, with a Kestrel r
 
 ### As a jar
 
-Open the **Actions** tab on GitHub, pick the latest **Build** run on `stage0-prototype`, and download the `apoapsis-<short sha>` artifact. Unzip it and put the jar in the mods folder of a NeoForge 26.3.0.69-beta instance, for example one made with [Prism Launcher](https://prismlauncher.org/).
+Open the **Actions** tab on GitHub, pick the latest **Build** run on `stage0-prototype`, and download the `apoapsis-<short sha>` artifact. Unzip it and put the jar in the mods folder of a NeoForge 26.3.0.69-beta instance, for example one made with [Prism Launcher](https://prismlauncher.org/) or CurseForge. Then create a creative world with cheats on and run `/apoapsis scenario orbit` for the same start as the test save.
 
 ### Controls
 
@@ -51,10 +39,10 @@ Open the **Actions** tab on GitHub, pick the latest **Build** run on `stage0-pro
 | Q / E | Roll left / right | While piloting, Q's drop and E's inventory are suppressed |
 | R / F | Throttle up / down | While piloting, F's swap-hands is suppressed |
 | Z / X | Full / cut throttle | |
-| G | SAS (hold attitude) on or off | Not T: T is chat |
+| G | Cycle SAS: Off, Hold, Prograde, Retrograde | Hold keeps the attitude. Prograde and Retrograde point the nose along or against your velocity. Not T: T is chat |
 | B | Disassemble (landed and slow) | |
 | M | System map | |
-| . / , | Time warp up / down | Orbit only, engines off, singleplayer |
+| . / , | Time warp up / down | Orbit only, engines off, singleplayer. Works on the map too |
 | Shift | Leave seat | Vanilla dismount |
 
 ### A first flight
@@ -62,10 +50,10 @@ Open the **Actions** tab on GitHub, pick the latest **Build** run on `stage0-pro
 From orbit, in the Kestrel from the test save:
 
 1. Press **M** to open the system map.
-2. Wait for the transfer window. In orbit, **.** warps time forward.
-3. Point prograde (along your direction of travel) and burn about 190 m/s.
+2. Wait for the transfer window. In orbit, **.** warps time forward, on the map as well.
+3. Set SAS to **Prograde** with **G** (it cycles Off, Hold, Prograde, Retrograde), then burn about 190 m/s.
 4. Coast until Pale's gravity takes over at its sphere of influence.
-5. Slow down and land.
+5. Set SAS to **Retrograde** with **G** to brake, then land. Touch down below about 10 m/s: between 10 and 12 m/s is a hard landing, and anything faster (or sliding into the ground above 30 m/s) destroys the ship.
 
 From the pad, with the second Kestrel:
 

@@ -3,7 +3,7 @@
 """Placeholder pixel art for Apoapsis, style "Brassworks NASA-punk".
 
 Writes 16x16 RGBA PNGs to src/main/resources/assets/apoapsis/textures/{block,item}/
-and a labelled contact sheet (each texture x8, nearest-neighbour, on steel-950).
+and, only when --sheet PATH is given, a labelled contact sheet (each texture x8, nearest-neighbour, on steel-950).
 
 Run from the repo root: python tools/art/gen_textures.py [--sheet PATH] [--no-pillow]
 Deterministic: fixed seeds, no timestamps, unchanged files are not rewritten.
@@ -15,7 +15,6 @@ import io
 import math
 import random
 import struct
-import tempfile
 import zlib
 from pathlib import Path
 
@@ -467,9 +466,8 @@ def contact_sheet(path, textures):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Apoapsis placeholder textures.")
-    parser.add_argument("--sheet", type=Path,
-                        default=Path(tempfile.gettempdir()) / "apoapsis_art_contact.png",
-                        help="where to write the contact sheet (kept outside the repo)")
+    parser.add_argument("--sheet", type=Path, default=None,
+                        help="write a labelled contact sheet to PATH (none is written unless this is given)")
     parser.add_argument("--no-pillow", action="store_true",
                         help="encode PNGs with zlib+struct even when Pillow is installed")
     args = parser.parse_args()
@@ -478,9 +476,10 @@ def main():
         path = TEXTURE_DIR / (name + ".png")
         status = write_if_changed(path, encode_png(make().px, use_pillow))
         print(f"{status:9} {path.relative_to(ROOT).as_posix()}")
-    contact_sheet(args.sheet, TEXTURES)
-    if Image is not None:
-        print(f"contact sheet: {args.sheet}")
+    if args.sheet is not None:
+        contact_sheet(args.sheet, TEXTURES)
+        if Image is not None:
+            print(f"contact sheet: {args.sheet}")
 
 
 if __name__ == "__main__":
