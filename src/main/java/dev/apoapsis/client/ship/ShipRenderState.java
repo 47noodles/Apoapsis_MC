@@ -18,6 +18,12 @@ public final class ShipRenderState extends EntityRenderState {
     public List<ShipBlock> blocks = List.of();
     /** How open the parachutes are, 0 to 1; 0 when stowed, torn or landed. */
     public float chuteInflation;
+    /** Re-entry heating, 0 to 1; the plasma sheath is drawn above 0.05. */
+    public float heat;
+    /** Unit direction of motion in dimension axes, which the air flows against; zero when cold. */
+    public Vec3 heatWind = Vec3.ZERO;
+    /** Half the ship's size in metres, plus a margin: the radius the plasma sheath is drawn at. */
+    public double glowRadius;
 
     /** One block: its local position, state, and the reusable moving-block state that draws it. */
     public record ShipBlock(BlockPos pos, BlockState state, MovingBlockRenderState moving) {}

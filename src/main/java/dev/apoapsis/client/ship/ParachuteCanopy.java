@@ -2,6 +2,7 @@ package dev.apoapsis.client.ship;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 
 /**
  * A stylised parachute canopy: a red and white dome with six lines to the pack. Drawn per parachute block while the
@@ -23,10 +24,11 @@ final class ParachuteCanopy {
 
     /**
      * Writes the canopy in body axes, relative to the centre of mass and +Y up. (ax, ay, az) is the parachute block
-     * centre; (ux, uz) is the horizontal outward direction, or zero; inflation runs 0 (stowed) to 1 (open).
+     * centre; (ux, uz) is the horizontal outward direction, or zero; inflation runs 0 (stowed) to 1 (open). The packed
+     * light is written to every vertex, so the canopy is lit by the ship's position.
      */
     static void emit(PoseStack.Pose pose, VertexConsumer buffer, float ax, float ay, float az,
-                     float ux, float uz, float inflation) {
+                     float ux, float uz, float inflation, int light) {
         float f = inflation;
         float rise = 1.2f + (8.0f - 1.2f) * f;
         float radius = 3.0f * (0.25f + 0.75f * f);
@@ -54,7 +56,7 @@ final class ParachuteCanopy {
                 int j = (i + 1) % GORES;
                 int[] c = i % 2 == 0 ? RED : WHITE;
                 doubleSided(pose, buffer, pts[k][i], pts[k][j], pts[k + 1][j], pts[k + 1][i],
-                    (int) (c[0] * shade), (int) (c[1] * shade), (int) (c[2] * shade));
+                    (int) (c[0] * shade), (int) (c[1] * shade), (int) (c[2] * shade), light);
             }
         }
         float[] anchor = {ax, ay + 0.4f, az};
@@ -70,38 +72,53 @@ final class ParachuteCanopy {
             if (w2 == null) {
                 w2 = new float[] {0.0f, 0.0f, 1.0f};
             }
-            ribbon(pose, buffer, anchor, rim, w1);
-            ribbon(pose, buffer, anchor, rim, w2);
+            ribbon(pose, buffer, anchor, rim, w1, light);
+            ribbon(pose, buffer, anchor, rim, w2, light);
         }
     }
 
     /** A thin quad from a to b, widened by LINE_HALF_WIDTH along w. */
-    private static void ribbon(PoseStack.Pose pose, VertexConsumer buffer, float[] a, float[] b, float[] w) {
+    private static void ribbon(PoseStack.Pose pose, VertexConsumer buffer, float[] a, float[] b, float[] w,
+                               int light) {
         doubleSided(pose, buffer,
             offset(a, w, LINE_HALF_WIDTH), offset(a, w, -LINE_HALF_WIDTH),
             offset(b, w, -LINE_HALF_WIDTH), offset(b, w, LINE_HALF_WIDTH),
-            LINE[0], LINE[1], LINE[2]);
+            LINE[0], LINE[1], LINE[2], light);
     }
 
-    /** Writes a quad in both winding orders, so it shows from inside and outside. */
+    /** Writes a quad in both winding orders, so it shows from inside and outside, each lit by its own normal. */
     private static void doubleSided(PoseStack.Pose pose, VertexConsumer buffer, float[] a, float[] b, float[] c,
-                                    float[] d, int r, int g, int bl) {
-        vertex(pose, buffer, a, r, g, bl);
-        vertex(pose, buffer, b, r, g, bl);
-        vertex(pose, buffer, c, r, g, bl);
-        vertex(pose, buffer, d, r, g, bl);
-        vertex(pose, buffer, d, r, g, bl);
-        vertex(pose, buffer, c, r, g, bl);
-        vertex(pose, buffer, b, r, g, bl);
-        vertex(pose, buffer, a, r, g, bl);
+                                    float[] d, int r, int g, int bl, int light) {
+        float[] n = quadNormal(a, b, c, d);
+        float[] back = {-n[0], -n[1], -n[2]};
+        vertex(pose, buffer, a, r, g, bl, n, light);
+        vertex(pose, buffer, b, r, g, bl, n, light);
+        vertex(pose, buffer, c, r, g, bl, n, light);
+        vertex(pose, buffer, d, r, g, bl, n, light);
+        vertex(pose, buffer, d, r, g, bl, back, light);
+        vertex(pose, buffer, c, r, g, bl, back, light);
+        vertex(pose, buffer, b, r, g, bl, back, light);
+        vertex(pose, buffer, a, r, g, bl, back, light);
     }
 
-    private static void vertex(PoseStack.Pose pose, VertexConsumer buffer, float[] p, int r, int g, int bl) {
-        buffer.addVertex(pose, p[0], p[1], p[2]).setColor(r, g, bl, 255);
+    private static void vertex(PoseStack.Pose pose, VertexConsumer buffer, float[] p, int r, int g, int bl,
+                               float[] n, int light) {
+        buffer.addVertex(pose, p[0], p[1], p[2]).setColor(r, g, bl, 255).setUv(0.0f, 0.0f)
+            .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, n[0], n[1], n[2]);
+    }
+
+    /** The unit normal of quad abcd on the side its winding faces; the diagonals stay non-zero if an edge collapses. */
+    private static float[] quadNormal(float[] a, float[] b, float[] c, float[] d) {
+        float[] n = unit(cross(minus(c, a), minus(d, b)));
+        return n == null ? new float[] {0.0f, 1.0f, 0.0f} : n;
     }
 
     private static float[] offset(float[] p, float[] w, float s) {
         return new float[] {p[0] + s * w[0], p[1] + s * w[1], p[2] + s * w[2]};
+    }
+
+    private static float[] minus(float[] a, float[] b) {
+        return new float[] {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
     }
 
     private static float[] cross(float[] a, float[] b) {

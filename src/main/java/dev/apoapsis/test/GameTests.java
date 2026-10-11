@@ -132,6 +132,8 @@ public final class GameTests {
                 new ApoapsisGameTest("chute_terminal_speed", environment, 200, LandingTests::chuteTerminalSpeed));
         event.registerTest(TestSupport.id("chutes_shred_when_too_fast"),
                 new ApoapsisGameTest("chutes_shred_when_too_fast", environment, 40, LandingTests::chutesShredWhenTooFast));
+        event.registerTest(TestSupport.id("chute_orbit_regime"),
+                new ApoapsisGameTest("chute_orbit_regime", environment, 200, LandingTests::chuteSlowsInOrbitRegime));
         event.registerTest(TestSupport.id("landing_legs_set_the_crash_limit"),
                 new ApoapsisGameTest("landing_legs_set_the_crash_limit", environment, 100, LandingTests::legsSetTheCrashLimit));
         ManeuverTests.register(event, environment);

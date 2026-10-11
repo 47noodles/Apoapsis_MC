@@ -1,6 +1,7 @@
 package dev.apoapsis.client;
 
 import dev.apoapsis.Apoapsis;
+import dev.apoapsis.client.hud.ReentryVignette;
 import dev.apoapsis.client.map.FlightHud;
 import dev.apoapsis.client.map.MapScreen;
 import dev.apoapsis.client.map3d.ManeuverEditor;
@@ -26,6 +27,8 @@ import net.neoforged.neoforge.event.level.LevelEvent;
  */
 public final class MapClient {
     private static final Identifier FLIGHT_HUD = Identifier.fromNamespaceAndPath(Apoapsis.MODID, "flight_hud");
+    private static final Identifier REENTRY_VIGNETTE =
+            Identifier.fromNamespaceAndPath(Apoapsis.MODID, "reentry_vignette");
     private static final String MAP3D_PROPERTY = "apoapsis.map3d";
     /** Which map the map key opens: the 3D one unless {@code -Dapoapsis.map3d=false}; Tab in a map flips it. */
     private static boolean use3d = Boolean.parseBoolean(System.getProperty(MAP3D_PROPERTY, "true"));
@@ -75,6 +78,7 @@ public final class MapClient {
 
     private static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
         event.registerAbove(VanillaGuiLayers.HOTBAR, FLIGHT_HUD, FlightHud::render);
+        event.registerBelow(FLIGHT_HUD, REENTRY_VIGNETTE, ReentryVignette::render);
     }
 
     /** Counts the client ticks the game ran (not paused): the clock the orbit extrapolation reads. */

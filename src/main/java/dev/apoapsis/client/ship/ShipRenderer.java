@@ -11,9 +11,11 @@ import net.minecraft.client.renderer.block.MovingBlockRenderState;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -28,6 +30,9 @@ import org.joml.Vector3f;
 public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderState> {
     /** Ships farther than this from the camera are not drawn, in metres. */
     public static final double RENDER_RANGE = 256.0;
+    /** Lit canopy fill: vanilla has no minecraft:textures/misc/white.png in 26.x, so NeoForge's 16x16 white is used. */
+    private static final RenderType CANOPY_TYPE = RenderTypes.entitySolid(
+        Identifier.fromNamespaceAndPath("neoforge", "textures/white.png"));
 
     public ShipRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -47,6 +52,11 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
         state.centerOfMass = ship.getCenterOfMassLocal();
         state.blocks = cache.updateBlocks(ship.getStructure());
         state.chuteInflation = ship.isLanded() ? 0f : (float) ship.chuteInflation(partialTicks);
+        ReentryState.Heat heat = ReentryState.of(ship);
+        state.heat = heat.intensity();
+        state.heatWind = heat.wind();
+        AABB localBounds = ship.getStructure().localBounds();
+        state.glowRadius = 0.5 * Math.max(localBounds.getXsize(), Math.max(localBounds.getYsize(), localBounds.getZsize())) + 1.0;
         if (ship.level() instanceof ClientLevel level) {
             // Every block takes its light from the ship's position, as FallingBlockRenderer does for its block.
             // The light references are set every frame and never outlive the cache entry.
@@ -81,6 +91,7 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
             poseStack.popPose();
         }
         float inflation = state.chuteInflation;
+        int light = state.lightCoords;
         if (inflation > 0) {
             for (ShipRenderState.ShipBlock block : state.blocks) {
                 if (!ShipParts.isParachute(block.state())) {
@@ -93,12 +104,17 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
                 double hl = Math.hypot(ax, az);
                 double ux = hl < 0.3 ? 0.0 : ax / hl;
                 double uz = hl < 0.3 ? 0.0 : az / hl;
-                submitNodeCollector.submitCustomGeometry(poseStack, RenderTypes.debugQuads(),
+                submitNodeCollector.submitCustomGeometry(poseStack, CANOPY_TYPE,
                     (pose, buffer) -> ParachuteCanopy.emit(pose, buffer, (float) ax, (float) ay, (float) az,
-                        (float) ux, (float) uz, inflation));
+                        (float) ux, (float) uz, inflation, light));
             }
         }
         poseStack.popPose();
+        if (state.heat > 0.05f) {
+            Vec3 cam = camera.pos;
+            ReentryGlow.submit(poseStack, submitNodeCollector, state.heat, state.heatWind, state.glowRadius,
+                new Vec3(cam.x - state.x, cam.y - state.y, cam.z - state.z));
+        }
         super.submit(state, poseStack, submitNodeCollector, camera);
     }
 

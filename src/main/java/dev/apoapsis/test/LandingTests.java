@@ -1,7 +1,13 @@
 package dev.apoapsis.test;
 
+import dev.apoapsis.Apoapsis;
+import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.Environment;
 import dev.apoapsis.flight.FlightHooks;
+import dev.apoapsis.flight.OrbitFlight;
+import dev.apoapsis.orbit.MeridianSystem;
+import dev.apoapsis.orbit.StateVector;
+import dev.apoapsis.orbit.Vec3d;
 import dev.apoapsis.ship.DescentGear;
 import dev.apoapsis.ship.ShipEntity;
 import dev.apoapsis.ship.ShipStructure;
@@ -90,6 +96,72 @@ final class LandingTests {
                     double speed = ship.getVelocity().length();
                     helper.assertTrue(Math.abs(speed - expected) <= 0.04 * expected,
                             "speed " + speed + " m/s, expected the terminal speed " + expected + " m/s");
+                })
+                .thenSucceed();
+    }
+
+    /** Nine hull plates and no chutes: the control ship for the orbit test. */
+    private static ShipStructure hullOnly(GameTestHelper helper) {
+        ShipStructure structure = new ShipStructure();
+        hullLayer(helper, structure, 0);
+        return structure;
+    }
+
+    /**
+     * Inside the atmosphere the open chutes slow a falling ship in the orbit regime too. A chute ship and a hull-only
+     * control fall radially from 8 km altitude at 200 m/s through {@link OrbitFlight#simulate} for 20 s. The chute ship
+     * settles at the terminal speed for the air at its end altitude (within 8%) and ends far slower than the control.
+     * Also checks the three deploy-check cases, and that a ship given the chute state keeps it.
+     */
+    static void chuteSlowsInOrbitRegime(GameTestHelper helper, ShipCleanup ships) {
+        BlockPos corner = TestSupport.chunkCorner(helper);
+        chunkFloor(helper, corner);
+        ShipEntity chute = spawnAt(helper, ships, chuteShip(helper), corner.offset(4, 71, 4));
+        ShipEntity control = spawnAt(helper, ships, hullOnly(helper), corner.offset(10, 71, 10));
+        chute.setThrottle(0f);
+        control.setThrottle(0f);
+        chute.setVelocity(new Vec3(0, -10, 0));
+        chute.deployParachutes();
+        helper.assertTrue(chute.getChuteState() > DescentGear.STOWED,
+                "the chutes did not deploy: state " + chute.getChuteState());
+
+        helper.startSequence()
+                .thenExecuteAfter(DescentGear.INFLATE_TICKS + 5, () -> {
+                    helper.assertTrue(chute.getChuteState() == DescentGear.INFLATE_TICKS,
+                            "the chutes are not fully open: state " + chute.getChuteState());
+
+                    double radius = MeridianSystem.VERDANCE.radius;
+                    StateVector start = new StateVector(new Vec3d(radius + 8000.0, 0, 0), new Vec3d(-200.0, 0, 0));
+                    StateVector chuteEnd = OrbitFlight.simulate(chute, BodyId.VERDANCE, start, 20.0);
+                    StateVector controlEnd = OrbitFlight.simulate(control, BodyId.VERDANCE, start, 20.0);
+                    double chuteSpeed = chuteEnd.v().length();
+                    double controlSpeed = controlEnd.v().length();
+                    double r = chuteEnd.r().length();
+                    double alt = r - radius;
+                    double expected = DescentGear.terminalSpeedMps(chute.massKg(), MeridianSystem.VERDANCE.gravity(r),
+                            MeridianSystem.VERDANCE.density(alt), 0.5 * Math.pow(chute.getStructure().size(), 2.0 / 3.0),
+                            chute.parachuteCount());
+                    Apoapsis.LOG.info("chute_orbit_regime: chute " + chuteSpeed + " m/s, control " + controlSpeed
+                            + " m/s, terminal " + expected + " m/s at alt " + alt + " m");
+
+                    helper.assertTrue(Math.abs(chuteSpeed - expected) <= 0.08 * expected,
+                            "chute ship speed " + chuteSpeed + " m/s, expected the terminal speed " + expected
+                                    + " m/s at " + alt + " m altitude");
+                    helper.assertTrue(chuteSpeed < 0.5 * controlSpeed,
+                            "the chutes did not slow the ship: " + chuteSpeed + " m/s against " + controlSpeed
+                                    + " m/s without them");
+
+                    helper.assertTrue(DescentGear.deployCheck(0.0, 10.0) == DescentGear.DeployCheck.NO_AIR,
+                            "a vacuum must refuse the chutes");
+                    helper.assertTrue(DescentGear.deployCheck(1.225, 300.0) == DescentGear.DeployCheck.TOO_FAST,
+                            "300 m/s must tear the chutes");
+                    helper.assertTrue(DescentGear.deployCheck(1.225, 200.0) == DescentGear.DeployCheck.OK,
+                            "200 m/s in air must let the chutes open");
+
+                    control.copyChuteStateFrom(chute);
+                    helper.assertTrue(control.getChuteState() == chute.getChuteState(),
+                            "the copied chute state " + control.getChuteState() + " is not "
+                                    + chute.getChuteState());
                 })
                 .thenSucceed();
     }

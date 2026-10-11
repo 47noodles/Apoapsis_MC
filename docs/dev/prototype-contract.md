@@ -127,6 +127,8 @@ Gates: the crafting result is withheld, and placing or using the item is refused
 
 - `/apoapsis scenario pad`: builds the *Kestrel* on a pad next to you, fuelled, and raises you to Age 4 quietly (no Custodian announcement, since no flight happened).
 - `/apoapsis scenario orbit`: puts the *Kestrel* in a 16 km circular Verdance orbit with you in the cockpit, Pale about 2 minutes from the transfer window (a burn of about 190 m/s prograde). It raises you to Age 4 quietly.
+- `/apoapsis scenario lander burn <200-5000>`: the *Kestrel* lander with full tanks, four landing legs and no parachutes, that many metres above sea level over you, with you in the cockpit (for the radar altitude and burn cue).
+- `/apoapsis seamless dive <altitude> <speed> <path deg> <plain|chutes>`: a *Kestrel* in the orbit regime above Verdance at that speed, its velocity that many degrees below prograde and its nose retrograde, with you in the cockpit (for re-entry heating; `chutes` is the lander with parachutes and empty tanks).
 - `gradlew runTestFlight` starts the game with the system property `apoapsis.testFlight=true`. On the title screen it opens the save **Apoapsis Test Flight**, creating it on first launch (creative, cheats on, fixed seed). On the first join it runs the orbit scenario and builds a second Kestrel on a pad at spawn. No dedicated server and no EULA file are involved.
 
 ## Cross-module hooks added before dispatch

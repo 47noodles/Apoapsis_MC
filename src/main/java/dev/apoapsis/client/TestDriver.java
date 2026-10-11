@@ -20,7 +20,7 @@ import org.slf4j.Logger;
  * takes screenshots of the flight view, the map and a short engine burn into run/screenshots, logs the orbit before and
  * after the burn, then quits the game. The other values choose a named script: {@code transfer} (the Pale transfer),
  * {@code ascent} (a launch from the pad), {@code pale} (the transfer, then a landing on Pale) and {@code land} (a drop
- * from 1,200 m under parachutes).
+ * from 1,200 m under parachutes) and {@code m07} (the landing aids and re-entry screenshots).
  */
 public final class TestDriver {
     private static final Logger LOG = LogUtils.getLogger();
@@ -53,6 +53,7 @@ public final class TestDriver {
             case "pale" -> new TestDriverPale();
             case "land" -> new TestDriverLand();
             case "map" -> new TestDriverMap();
+            case "m07" -> new TestDriverM07();
             default -> null;
         };
     }

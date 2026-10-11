@@ -17,7 +17,7 @@ import net.minecraft.world.phys.Vec3;
  * Orbital translation of a ship in the orbit dimension: Kepler propagation while coasting, RK4 with thrust and drag
  * inside an atmosphere or under thrust, and sphere-of-influence switching between Verdance and Pale.
  */
-final class OrbitFlight {
+public final class OrbitFlight {
     /** Largest RK4 substep, seconds of game time. */
     static final double MAX_STEP_S = 0.05;
     /** Cap on RK4 substeps in one call, so a long unload gap cannot stall the server thread. */
@@ -29,6 +29,8 @@ final class OrbitFlight {
      * Advances the ship's orbit from its last update to universal time {@code ut}, pins it to its slot, and switches
      * sphere of influence if needed.
      *
+     * Hull and open-chute drag both act on the ship inside an atmosphere.
+     *
      * @param thrustLocal thrust acceleration in orbit-dimension axes (m/s^2)
      */
     static void advance(ShipEntity ship, FlightState st, Vec3 thrustLocal, double ut) {
@@ -37,7 +39,7 @@ final class OrbitFlight {
         Vec3d thrust = new Vec3d(thrustLocal.x, -thrustLocal.z, thrustLocal.y);
         double mass = Math.max(ship.massKg(), 1.0);
         double cdA = 0.5 * Math.pow(Math.max(1, ship.getStructure().size()), 2.0 / 3.0);
-        double dragK = 0.5 * cdA / mass;
+        double dragK = 0.5 * (cdA + ship.chuteDragAreaM2()) / mass;
         Function<StateVector, Vec3d> accel = s -> {
             double alt = Math.max(s.r().length() - body.radius, 0.0);
             double rho = body.density(alt);
@@ -61,6 +63,27 @@ final class OrbitFlight {
         ship.setPos(FlightDimensions.slotPosition(st.slot));
         ship.setDeltaMovement(Vec3.ZERO);
         switchSoi(ship, st, ut);
+    }
+
+    /**
+     * Runs the orbit-regime step on a scratch orbit state, 0.05 s per step, for {@code seconds} of game time, from the
+     * inertial state {@code start} around {@code body} with no thrust, and returns the final state. Moves the ship to
+     * slot 0's position, as {@link #advance} does. Used by GameTests, because the orbit dimension does not exist in the
+     * GameTest world.
+     */
+    public static StateVector simulate(ShipEntity ship, BodyId body, StateVector start, double seconds) {
+        double dt = 0.05;
+        FlightState st = FlightState.inOrbit(body, start, 0.0, 0);
+        int steps = (int) Math.ceil(seconds / dt);
+        for (int i = 1; i <= steps; i++) {
+            advance(ship, st, Vec3.ZERO, i * dt);
+        }
+        return st.stateVector();
+    }
+
+    /** Inertial speed of the ship relative to its body, m/s, in the orbit regime. Read by the chutes' deploy check. */
+    public static double inertialSpeedMps(ShipEntity ship) {
+        return FlightAttachments.state(ship).v().length();
     }
 
     private static StateVector integrate(CelestialBody body, StateVector s0, double span,

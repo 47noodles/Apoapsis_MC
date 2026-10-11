@@ -3,6 +3,7 @@ package dev.apoapsis.ship;
 import dev.apoapsis.ages.Guide;
 import dev.apoapsis.flight.Environment;
 import dev.apoapsis.flight.FlightHooks;
+import dev.apoapsis.flight.OrbitFlight;
 import dev.apoapsis.grid.ShipParts;
 import dev.apoapsis.ownership.ShipOwnership;
 import java.util.ArrayList;
@@ -430,6 +431,26 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         return legCount;
     }
 
+    /**
+     * How far below the centre of mass, m, the lowest hull or landing-leg block bottom lies at the current attitude. At
+     * least half a block, which is the distance from a block centre to its bottom face.
+     */
+    public double lowestPointBelowCentreM() {
+        ensureStructureCache();
+        double[] m = ShipGeometry.matrix(getOrientation());
+        double lowest = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < hullCount; i++) {
+            lowest = Math.min(lowest, m[3] * hullX[i] + m[4] * hullY[i] + m[5] * hullZ[i]);
+        }
+        for (int i = 0; i < legCount; i++) {
+            lowest = Math.min(lowest, m[3] * legX[i] + m[4] * legY[i] + m[5] * legZ[i]);
+        }
+        if (lowest == Double.POSITIVE_INFINITY) {
+            return 0.5;
+        }
+        return Math.max(0.5, 0.5 - lowest);
+    }
+
     /** How open the chutes are, 0 to 1, smoothed by the partial tick. */
     public double chuteInflation(float partialTicks) {
         int state = getChuteState();
@@ -439,10 +460,15 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         return Math.min(state + partialTicks, DescentGear.INFLATE_TICKS) / (double) DescentGear.INFLATE_TICKS;
     }
 
+    /** Drag area Cd * A of the open parachutes right now, m^2: zero while stowed or torn, full once inflated. */
+    public double chuteDragAreaM2() {
+        return DescentGear.chuteDragAreaM2(parachuteCount(), getChuteState());
+    }
+
     /**
      * Deploys every parachute block on the ship, one way: the chutes stay open until the ship is landed and taken
-     * apart. Does nothing without air (the pilot is told), and shreds the chutes above
-     * {@link DescentGear#SHRED_SPEED_MPS}. Server only. Chutes act in the surface regime only.
+     * apart. Chutes act in the surface regime, and in the orbit regime while the ship is inside the atmosphere. With no
+     * air the pilot is told, and the chutes are shredded above {@link DescentGear#SHRED_SPEED_MPS}. Server only.
      */
     public void deployParachutes() {
         if (level().isClientSide() || chuteState != DescentGear.STOWED) {
@@ -453,11 +479,13 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
             return;
         }
         Environment env = FlightHooks.environment(this);
-        if (env.orbital() || env.airDensity() <= 0) {
+        double airspeed = env.orbital() ? OrbitFlight.inertialSpeedMps(this) : velocity.length();
+        DescentGear.DeployCheck check = DescentGear.deployCheck(env.airDensity(), airspeed);
+        if (check == DescentGear.DeployCheck.NO_AIR) {
             tell("message.apoapsis.ship.no_air");
             return;
         }
-        if (velocity.length() > DescentGear.SHRED_SPEED_MPS) {
+        if (check == DescentGear.DeployCheck.TOO_FAST) {
             tearParachutes();
             tell("message.apoapsis.ship.chutes_torn");
             return;
@@ -466,6 +494,15 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         wake();
         level().playSound(null, getX(), getY(), getZ(), SoundEvents.WOOL_PLACE, SoundSource.NEUTRAL, 2.0f, 0.7f);
         tell("message.apoapsis.ship.chutes_deployed");
+    }
+
+    /**
+     * Takes over the chute state of {@code other}, the ship this one replaces when it crosses between the surface and
+     * the orbit dimension, so open chutes stay open. Server only.
+     */
+    public void copyChuteStateFrom(ShipEntity other) {
+        this.chuteState = other.getChuteState();
+        wake();
     }
 
     /** The chutes are shredded: removed from the ship, for good. */

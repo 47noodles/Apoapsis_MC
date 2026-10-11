@@ -161,6 +161,7 @@ public final class Transitions {
         ShipEntity fresh = ShipEntity.spawn(target, structure, pos, orientation);
         fresh.setThrottle(old.getThrottle());
         fresh.setSasMode(old.getSasMode());
+        fresh.copyChuteStateFrom(old);
         ShipOwnership.copy(old, fresh);
         fresh.setVelocity(velocity);
         fresh.setAngularVelocity(old.getAngularVelocity());

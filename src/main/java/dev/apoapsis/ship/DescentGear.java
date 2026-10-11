@@ -65,6 +65,31 @@ public final class DescentGear {
         return Math.sqrt(2.0 * massKg * gravity / (airDensity * area));
     }
 
+    /** Result of checking whether the chutes may open: {@link #OK}, {@link #NO_AIR} or {@link #TOO_FAST}. */
+    public enum DeployCheck {
+        /** The chutes may open. */
+        OK,
+        /** There is no air to catch the ship: the air density is zero or below. */
+        NO_AIR,
+        /** The ship is faster than {@link DescentGear#SHRED_SPEED_MPS}, so the chutes would shred. */
+        TOO_FAST
+    }
+
+    /**
+     * Whether the chutes may open now. {@link DeployCheck#NO_AIR} when {@code airDensity} kg/m^3 is not positive,
+     * otherwise {@link DeployCheck#TOO_FAST} when {@code airspeedMps} m/s is above {@link #SHRED_SPEED_MPS}, otherwise
+     * {@link DeployCheck#OK}.
+     */
+    public static DeployCheck deployCheck(double airDensity, double airspeedMps) {
+        if (airDensity <= 0) {
+            return DeployCheck.NO_AIR;
+        }
+        if (airspeedMps > SHRED_SPEED_MPS) {
+            return DeployCheck.TOO_FAST;
+        }
+        return DeployCheck.OK;
+    }
+
     /**
      * The vertical impact speed, m/s, above which the ship is destroyed, given the number of landing legs on its
      * lowest layer: 12 without legs or with fewer than 3, otherwise 12 + 4 per leg, never more than 24.

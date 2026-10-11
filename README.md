@@ -69,6 +69,8 @@ The test save has cheats on, so these work there:
 
 - `/apoapsis scenario pad`: builds a fuelled Kestrel on a pad next to you and raises you to Age 4.
 - `/apoapsis scenario orbit`: puts a Kestrel in a 16 km circular orbit around Verdance, with you in the cockpit.
+- `/apoapsis scenario lander burn <200-5000>`: drops a fuelled lander with landing legs and no parachutes that many metres above sea level, with you in the cockpit, to try the radar altitude and burn cue.
+- `/apoapsis seamless dive <altitude> <speed> <path deg> <plain|chutes>`: puts a Kestrel above Verdance diving at that speed and angle, nose retrograde, with you in the cockpit, to see the re-entry glow; `chutes` gives the lander with parachutes and empty tanks.
 - `/apoapsis age`: shows your Age. `set` and `sandbox` need permission level 2.
 - `/apoapsis guide`: the Custodian's guide shows each step once, in chat, as you reach it; this shows your current step again. `/apoapsis guide book` gives you the whole guide as a book.
 

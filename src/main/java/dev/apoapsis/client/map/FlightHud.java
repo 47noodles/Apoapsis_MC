@@ -136,6 +136,11 @@ public final class FlightHud {
         drawCluster(c, ship, rd, up, vel, left, top, scale);
         drawStatus(c, ship, p, rd, top, scale);
         drawTopRight(c, p, body);
+        if (!orbit) {
+            double radar = RadarAltitude.of(mc.level, ship);
+            int x = left + px(CLUSTER_W, scale) + PAD;
+            LandingReadout.draw(c, ship, radar, rd.vs(), body, rd.alt(), x, top + px(CLUSTER_H, scale), scale);
+        }
 
         if (firstPerson) {
             drawMarkers(c, mc, ship, p, body, orbit, s, partialTick, up, vel);

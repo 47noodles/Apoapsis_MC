@@ -4,6 +4,7 @@ import dev.apoapsis.client.ship.CockpitCamera;
 import dev.apoapsis.client.ship.EngineParticles;
 import dev.apoapsis.client.ship.PilotInput;
 import dev.apoapsis.client.ship.PilotKeys;
+import dev.apoapsis.client.ship.ReentryParticles;
 import dev.apoapsis.client.ship.ShipRenderCache;
 import dev.apoapsis.client.ship.ShipRenderer;
 import dev.apoapsis.ship.ShipEntities;
@@ -69,6 +70,7 @@ public final class ShipClient {
         }
         if (!mc.isPaused()) {
             EngineParticles.tick(mc);
+            ReentryParticles.tick(mc);
         }
     }
 

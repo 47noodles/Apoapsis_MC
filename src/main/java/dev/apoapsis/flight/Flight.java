@@ -35,6 +35,27 @@ public final class Flight {
      */
     public static ShipEntity spawnInOrbit(MinecraftServer server, ShipStructure structure, BodyId body,
                                           double altitudeM, double phaseDeg) {
+        CelestialBody sys = FlightDimensions.system(body);
+        double r = sys.radius + altitudeM;
+        return spawnInOrbit(server, structure, body, altitudeM, phaseDeg, Math.sqrt(sys.mu / r), 0, false);
+    }
+
+    /**
+     * Spawns a ship from a structure into the orbit dimension with a given state: at {@code phaseDeg} around the body,
+     * moving at {@code speedMps} along a path angle from prograde. The nose points along the velocity, or against it
+     * when {@code noseRetro} is set.
+     *
+     * @param body         central body
+     * @param altitudeM    starting altitude above the body's surface, metres
+     * @param phaseDeg     ship's angle around the body (0 = +X axis), degrees
+     * @param speedMps     speed relative to the body's centre, metres per second
+     * @param pathDegDown  flight path angle, degrees: 0 is prograde, positive points the velocity down toward the body
+     * @param noseRetro    true to point the nose opposite the velocity
+     * @return the spawned ship entity in the apoapsis:orbit dimension, or null on failure
+     */
+    public static ShipEntity spawnInOrbit(MinecraftServer server, ShipStructure structure, BodyId body,
+                                          double altitudeM, double phaseDeg, double speedMps, double pathDegDown,
+                                          boolean noseRetro) {
         ServerLevel level = server.getLevel(FlightDimensions.ORBIT);
         if (level == null) {
             return null;
@@ -44,11 +65,17 @@ public final class Flight {
         double phi = Math.toRadians(phaseDeg);
         double cos = Math.cos(phi);
         double sin = Math.sin(phi);
+        double path = Math.toRadians(pathDegDown);
+        double cosPath = Math.cos(path);
+        double sinPath = Math.sin(path);
         Vec3d pos = new Vec3d(r * cos, r * sin, 0);
-        double speed = Math.sqrt(sys.mu / r);
-        Vec3d vel = new Vec3d(-speed * sin, speed * cos, 0);
-        // Prograde is body +Y. Inertial (-sin, cos, 0) maps to orbit-dimension axes (X, Z, -Y) = (-sin, 0, -cos).
-        Quaternionf orientation = Frames.noseTowards(-sin, 0, -cos);
+        // Prograde (-sin, cos, 0) tilted by the path angle toward the body, which is -radialOut (-cos, -sin, 0).
+        double dirX = -cosPath * sin - sinPath * cos;
+        double dirY = cosPath * cos - sinPath * sin;
+        Vec3d vel = new Vec3d(speedMps * dirX, speedMps * dirY, 0);
+        // Orbit-dimension axes of an inertial (X, Y, Z) are (X, Z, -Y). Prograde maps to (-sin, 0, -cos).
+        double sign = noseRetro ? -1 : 1;
+        Quaternionf orientation = Frames.noseTowards(sign * dirX, 0, -sign * dirY);
 
         int slot = OrbitSlots.claim(server, level);
         Vec3 at = FlightDimensions.slotPosition(slot);

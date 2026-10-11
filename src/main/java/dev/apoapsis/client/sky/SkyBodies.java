@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.OrderedSubmitNodeCollector;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
@@ -49,16 +50,13 @@ public final class SkyBodies {
     private static final double FAR_FRACTION = 0.9;
     /** Brightness of the unlit side of a lit body, 0..1. */
     private static final double AMBIENT = 0.10;
-    /** Alpha of the atmosphere rim at the limb before lighting. Low, so the rim reads as a soft glow. */
-    private static final double RIM_ALPHA = 0.35;
-    /** Caps (R + top) / distance so the rim angle stays below 90 degrees. */
-    private static final double RIM_LIMIT = 0.98;
+    /** Largest rim angle, so the glow stays in front of the camera's sky. */
+    private static final double MAX_RIM = Math.toRadians(170);
     /** Sun direction in inertial axes: +X. In the orbit dimension this is local +X too. */
     private static final Vec3d SUN = new Vec3d(1, 0, 0);
 
     private static final int VERDANCE_RGB = 0x2F6F63;
     private static final int PALE_RGB = 0x8D8D88;
-    private static final int ATMOSPHERE_RGB = 0x5AA9F5;
     private static final int OVERWORLD_SEA_LEVEL = 63;
     private static final int PALE_SEA_LEVEL = 64;
 
@@ -156,6 +154,9 @@ public final class SkyBodies {
             RenderType planet = planetType(disc.body());
             if (planet != null) {
                 submitCap(collector, poseStack, disc, planet, far);
+                if (disc.rimAngle() > 0) {
+                    submit(collector.order(1), poseStack, haloMesh(disc, basis, far));
+                }
             } else {
                 submit(collector, poseStack, discMesh(disc, basis, far));
             }
@@ -254,15 +255,31 @@ public final class SkyBodies {
         double distance = viewer.length();
         Vec3d dir = axes.apply(viewer.scale(-1 / distance));
         double angle = Math.asin(Math.min(1, body.radius / distance));
-        double rimAngle = 0;
-        if (body.atmosphereTop > 0) {
-            double top = Math.asin(Math.min(RIM_LIMIT, (body.radius + body.atmosphereTop) / distance));
-            if (top > angle) {
-                rimAngle = top;
-            }
-        }
+        double rimAngle = rimAngleOf(body, distance, angle);
         int rgb = body == MeridianSystem.PALE ? PALE_RGB : VERDANCE_RGB;
         return new Disc(body, distance, dir, angle, rimAngle, rgb, lit, viewer, axes, alpha);
+    }
+
+    /**
+     * The angle from the body centre where its atmosphere glow ends, or 0 for a body without an atmosphere. Outside the
+     * atmosphere that is the top of its shell, at least 8% past the limb. Inside it (camera below the top), the horizon,
+     * pushed past 90 degrees as the camera sinks toward the surface, so the haze reaches up past the horizon.
+     */
+    private static double rimAngleOf(CelestialBody body, double distance, double angle) {
+        double h = body.atmosphereTop;
+        if (h <= 0) {
+            return 0;
+        }
+        double r = body.radius;
+        double rim;
+        if (distance >= r + h) {
+            double top = Math.asin(Math.min(1, (r + h) / distance));
+            rim = angle + Math.max(top - angle, 0.08 * angle);
+        } else {
+            double alt = Math.max(0, distance - r);
+            rim = Math.max(angle + 0.08 * angle, Math.PI / 2 + Math.toRadians(16) * (1 - alt / h));
+        }
+        return Math.min(rim, MAX_RIM);
     }
 
     private static int seaLevel(CelestialBody body) {
@@ -300,31 +317,18 @@ public final class SkyBodies {
         return new Mesh(RenderTypes.debugTriangleFan(), xyz, argb, order);
     }
 
-    /**
-     * The atmosphere rim: a ring from the limb out to the top of the atmosphere, alpha falling from RIM_ALPHA (lit
-     * side brighter) to zero. Drawn as quads, since a fan cannot have a hole for the body.
-     */
+    /** The atmosphere glow from the limb out to the rim angle, as quads (a fan cannot have a hole for the body). */
     private static Mesh rimMesh(Disc disc, Basis basis, double far) {
-        int ring = SEGMENTS + 1;
-        float[] xyz = new float[2 * ring * 3];
-        int[] argb = new int[2 * ring];
-        for (int i = 0; i < ring; i++) {
-            Vec3d limb = basis.limb(i);
-            double lit = light(disc, limb.dot(SUN));
-            put(xyz, i, basis.sightLine(disc.angle(), limb).scale(far));
-            argb[i] = argb((int) Math.round(255 * RIM_ALPHA * lit * disc.alpha()), ATMOSPHERE_RGB, 1);
-            put(xyz, ring + i, basis.sightLine(disc.rimAngle(), limb).scale(far));
-            argb[ring + i] = argb(0, ATMOSPHERE_RGB, 1);
-        }
-        int[] order = new int[SEGMENTS * 4];
-        for (int i = 0; i < SEGMENTS; i++) {
-            int k = 4 * i;
-            order[k] = i;
-            order[k + 1] = i + 1;
-            order[k + 2] = ring + i + 1;
-            order[k + 3] = ring + i;
-        }
-        return new Mesh(RenderTypes.debugQuads(), xyz, argb, order);
+        AtmosphereRim.Geometry g = AtmosphereRim.outer(disc.dir(), basis.e1(), basis.e2(), disc.angle(),
+                disc.rimAngle(), disc.alpha(), disc.axes().apply(SUN), far, AtmosphereRim.SEGMENTS);
+        return new Mesh(RenderTypes.debugQuads(), g.xyz(), g.argb(), g.order());
+    }
+
+    /** The thin halo just inside the limb, drawn over the planet cap. */
+    private static Mesh haloMesh(Disc disc, Basis basis, double far) {
+        AtmosphereRim.Geometry g = AtmosphereRim.inner(disc.dir(), basis.e1(), basis.e2(), disc.angle(), disc.alpha(),
+                disc.axes().apply(SUN), far, AtmosphereRim.SEGMENTS);
+        return new Mesh(RenderTypes.debugQuads(), g.xyz(), g.argb(), g.order());
     }
 
     private static void put(float[] xyz, int vertex, Vec3d p) {
@@ -334,7 +338,7 @@ public final class SkyBodies {
     }
 
     /** Hands the mesh to the level's submit collector; vertices are written later, in the feature pass. */
-    private static void submit(SubmitNodeCollector collector, PoseStack poseStack, Mesh mesh) {
+    private static void submit(OrderedSubmitNodeCollector collector, PoseStack poseStack, Mesh mesh) {
         collector.submitCustomGeometry(poseStack, mesh.type(), (pose, buffer) -> {
             for (int v : mesh.order()) {
                 int c = mesh.argb()[v];

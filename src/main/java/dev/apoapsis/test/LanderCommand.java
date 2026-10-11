@@ -1,5 +1,6 @@
 package dev.apoapsis.test;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.apoapsis.Apoapsis;
@@ -13,10 +14,12 @@ import dev.apoapsis.scenario.Scenarios;
 import dev.apoapsis.ship.ShipEntity;
 import dev.apoapsis.ship.ShipStructure;
 import java.util.ArrayList;
+import java.util.Locale;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -26,9 +29,14 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import org.joml.Quaternionf;
 
 /**
- * Test scenario {@code /apoapsis scenario lander}: the Kestrel with four parachutes and four landing legs, with empty
- * tanks, 1,200 m above where the player stands, with the player in the cockpit. Used by the landing check
- * ({@code apoapsis.testDriver=land}). Permission level 2.
+ * Test scenarios for the screenshot driver, permission level 2.
+ * <ul>
+ *     <li>{@code /apoapsis scenario lander}: the Kestrel with four parachutes and four landing legs, with empty tanks,
+ *     1,200 m above sea level where the player stands, with the player in the cockpit. Used by the landing check
+ *     ({@code apoapsis.testDriver=land}).</li>
+ *     <li>{@code /apoapsis scenario lander burn <altitude>}: the same lander with its tanks full and no parachutes,
+ *     spawned {@code altitude} metres above sea level (200 to 5,000 m), with the player in the cockpit.</li>
+ * </ul>
  */
 @EventBusSubscriber(modid = Apoapsis.MODID)
 public final class LanderCommand {
@@ -48,31 +56,36 @@ public final class LanderCommand {
         event.getDispatcher().register(Commands.literal("apoapsis")
                 .then(Commands.literal("scenario")
                         .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-                        .then(Commands.literal("lander").executes(LanderCommand::lander))));
+                        .then(Commands.literal("lander")
+                                .executes(c -> lander(c, START_ALTITUDE_M, true, true))
+                                .then(Commands.literal("burn")
+                                        .then(Commands.argument("altitude", IntegerArgumentType.integer(200, 5000))
+                                                .executes(c -> lander(c, IntegerArgumentType.getInteger(c, "altitude"),
+                                                        false, false)))))));
     }
 
-    private static int lander(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    /**
+     * Spawns the lander {@code altitude} metres above sea level, above the player, and seats the player in its cockpit.
+     *
+     * @param ctx        command context; the source must be a player
+     * @param altitude   spawn height above sea level, metres
+     * @param chutes     true to fit the four parachutes
+     * @param emptyTanks true to empty the tanks, false to keep their fuel
+     * @return 1 on success, 0 when the blueprint cannot be loaded
+     */
+    private static int lander(CommandContext<CommandSourceStack> ctx, int altitude, boolean chutes, boolean emptyTanks)
+            throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
         ServerPlayer player = source.getPlayerOrException();
-        Blueprint blueprint;
+        ShipStructure structure;
         try {
-            blueprint = Blueprint.load(source.getServer(), "kestrel");
+            structure = landerStructure(source.getServer(), chutes, emptyTanks);
         } catch (IllegalStateException e) {
             source.sendFailure(Component.translatable("apoapsis.scenario.blueprint.failed"));
             return 0;
         }
-        ShipStructure structure = blueprint.toStructure();
-        for (BlockPos tank : new ArrayList<>(structure.fuel().keySet())) {
-            structure.setFuel(tank, 0);
-        }
-        for (int[] c : CHUTES) {
-            structure.put(new BlockPos(c[0], CHUTE_Y, c[1]), GridBlocks.PARACHUTE.get().defaultBlockState());
-        }
-        for (int[] l : LEGS) {
-            structure.put(new BlockPos(l[0], LEG_Y, l[1]), GridBlocks.LANDING_LEG.get().defaultBlockState());
-        }
 
-        double originY = FlightDimensions.seaLevel(BodyId.VERDANCE) + START_ALTITUDE_M;
+        double originY = FlightDimensions.seaLevel(BodyId.VERDANCE) + altitude;
         Vec3 com = structure.centerOfMassLocal();
         Vec3 comPos = new Vec3(Mth.floor(player.getX()) + com.x, originY + com.y, Mth.floor(player.getZ()) + com.z);
         if (player.getVehicle() instanceof ShipEntity old) {
@@ -90,7 +103,36 @@ public final class LanderCommand {
             }
         });
         Ages.setAge(player, Math.max(Ages.getAge(player), 4), false);
-        source.sendSuccess(() -> Component.literal("Lander ready: 1,200 m up, chutes on P"), false);
+        String text = String.format(Locale.ROOT, "%,d", altitude) + " m up, " + (chutes ? "chutes on P" : "no chutes")
+                + (emptyTanks ? "" : ", tanks full");
+        source.sendSuccess(() -> Component.literal("Lander ready: " + text), false);
         return 1;
+    }
+
+    /**
+     * Builds a fresh lander structure from the Kestrel blueprint.
+     *
+     * @param server     server that holds the blueprint
+     * @param chutes     true to add the four parachutes
+     * @param emptyTanks true to set every tank to zero fuel
+     * @return the structure with the four landing legs, and the parachutes and empty tanks as asked
+     * @throws IllegalStateException if the kestrel blueprint cannot be loaded
+     */
+    static ShipStructure landerStructure(MinecraftServer server, boolean chutes, boolean emptyTanks) {
+        ShipStructure structure = Blueprint.load(server, "kestrel").toStructure();
+        if (emptyTanks) {
+            for (BlockPos tank : new ArrayList<>(structure.fuel().keySet())) {
+                structure.setFuel(tank, 0);
+            }
+        }
+        if (chutes) {
+            for (int[] c : CHUTES) {
+                structure.put(new BlockPos(c[0], CHUTE_Y, c[1]), GridBlocks.PARACHUTE.get().defaultBlockState());
+            }
+        }
+        for (int[] l : LEGS) {
+            structure.put(new BlockPos(l[0], LEG_Y, l[1]), GridBlocks.LANDING_LEG.get().defaultBlockState());
+        }
+        return structure;
     }
 }
