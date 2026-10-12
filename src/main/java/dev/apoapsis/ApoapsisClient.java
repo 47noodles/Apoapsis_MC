@@ -7,6 +7,7 @@ import dev.apoapsis.client.SeamlessTransitions;
 import dev.apoapsis.client.ShipClient;
 import dev.apoapsis.client.SkyClient;
 import dev.apoapsis.client.TestDriver;
+import dev.apoapsis.client.audio.MusicDirector;
 import dev.apoapsis.client.menu.MenuClient;
 import dev.apoapsis.client.notify.Notify;
 import dev.apoapsis.client.sky.PlanetTextures;
@@ -32,6 +33,7 @@ public final class ApoapsisClient {
         SkyClient.register(modBus);
         SeamlessTransitions.register(modBus);
         MenuClient.register(modBus);
+        MusicDirector.register();
         modBus.addListener(ApoapsisClient::onClientPayloads);
         if (TestDriver.enabled()) {
             TestDriver.register();

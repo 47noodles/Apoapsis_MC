@@ -12,7 +12,8 @@
     "client.SkyRendererMixin",
     "client.EntityTurnMixin",
     "client.GameRendererMixin",
-    "client.LevelExtractorMixin"
+    "client.LevelExtractorMixin",
+    "client.MinecraftSoundMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

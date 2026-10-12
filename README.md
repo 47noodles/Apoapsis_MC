@@ -106,6 +106,7 @@ Every version ships patch notes: see the [changelog](CHANGELOG.md) and [releases
 
 - **Code:** [MIT](LICENSES/MIT.txt)
 - **Docs, art, models, sounds:** [CC BY 4.0](LICENSES/CC-BY-4.0.txt)
+- **Music:** four tracks released as [CC0](LICENSES/CC0-1.0.txt) on OpenGameArt: "Galactic Temple" and "Another space background track" by yd, "Starfield Romance" and "First Light Particles" by Yoiyami. CC0 asks for no credit; thank you both.
 - Nothing closed or source-available is bundled in the pack. Core systems that aren't open get rebuilt from scratch as original work. See [CONTRIBUTING.md](CONTRIBUTING.md) for the clean-room rules.
 
 *Apoapsis is an independent fan project. It is inspired by, and the design docs compare it with, other games and mods, including Space Engineers, Kerbal Space Program, SevTech: Ages, Factorio, Stationeers, Outer Wilds and others. All game and mod names and trademarks belong to their owners and are used only to describe and compare. Apoapsis is not affiliated with or endorsed by any of them, or by Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Synergies AB.*

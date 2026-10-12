@@ -1,0 +1,38 @@
+{
+  "music.galactic_temple": {
+    "sounds": [
+      {
+        "name": "apoapsis:music/galactic_temple",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
+  },
+  "music.observing_the_star": {
+    "sounds": [
+      {
+        "name": "apoapsis:music/observing_the_star",
+        "stream": true,
+        "volume": 0.888
+      }
+    ]
+  },
+  "music.starfield_romance": {
+    "sounds": [
+      {
+        "name": "apoapsis:music/starfield_romance",
+        "stream": true,
+        "volume": 0.458
+      }
+    ]
+  },
+  "music.first_light_particles": {
+    "sounds": [
+      {
+        "name": "apoapsis:music/first_light_particles",
+        "stream": true,
+        "volume": 0.718
+      }
+    ]
+  }
+}

@@ -46,3 +46,10 @@ SPDX-License-Identifier = "OFL-1.1"
 path = ["src/main/resources/assets/apoapsis/font/chakra-petch-*"]
 SPDX-FileCopyrightText = "Copyright 2018 The Chakra Petch Project Authors (https://github.com/m4rc1e/Chakra-Petch.git)"
 SPDX-License-Identifier = "OFL-1.1"
+
+# Music: four CC0 tracks from OpenGameArt, "Galactic Temple" and "Another space background track" by yd,
+# "Starfield Romance" and "First Light Particles" by Yoiyami. See README.md and tools/audio/encode_music.py.
+[[annotations]]
+path = ["src/main/resources/assets/**/sounds/music/**"]
+SPDX-FileCopyrightText = "yd and Yoiyami (OpenGameArt.org)"
+SPDX-License-Identifier = "CC0-1.0"
