@@ -145,6 +145,10 @@ public final class SeamlessDriver {
                         message -> LOG.info("[seamless] screenshot {}: {}", arg, message.getString()));
             }
             case "tpsub" -> tpSub(mc, arg);
+            case "look" -> {
+                String[] a = arg.split("\\s+");
+                dev.apoapsis.client.ship.CockpitCamera.turn(Double.parseDouble(a[0]), Double.parseDouble(a[1]));
+            }
             case "camera" -> mc.options.setCameraType(
                     "third".equals(arg) ? CameraType.THIRD_PERSON_BACK : CameraType.FIRST_PERSON);
             case "gui" -> {

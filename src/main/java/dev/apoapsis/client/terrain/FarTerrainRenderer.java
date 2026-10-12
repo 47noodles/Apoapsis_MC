@@ -17,6 +17,12 @@ import dev.apoapsis.net.TerrainTilePayload;
 import dev.apoapsis.orbit.Vec3d;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
@@ -68,6 +74,14 @@ final class FarTerrainRenderer {
     private static final FarTerrainMesh[][] MESHES = new FarTerrainMesh[2][TerrainTilePayload.LEVELS];
     private record Retired(FarTerrainMesh mesh, long frame) {}
     private static final List<Retired> RETIRED = new ArrayList<>();
+    /** The mesh being worked out off the render thread for each mode and level, or null. */
+    private record Job(FarTerrainMesh.Key key, Future<FarTerrainMesh.Data> result) {}
+    private static final Job[][] JOBS = new Job[2][TerrainTilePayload.LEVELS];
+    private static final ExecutorService BUILDER = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "apoapsis-far-terrain-mesh");
+        t.setDaemon(true);
+        return t;
+    });
     private static long frame;
     /** This frame's view and far plane, set in the prepare stage; null when nothing is drawn. */
     private static @Nullable FarTerrainView view;
@@ -86,6 +100,14 @@ final class FarTerrainRenderer {
             for (int i = 0; i < row.length; i++) {
                 if (row[i] != null) {
                     row[i].close();
+                    row[i] = null;
+                }
+            }
+        }
+        for (Job[] row : JOBS) {
+            for (int i = 0; i < row.length; i++) {
+                if (row[i] != null) {
+                    row[i].result().cancel(true);
                     row[i] = null;
                 }
             }
@@ -129,21 +151,18 @@ final class FarTerrainRenderer {
         far = camera.depthFar;
         updateSkyTint(event.getLevelRenderState().worldPartialTicks);
         int mode = v.mode().ordinal();
-        int built = 0;
-        for (int level = 0; level < TerrainTilePayload.LEVELS && built < 2; level++) {
+        FarTerrainMesh.Key[] want = new FarTerrainMesh.Key[TerrainTilePayload.LEVELS];
+        for (int level = 0; level < TerrainTilePayload.LEVELS; level++) {
             TerrainTilePayload tile = FarTerrain.tile(v.body().id, level);
-            if (tile == null) {
-                replace(mode, level, null);
-                continue;
-            }
-            TerrainTilePayload finer = level == 0 ? null : FarTerrain.tile(v.body().id, level - 1);
-            FarTerrainMesh.Hole hole = finer == null ? null : FarTerrainMesh.Hole.of(finer);
-            FarTerrainMesh current = MESHES[mode][level];
-            if (current == null || !current.matches(tile, v.mode(), hole)) {
-                replace(mode, level, FarTerrainMesh.build(tile, v.mode(), v.radius(), v.seaLevel(), v.water(), hole));
-                built++;
+            if (tile != null) {
+                TerrainTilePayload finer = level == 0 ? null : FarTerrain.tile(v.body().id, level - 1);
+                TerrainTilePayload coarser = level == TerrainTilePayload.LEVELS - 1 ? null
+                        : FarTerrain.tile(v.body().id, level + 1);
+                want[level] = new FarTerrainMesh.Key(tile, v.mode(),
+                        finer == null ? null : FarTerrainMesh.Hole.of(finer), coarser);
             }
         }
+        syncMeshes(mode, v, want);
         cpuNanos += System.nanoTime() - t0;
         if (FarTerrainClient.debug && frame % 120 == 0) {
             StringBuilder sb = new StringBuilder("[far-terrain] " + v.mode() + " " + v.body().id + " alt "
@@ -157,6 +176,82 @@ final class FarTerrainRenderer {
                         .append(m == null ? " nomesh" : " idx " + m.indexCount);
             }
             Apoapsis.LOG.info(sb.toString());
+        }
+    }
+
+    /**
+     * Brings the level's meshes in line with the tiles {@code want} (null: no tile). A mesh depends on its own tile, on
+     * the finer tile (the hole it leaves for it) and on the coarser tile (the band it blends into), so one arriving tile
+     * changes up to three meshes. Those are worked out off the render thread and swapped in together once all are ready,
+     * with the old ones drawn meanwhile: a coarse mesh is never given a hole before the fine mesh that fills it is
+     * there. Meshes that do not exist yet are built at once, so a new view is not left empty.
+     */
+    private static void syncMeshes(int mode, FarTerrainView v, FarTerrainMesh.Key[] want) {
+        boolean[] stale = new boolean[want.length];
+        boolean any = false;
+        boolean fresh = false;
+        for (int level = 0; level < want.length; level++) {
+            FarTerrainMesh current = MESHES[mode][level];
+            if (want[level] == null) {
+                replace(mode, level, null);
+                cancel(mode, level);
+            } else if (current == null || !current.key.sameAs(want[level])) {
+                stale[level] = true;
+                any = true;
+                fresh |= current == null;
+            } else {
+                cancel(mode, level);
+            }
+        }
+        if (!any) {
+            return;
+        }
+        boolean ready = true;
+        for (int level = 0; level < want.length; level++) {
+            if (!stale[level]) {
+                continue;
+            }
+            Job job = JOBS[mode][level];
+            if (job == null || !job.key().sameAs(want[level])) {
+                cancel(mode, level);
+                job = start(want[level], v, fresh);
+                JOBS[mode][level] = job;
+            }
+            ready &= job.result().isDone();
+        }
+        if (!ready) {
+            return;
+        }
+        for (int level = 0; level < want.length; level++) {
+            if (!stale[level]) {
+                continue;
+            }
+            try {
+                replace(mode, level, FarTerrainMesh.upload(JOBS[mode][level].result().get()));
+            } catch (InterruptedException | ExecutionException e) {
+                Apoapsis.LOG.error("Far terrain mesh failed", e);
+                replace(mode, level, null);
+            }
+            JOBS[mode][level] = null;
+        }
+    }
+
+    /** Starts working out the mesh for {@code key}: now on this thread when {@code inline}, else on the builder. */
+    private static Job start(FarTerrainMesh.Key key, FarTerrainView v, boolean inline) {
+        Callable<FarTerrainMesh.Data> work = () -> FarTerrainMesh.compute(key, v.radius(), v.seaLevel(), v.water());
+        if (inline) {
+            FutureTask<FarTerrainMesh.Data> task = new FutureTask<>(work);
+            task.run();
+            return new Job(key, task);
+        }
+        return new Job(key, BUILDER.submit(work));
+    }
+
+    private static void cancel(int mode, int level) {
+        Job job = JOBS[mode][level];
+        if (job != null) {
+            job.result().cancel(true);
+            JOBS[mode][level] = null;
         }
     }
 

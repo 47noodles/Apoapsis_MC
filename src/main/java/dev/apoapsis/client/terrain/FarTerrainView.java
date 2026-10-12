@@ -1,7 +1,6 @@
 package dev.apoapsis.client.terrain;
 
 import dev.apoapsis.client.ClientState;
-import dev.apoapsis.client.OrbitNow;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.FlightDimensions;
 import dev.apoapsis.net.OrbitStatePayload;
@@ -64,7 +63,7 @@ record FarTerrainView(Mode mode, BodyId body, double radius, int seaLevel, boole
             }
             BodyId body = BodyId.byOrdinal(orbit.body());
             double radius = FlightDimensions.system(body).radius;
-            Vec3d r = OrbitNow.stateNow(orbit, partialTick).r();
+            Vec3d r = OrbitPose.position(orbit, partialTick);
             double length = r.length();
             double altitude = length - radius;
             double fade = 1 - smooth((altitude - ORBIT_FULL_ALT_M) / ORBIT_FADE_M);

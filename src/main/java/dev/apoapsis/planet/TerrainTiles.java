@@ -51,8 +51,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Limits: at most one request per level and player is kept (a newer one replaces an older one still waiting); a
  * player may send one request per level every {@link #MIN_GAP_TICKS} ticks; at most {@link #MAX_QUEUED} jobs wait in
- * all, finest level first; finished tiles are kept in a small cache so a repeated request costs nothing; the request's
- * centre is snapped to the level's grid and must lie within the body's map. Never blocks the server thread.
+ * all, in the order asked (a client asks the coarse levels first: they cover the most of its screen, and a stream of
+ * fine requests can never starve them); finished tiles are kept in a small cache so a repeated request costs nothing;
+ * the request's centre is snapped to the level's grid and must lie within the body's map. Never blocks the server thread.
  */
 @EventBusSubscriber(modid = Apoapsis.MODID)
 public final class TerrainTiles {
@@ -87,7 +88,7 @@ public final class TerrainTiles {
         final long[] lastTick = {Long.MIN_VALUE / 2, Long.MIN_VALUE / 2, Long.MIN_VALUE / 2};
     }
 
-    /** A tile to generate for a player. Ordered finest level first, then oldest first. */
+    /** A tile to generate for a player. Served oldest first. */
     private static final class Job implements Runnable, Comparable<Job> {
         final UUID player;
         final Ctx ctx;
@@ -103,8 +104,7 @@ public final class TerrainTiles {
 
         @Override
         public int compareTo(Job other) {
-            int c = Integer.compare(key.level(), other.key.level());
-            return c != 0 ? c : Long.compare(sequence, other.sequence);
+            return Long.compare(sequence, other.sequence);
         }
 
         @Override
