@@ -1,97 +1,43 @@
 package dev.apoapsis.planet;
 
 import dev.apoapsis.planet.terrain.PaleFeatures;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.Identifier;
-import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.level.biome.Biome;
 
 /**
- * The flat colour of a body's ground at one point, from the biome and the ground height: water by depth, sand, snow
- * above a snow line, stone on high ground, grass by biome on Verdance; dark basalt maria and light regolith highlands
- * on Pale. Shared by the planet maps and the far-terrain tiles, so the two agree.
+ * Colours of a body's ground that are not Verdance's (that is {@link VerdanceSurface}) and the helpers both share: dark
+ * basalt maria and light regolith highlands on Pale, and the packing of a {@link SurfaceKind} with its colour into one
+ * int. Used by the planet maps and the far-terrain tiles through {@link SurfaceColumns}, so the two agree.
  */
 final class SurfaceColors {
-    private static final int OCEAN_SHALLOW = 0x3F76E4;
-    private static final int OCEAN_DEEP = 0x0E2A6B;
-    private static final int ICE = 0xC9E4F5;
-    // The rock, sand and snow colours are the mean colour of the texture of the block the ground really is (snow block,
-    // sand, stone, the top of basalt, our regolith), so a far tile matches the real chunks it meets. The accuracy
-    // GameTests hold them to 3 percent. Terracotta stands for badlands, whose top is red sand over terracotta bands.
-    private static final int SNOW = 0xF9FEFE;
-    private static final int SAND = 0xDBCFA3;
-    private static final int TERRACOTTA = 0xAB6232;
-    private static final int STONE = 0x7E7E7E;
-    private static final int PLAINS = 0x8DB360;
-    private static final int FOREST = 0x6E9A44;
-    private static final int JUNGLE = 0x4E9E2E;
-    private static final int TAIGA = 0x7A9C7A;
-    private static final int SAVANNA = 0xB5AD57;
+    // The basalt and regolith colours are the mean colour of the texture of the block the ground really is (the top of
+    // basalt, our regolith), so a far tile matches the real chunks it meets. The accuracy GameTests hold them to 3
+    // percent.
     private static final int BASALT = 0x515156;
     private static final int REGOLITH = 0x979793;
     private static final Identifier PALE_MARIA = PaleFeatures.MARIA;
 
-    /** Ground this far above sea level is stone grey, in blocks. */
-    private static final int STONE_LINE = 50;
-    /** Ground this far above sea level is snow, in blocks. */
-    private static final int SNOW_LINE = 80;
-    /** Ocean depth at which the water is fully deep blue, in blocks. */
-    private static final double DEEP_BLOCKS = 40.0;
-
     private SurfaceColors() {}
 
-    /** The colour (0xRRGGBB) at {@code pos} with ground height {@code h}, for Pale or Verdance. */
-    static int at(boolean pale, Holder<Biome> biome, BlockPos pos, int h, int seaLevel) {
-        return pale ? pale(biome) : verdance(biome, pos, h, seaLevel);
+    /** Packs a kind and a colour into one int: the kind in the top byte, the colour 0xRRGGBB below. */
+    static int pack(SurfaceKind kind, int rgb) {
+        return kind.ordinal() << 24 | rgb;
     }
 
-    /** Verdance surface colour: the ground height and the biome found there. */
-    static int verdance(Holder<Biome> biome, BlockPos pos, int h, int seaLevel) {
-        boolean cold = biome.value().hasPrecipitation() && biome.value().coldEnoughToSnow(pos, seaLevel);
-        if (biome.is(BiomeTags.IS_OCEAN) || biome.is(BiomeTags.IS_DEEP_OCEAN) || biome.is(BiomeTags.IS_RIVER)) {
-            if (cold) {
-                return ICE;
-            }
-            return mix(OCEAN_SHALLOW, OCEAN_DEEP, clamp((seaLevel - h) / DEEP_BLOCKS, 0, 1));
-        }
-        int above = h - seaLevel;
-        if (cold || above > SNOW_LINE) {
-            return SNOW;
-        }
-        boolean dryAndWarm = !biome.value().hasPrecipitation() && biome.value().getBaseTemperature() >= 1.5F;
-        if (biome.is(BiomeTags.IS_BEACH) || dryAndWarm && !biome.is(BiomeTags.IS_SAVANNA)) {
-            return SAND;
-        }
-        if (biome.is(BiomeTags.IS_BADLANDS)) {
-            return TERRACOTTA;
-        }
-        if (above > STONE_LINE) {
-            return STONE;
-        }
-        if (biome.is(BiomeTags.IS_JUNGLE)) {
-            return JUNGLE;
-        }
-        if (biome.is(BiomeTags.IS_SAVANNA)) {
-            return SAVANNA;
-        }
-        if (biome.is(BiomeTags.IS_TAIGA)) {
-            return TAIGA;
-        }
-        if (biome.is(BiomeTags.IS_FOREST)) {
-            return FOREST;
-        }
-        return PLAINS;
+    /** The kind of a packed value from {@link #pack}. */
+    static SurfaceKind kindOf(int packed) {
+        return SurfaceKind.values()[packed >>> 24];
     }
 
-    /** Pale has no grass or water: dark basalt maria, light regolith highlands. */
+    /** Pale without its surface model has no grass or water: dark basalt maria, light regolith highlands. */
     static int pale(Holder<Biome> biome) {
-        return biome.is(PALE_MARIA) ? BASALT : REGOLITH;
+        return pale(!biome.is(PALE_MARIA));
     }
 
-    /** Pale's ground by the block on top: regolith or basalt. */
+    /** Pale's ground by the block on top, kind and colour (see {@link #pack}): regolith, or basalt in the maria. */
     static int pale(boolean regolith) {
-        return regolith ? REGOLITH : BASALT;
+        return regolith ? pack(SurfaceKind.REGOLITH, REGOLITH) : pack(SurfaceKind.BASALT, BASALT);
     }
 
     /** Blends two RGB colours; t = 0 gives a, t = 1 gives b. */

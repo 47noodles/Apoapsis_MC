@@ -7,10 +7,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.GenerationChunkHolder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.WorldGenRegion;
+import net.minecraft.util.RandomSource;
 import net.minecraft.util.StaticCache2D;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.StructureManager;
@@ -25,6 +27,7 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.chunk.status.ChunkStep;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.blending.Blender;
+import net.minecraft.world.level.levelgen.feature.SnowAndFreezeFeature;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,12 +39,16 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>With {@code features} off a chunk stops after terrain: no trees, no craters, nothing the far terrain does not
  * model; Verdance is compared that way. With it on, the biome decoration runs on the chunk too, over a 3 by 3 area of
- * chunks that have their biomes (all the decoration reads of a neighbour).
+ * chunks that have their biomes (all the decoration reads of a neighbour). With {@code cover} on instead, a chunk gets
+ * only the last decoration step's snow and ice, the one feature that changes what the ground looks like from above
+ * without a tree or a crater in the way: Verdance's accuracy report counts the snow layers on cold ground and the ice
+ * on cold water as what the player sees.
  */
 final class RealChunks {
     private final ServerLevel host;
     private final Body body;
     private final boolean features;
+    private final boolean cover;
     private final BiomeResolver uncached;
     private final BiomeManager biomeManager;
     private final ChunkStep featuresStep = ChunkPyramid.GENERATION_PYRAMID.getStepTo(ChunkStatus.FEATURES);
@@ -50,11 +57,21 @@ final class RealChunks {
     private final Map<Long, ProtoChunk> finished = new HashMap<>();
 
     RealChunks(ServerLevel host, Body body, boolean features) {
+        this(host, body, features, false);
+    }
+
+    RealChunks(ServerLevel host, Body body, boolean features, boolean cover) {
         this.host = host;
         this.body = body;
         this.features = features;
+        this.cover = cover;
         this.uncached = body.generator().getBiomeSource().createUncachedResolver(body.randomState());
         this.biomeManager = new BiomeManager(uncached, BiomeManager.obfuscateSeed(body.randomState().seed()));
+    }
+
+    /** The biome the surface rules see at a block: the body's biome source through the world's block-level zoom. */
+    Holder<Biome> biomeAt(BlockPos pos) {
+        return biomeManager.getBiome(pos);
     }
 
     /** The finished chunk at ({@code cx}, {@code cz}). */
@@ -64,14 +81,15 @@ final class RealChunks {
         if (done != null) {
             return done;
         }
-        int radius = features ? 1 : 0;
+        int radius = features || cover ? 1 : 0;
         for (int dz = -radius; dz <= radius; dz++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 withBiomes(cx + dx, cz + dz);
             }
         }
         ProtoChunk chunk = chunks.get(key);
-        Region region = new Region(host, centred(cx, cz, 1), featuresStep, chunk, body.randomState().seed(), uncached);
+        Region region = new Region(host, centred(cx, cz, 1), featuresStep, chunk, body.randomState().seed(), uncached,
+                body.generator().getSeaLevel());
         StructureManager structures = host.structureManager().forWorldGenRegion(region);
         Set<Holder<Biome>> possible = new HashSet<>();
         for (int dz = -1; dz <= 1; dz++) {
@@ -90,6 +108,9 @@ final class RealChunks {
         if (features) {
             body.generator().applyBiomeDecoration(region, chunk, structures);
             chunk.setPersistedStatus(ChunkStatus.FEATURES);
+        } else if (cover) {
+            new SnowAndFreezeFeature().place(region, body.generator(), RandomSource.create(cx * 31L + cz),
+                    new BlockPos(cx << 4, 0, cz << 4));
         }
         finished.put(key, chunk);
         return chunk;
@@ -101,6 +122,7 @@ final class RealChunks {
             ProtoChunk proto = new ProtoChunk(new ChunkPos(cx, cz), UpgradeData.EMPTY, body.heights(),
                     host.palettedContainerFactory(), null);
             body.generator().createBiomes(body.randomState(), Blender.empty(), host.structureManager(), proto).join();
+            proto.setPersistedStatus(ChunkStatus.BIOMES);
             return proto;
         });
     }
@@ -145,12 +167,20 @@ final class RealChunks {
     private static final class Region extends WorldGenRegion {
         private final long seed;
         private final BiomeResolver uncached;
+        private final int seaLevel;
 
         Region(ServerLevel level, StaticCache2D<GenerationChunkHolder> cache, ChunkStep step, ChunkAccess center,
-                long seed, BiomeResolver uncached) {
+                long seed, BiomeResolver uncached, int seaLevel) {
             super(level, cache, step, center);
             this.seed = seed;
             this.uncached = uncached;
+            this.seaLevel = seaLevel;
+        }
+
+        /** The body's own sea level: the host level is flat and its sea level is not Verdance's. */
+        @Override
+        public int getSeaLevel() {
+            return seaLevel;
         }
 
         @Override
