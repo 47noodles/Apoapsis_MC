@@ -88,6 +88,16 @@ public final class GameTests {
         event.registerTest(TestSupport.id("terrain_requests_need_a_pilot"),
                 new ApoapsisGameTest("terrain_requests_need_a_pilot", environment, 40,
                         TerrainGateTests::requestsNeedAPilot));
+        event.registerTest(TestSupport.id("planet_map_tiles_match_whole_map"),
+                new ApoapsisGameTest("planet_map_tiles_match_whole_map", environment, 40,
+                        PlanetMapTests::tilesMatchWholeMap));
+        event.registerTest(TestSupport.id("planet_map_store_round_trip"),
+                new ApoapsisGameTest("planet_map_store_round_trip", environment, 40,
+                        PlanetMapTests::storeRoundTrip));
+        event.registerTest(TestSupport.id("planet_map_tile_payload"),
+                new ApoapsisGameTest("planet_map_tile_payload", environment, 40, PlanetMapTests::tilePayload));
+        event.registerTest(TestSupport.id("planet_map_request_gate"),
+                new ApoapsisGameTest("planet_map_request_gate", environment, 40, PlanetMapTests::requestGate));
         event.registerTest(TestSupport.id("start_age_three"),
                 new ApoapsisGameTest("start_age_three", environment, 40, GameTests::startAgeThree));
         event.registerTest(TestSupport.id("first_flight_needs_landing"),

@@ -1,14 +1,13 @@
 package dev.apoapsis.client.map;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.renderpearl.api.pipeline.CompareOp;
 import com.mojang.renderpearl.api.pipeline.DepthStencilState;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
-import com.mojang.renderpearl.api.textures.FilterMode;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.client.map3d.TexturedSphere;
+import dev.apoapsis.client.sky.PlanetTextures;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
@@ -80,7 +79,7 @@ public final class MapPip {
         Identifier id = texture == null ? white() : texture;
         return BODY_TYPES.computeIfAbsent(id, key -> RenderType.create("apoapsis_map_body",
                 RenderSetup.builder(BODIES_PIPELINE)
-                        .withTexture("Sampler0", key, () -> RenderSystem.getSamplerCache().getRepeat(FilterMode.LINEAR))
+                        .withTexture("Sampler0", key, PlanetTextures::sampler)
                         .createRenderSetup()));
     }
 

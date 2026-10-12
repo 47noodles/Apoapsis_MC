@@ -90,6 +90,10 @@ public final class SkyShots {
             climbTick(mc);
             return;
         }
+        if (MODE.equals("script")) {
+            scriptTick(mc);
+            return;
+        }
         String dim = mc.level.dimension().identifier().getPath();
         if (!dim.equals(MODE) || (MODE.equals("orbit") && !daySide())) {
             ticks = 0;
@@ -160,6 +164,98 @@ public final class SkyShots {
         if (stepTick >= settle + (phase == 1 ? 1 : 8)) {
             step++;
             stepTick = 0;
+        }
+    }
+
+    private static List<String> script;
+    private static int scriptNext;
+    private static int scriptWait;
+    private static int scriptStart = 160;
+    private static String scriptLook;
+
+    /**
+     * A scripted run, with {@code APOAPSIS_SKY_SHOTS=script}: the lines of {@code apoapsis-skyshots.txt} in the game
+     * directory, one step per line after 160 ticks in the world: {@code wait N}, {@code cmd TEXT} (a chat command),
+     * {@code look NAME} (hold a look by name: orbit dimension: deep, milkyway, pole, sun, nearsun, limb, planet,
+     * planet-edge; Pale or the overworld: verdance, sun, zenith, deep, pole; {@code look off} releases it),
+     * {@code shot NAME}, {@code gui off}, {@code log TEXT}, {@code quit}. The held look follows its target every tick.
+     */
+    private static void scriptTick(Minecraft mc) {
+        if (script == null) {
+            script = new ArrayList<>();
+            try {
+                for (String line : java.nio.file.Files.readAllLines(mc.gameDirectory.toPath().resolve("apoapsis-skyshots.txt"))) {
+                    if (!line.isBlank() && !line.startsWith("#")) {
+                        script.add(line.strip());
+                    }
+                }
+            } catch (java.io.IOException e) {
+                LOG.warn("[sky shots] no script: {}", e.toString());
+            }
+            mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+        }
+        if (scriptStart > 0) {
+            scriptStart--;
+            return;
+        }
+        if (scriptLook != null) {
+            String dim = mc.level.dimension().identifier().getPath();
+            List<Look> looks = dim.equals("orbit") && ClientState.orbit != null ? orbitLooks(mc) : paleLooks(mc);
+            for (Look l : looks) {
+                if (l.name().equals(scriptLook)) {
+                    Vec3d d = l.dir().normalize();
+                    yaw = (float) Math.toDegrees(Math.atan2(-d.x(), d.z()));
+                    pitch = (float) Math.toDegrees(-Math.asin(Math.max(-1, Math.min(1, d.y()))));
+                    forced = true;
+                }
+            }
+        }
+        if (scriptWait > 0) {
+            scriptWait--;
+            return;
+        }
+        while (scriptNext < script.size() && scriptWait == 0) {
+            String[] parts = script.get(scriptNext++).split("\\s+", 2);
+            String arg = parts.length > 1 ? parts[1] : "";
+            switch (parts[0]) {
+                case "wait" -> scriptWait = Integer.parseInt(arg);
+                case "cmd" -> mc.player.connection.sendCommand(arg);
+                case "look" -> {
+                    scriptLook = arg.equals("off") ? null : arg;
+                    forced = scriptLook != null;
+                }
+                case "gui" -> {
+                    if (mc.gui.hud.isHidden() != "off".equals(arg)) {
+                        mc.gui.hud.toggle();
+                    }
+                }
+                case "shot" -> {
+                    LOG.info("[sky shots] shot {} in {} at {} yaw {} pitch {}", arg,
+                            mc.level.dimension().identifier(), mc.player.position(), yaw, pitch);
+                    Screenshot.grab(mc.gameDirectory, arg, mc.gameRenderer.mainRenderTarget(), 1,
+                            m -> LOG.info("[sky shots] {}: {}", arg, m.getString()));
+                }
+                case "log" -> LOG.info("[sky shots] {}", arg);
+                case "tpverdance" -> {
+                    // To the point on Pale under Verdance, arg metres above sea level.
+                    // On Pale's surface the sky runs on the level's game time (no orbit state), 12 s on from now.
+                    double ut = mc.level.getGameTime() / 20.0 + 12;
+                    Vec3d d = SkyMath.systemPosition(MeridianSystem.VERDANCE, ut)
+                            .sub(SkyMath.systemPosition(MeridianSystem.PALE, ut)).normalize();
+                    double lon = Math.atan2(d.y(), d.x());
+                    double lat = Math.asin(Math.max(-1, Math.min(1, d.z())));
+                    double r = MeridianSystem.PALE.radius;
+                    double y = dev.apoapsis.flight.FlightDimensions.seaLevel(BodyId.PALE) + Double.parseDouble(arg);
+                    LOG.info("[sky shots] tpverdance: lon {} lat {} deg", Math.toDegrees(lon), Math.toDegrees(lat));
+                    mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+                            "execute in apoapsis:pale run tp @s %.1f %.1f %.1f", lon * r, y, -lat * r));
+                }
+                case "quit" -> {
+                    done = true;
+                    mc.stop();
+                }
+                default -> LOG.warn("[sky shots] unknown step '{}'", parts[0]);
+            }
         }
     }
 

@@ -32,7 +32,17 @@ void main() {
         // Orbit side: the sphere's own normal at the vertex against the sun, with a soft terminator, as the planet cap.
         vec3 n = normalize(sphere.xyz + Position);
         float diffuse = clamp((dot(n, sun.xyz) + 0.15) / 1.15, 0.0, 1.0);
-        rgb *= sun.w + (1.0 - sun.w) * diffuse;
+        vec3 lit = rgb * (sun.w + (1.0 - sun.w) * diffuse);
+        if (length(sphere.xyz) > 40000.0) {
+            // A body with air (the sphere is larger than Pale's 20 km): the unlit side is a deep blue with a trace of
+            // the ground, not the ground darkened to mud. The same term as space_planet.fsh, so the far terrain and the
+            // planet cap agree across their seam.
+            float luma = dot(rgb, vec3(0.30, 0.59, 0.11));
+            vec3 night = vec3(0.012, 0.026, 0.066) * (0.6 + 0.8 * luma) + rgb * 0.025;
+            rgb = mix(lit, night, 1.0 - smoothstep(0.0, 0.30, diffuse));
+        } else {
+            rgb = lit;
+        }
     } else {
         // Surface side: the ground falls away with the planet's curvature, d^2 / 2R.
         rel.y -= depthParams.x * (rel.x * rel.x + rel.z * rel.z);

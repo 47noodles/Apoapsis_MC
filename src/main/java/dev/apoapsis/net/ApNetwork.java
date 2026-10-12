@@ -1,5 +1,6 @@
 package dev.apoapsis.net;
 
+import dev.apoapsis.planet.PlanetMaps;
 import dev.apoapsis.planet.TerrainTiles;
 import dev.apoapsis.ship.ShipControls;
 import net.neoforged.bus.api.IEventBus;
@@ -22,6 +23,8 @@ public final class ApNetwork {
         r.playToClient(GuideStepPayload.TYPE, GuideStepPayload.STREAM_CODEC);
         r.playToClient(MessagePayload.TYPE, MessagePayload.STREAM_CODEC);
         r.playToClient(PlanetMapPayload.TYPE, PlanetMapPayload.STREAM_CODEC);
+        r.playToClient(PlanetMapTilePayload.TYPE, PlanetMapTilePayload.STREAM_CODEC);
+        r.playToServer(PlanetMapRequest.TYPE, PlanetMapRequest.STREAM_CODEC, PlanetMaps::handleRequest);
         r.playToClient(TerrainTilePayload.TYPE, TerrainTilePayload.STREAM_CODEC);
         r.playToServer(TerrainTilePayload.Request.TYPE, TerrainTilePayload.Request.STREAM_CODEC,
                 TerrainTiles::handleRequest);

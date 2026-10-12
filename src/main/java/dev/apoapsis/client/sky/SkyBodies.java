@@ -1,12 +1,9 @@
 package dev.apoapsis.client.sky;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.renderpearl.api.pipeline.CompareOp;
 import com.mojang.renderpearl.api.pipeline.DepthStencilState;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
-import com.mojang.renderpearl.api.textures.AddressMode;
-import com.mojang.renderpearl.api.textures.FilterMode;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.OrbitNow;
@@ -184,11 +181,12 @@ public final class SkyBodies {
             return PLANET_TYPES.computeIfAbsent(body.id, id -> RenderType.create("apoapsis_planet",
                     RenderSetup.builder(PLANET_PIPELINE).withTexture("Sampler0", map).createRenderSetup()));
         }
-        // Linear filtering, wrapping round the longitude and clamped at the poles.
+        // Asks for the next refined level; before the cache so it runs every frame.
+        PlanetTextures.want(body.id);
+        // Mipmapped, anisotropic, wrapping round the longitude and clamped at the poles.
         return PLANET_TYPES.computeIfAbsent(body.id, id -> RenderType.create("apoapsis_planet_space",
-                RenderSetup.builder(PLANET_PIPELINE_SPACE).withTexture("Sampler0", map, () -> RenderSystem.getSamplerCache()
-                        .getSampler(AddressMode.REPEAT, AddressMode.CLAMP_TO_EDGE, FilterMode.LINEAR, FilterMode.LINEAR,
-                                false)).createRenderSetup()));
+                RenderSetup.builder(PLANET_PIPELINE_SPACE).withTexture("Sampler0", map, PlanetTextures::sampler)
+                        .createRenderSetup()));
     }
 
     /** Universal time now: the piloted ship's, advanced to this frame, else the level's game time in seconds. */

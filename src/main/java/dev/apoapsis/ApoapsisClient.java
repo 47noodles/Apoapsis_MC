@@ -16,6 +16,7 @@ import dev.apoapsis.net.GuideStepPayload;
 import dev.apoapsis.net.MessagePayload;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.net.PlanetMapPayload;
+import dev.apoapsis.net.PlanetMapTilePayload;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -46,5 +47,6 @@ public final class ApoapsisClient {
         event.register(GuideStepPayload.TYPE, (p, ctx) -> GuidePanel.show(p.step()));
         event.register(MessagePayload.TYPE, (p, ctx) -> Notify.accept(p));
         event.register(PlanetMapPayload.TYPE, (p, ctx) -> PlanetTextures.accept(p));
+        event.register(PlanetMapTilePayload.TYPE, (p, ctx) -> PlanetTextures.acceptTile(p));
     }
 }

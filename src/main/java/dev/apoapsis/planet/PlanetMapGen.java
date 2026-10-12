@@ -127,7 +127,9 @@ public final class PlanetMapGen {
                     double lon = -Math.PI + 2 * Math.PI * (u + (su + 0.5) / ss) / width;
                     int x = (int) Math.round(lon * radius);
                     columns.at(x, z);
-                    int h = columns.height();
+                    // Open water is flat for the relief shading: the sea floor under it must not show through as bumps.
+                    int h = columns.kind() == SurfaceKind.WATER
+                            ? Math.max(columns.height(), sampler.seaLevel()) : columns.height();
                     int c = columns.colour();
                     r += (c >> 16) & 0xFF;
                     g += (c >> 8) & 0xFF;
