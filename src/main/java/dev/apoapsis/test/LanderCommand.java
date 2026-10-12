@@ -15,11 +15,13 @@ import dev.apoapsis.ship.ShipEntity;
 import dev.apoapsis.ship.ShipStructure;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Set;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -61,7 +63,76 @@ public final class LanderCommand {
                                 .then(Commands.literal("burn")
                                         .then(Commands.argument("altitude", IntegerArgumentType.integer(200, 5000))
                                                 .executes(c -> lander(c, IntegerArgumentType.getInteger(c, "altitude"),
-                                                        false, false)))))));
+                                                        false, false))))
+                                .then(Commands.literal("pale")
+                                        .executes(c -> paleLander(c, 100))
+                                        .then(Commands.argument("fuelPercent", IntegerArgumentType.integer(0, 100))
+                                                .executes(c -> paleLander(c, IntegerArgumentType.getInteger(c, "fuelPercent"))))))));
+    }
+
+    /**
+     * Stage start for the return-trip run: the lander (four chutes, four legs) standing on Pale's surface near x 0, z 0,
+     * with the tanks filled to {@code fuelPercent} per cent, and the player in its cockpit. The player is moved to Pale.
+     *
+     * @param ctx         command context; the source must be a player
+     * @param fuelPercent tank fill, 0 to 100
+     * @return 1 on success, 0 when the blueprint or Pale cannot be loaded
+     */
+    private static int paleLander(CommandContext<CommandSourceStack> ctx, int fuelPercent) throws CommandSyntaxException {
+        CommandSourceStack source = ctx.getSource();
+        ServerPlayer player = source.getPlayerOrException();
+        MinecraftServer server = source.getServer();
+        ServerLevel pale = server.getLevel(FlightDimensions.PALE);
+        if (pale == null) {
+            source.sendFailure(Component.literal("Pale is not loaded."));
+            return 0;
+        }
+        ShipStructure structure;
+        try {
+            structure = landerStructure(server, true, false);
+        } catch (IllegalStateException e) {
+            source.sendFailure(Component.translatable("apoapsis.scenario.blueprint.failed"));
+            return 0;
+        }
+        for (BlockPos tank : new ArrayList<>(structure.fuel().keySet())) {
+            structure.setFuel(tank, structure.fuel().get(tank) * fuelPercent / 100.0);
+        }
+        // The highest ground under the 7 x 7 footprint decides the height, so no leg starts inside rock. The blocks are
+        // scanned, not read from the heightmaps: they are what the ship collides with.
+        int x = 0;
+        int z = 0;
+        // Pale has no player in it yet: load the chunks under the footprint before reading their blocks.
+        for (int cx = -1; cx <= 0; cx++) {
+            for (int cz = -1; cz <= 0; cz++) {
+                pale.getChunk(cx, cz);
+            }
+        }
+        int ground = Integer.MIN_VALUE;
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                ground = Math.max(ground, topCollidingY(pale, x + dx, z + dz));
+            }
+        }
+        double originY = ground - LEG_Y + 0.5;
+        Vec3 com = structure.centerOfMassLocal();
+        Vec3 comPos = new Vec3(x + com.x, originY + com.y, z + com.z);
+        if (player.getVehicle() instanceof ShipEntity old) {
+            player.stopRiding();
+            old.discard();
+        }
+        ShipEntity ship = ShipEntity.spawn(pale, structure, comPos, new Quaternionf());
+        ShipOwnership.claim(ship, player);
+        player.teleportTo(pale, ship.getX(), ship.getY(), ship.getZ(), Set.of(), player.getYRot(), player.getXRot(), true);
+        Scenarios.runNextTick(() -> {
+            try {
+                ship.seatPilot(player);
+            } catch (RuntimeException e) {
+                Apoapsis.LOG.warn("Could not seat the pilot in the Pale lander scenario", e);
+            }
+        });
+        Ages.setAge(player, Math.max(Ages.getAge(player), 4), false);
+        source.sendSuccess(() -> Component.literal("Lander on Pale, tanks " + fuelPercent + " per cent"), false);
+        return 1;
     }
 
     /**
@@ -110,6 +181,21 @@ public final class LanderCommand {
     }
 
     /**
+     * The y just above the highest block with a collision shape in a column, found by scanning the blocks the way a ship's
+     * probes see them, so the answer does not depend on the chunk's heightmaps.
+     */
+    private static int topCollidingY(ServerLevel level, int x, int z) {
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int y = level.getMaxY(); y >= level.getMinY(); y--) {
+            pos.set(x, y, z);
+            if (!level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()) {
+                return y + 1;
+            }
+        }
+        return level.getMinY();
+    }
+
+    /**
      * Builds a fresh lander structure from the Kestrel blueprint.
      *
      * @param server     server that holds the blueprint
@@ -118,7 +204,7 @@ public final class LanderCommand {
      * @return the structure with the four landing legs, and the parachutes and empty tanks as asked
      * @throws IllegalStateException if the kestrel blueprint cannot be loaded
      */
-    static ShipStructure landerStructure(MinecraftServer server, boolean chutes, boolean emptyTanks) {
+    public static ShipStructure landerStructure(MinecraftServer server, boolean chutes, boolean emptyTanks) {
         ShipStructure structure = Blueprint.load(server, "kestrel").toStructure();
         if (emptyTanks) {
             for (BlockPos tank : new ArrayList<>(structure.fuel().keySet())) {

@@ -28,7 +28,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  * {@code /apoapsis seamless dive <altitude m> <speed m/s> <path deg> <plain|chutes>} puts a Kestrel above Verdance
  * moving at that speed, with its velocity {@code path deg} below prograde (toward the body) and its nose retrograde,
  * and seats the caller in it looking along yaw 0, pitch 0. {@code plain} keeps the Kestrel's fuel; {@code chutes} is
- * the lander, with empty tanks, four parachutes and four landing legs. Permission level 2.
+ * the lander, with empty tanks, four parachutes and four landing legs; {@code lander} is the same lander with full tanks.
+ * A trailing {@code lander} on {@code orbit} spawns that lander (full tanks) instead of the plain Kestrel. Permission level 2.
  */
 @EventBusSubscriber(modid = Apoapsis.MODID)
 public final class SeamlessCommands {
@@ -49,8 +50,9 @@ public final class SeamlessCommands {
         return Commands.argument("altitude", DoubleArgumentType.doubleArg(100, 100_000))
                 .then(Commands.argument("speed", DoubleArgumentType.doubleArg(1, 5000))
                         .then(Commands.argument("pathDeg", DoubleArgumentType.doubleArg(0, 89))
-                                .then(Commands.literal("plain").executes(c -> dive(c, false)))
-                                .then(Commands.literal("chutes").executes(c -> dive(c, true)))));
+                                .then(Commands.literal("plain").executes(c -> dive(c, false, false)))
+                                .then(Commands.literal("chutes").executes(c -> dive(c, true, true)))
+                                .then(Commands.literal("lander").executes(c -> dive(c, true, false)))));
     }
 
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, Double> args(BodyId body) {
@@ -58,10 +60,11 @@ public final class SeamlessCommands {
                 .then(Commands.argument("phase", DoubleArgumentType.doubleArg(-360, 360))
                         .then(Commands.argument("yaw", DoubleArgumentType.doubleArg(-360, 360))
                                 .then(Commands.argument("pitch", DoubleArgumentType.doubleArg(-90, 90))
-                                        .executes(c -> orbit(c, body)))));
+                                        .executes(c -> orbit(c, body, false))
+                                        .then(Commands.literal("lander").executes(c -> orbit(c, body, true))))));
     }
 
-    private static int orbit(CommandContext<CommandSourceStack> c, BodyId body) throws CommandSyntaxException {
+    private static int orbit(CommandContext<CommandSourceStack> c, BodyId body, boolean lander) throws CommandSyntaxException {
         CommandSourceStack source = c.getSource();
         ServerPlayer player = source.getPlayerOrException();
         MinecraftServer server = source.getServer();
@@ -70,7 +73,8 @@ public final class SeamlessCommands {
         double phase = DoubleArgumentType.getDouble(c, "phase");
         float yaw = (float) DoubleArgumentType.getDouble(c, "yaw");
         float pitch = (float) DoubleArgumentType.getDouble(c, "pitch");
-        ShipEntity ship = Flight.spawnInOrbit(server, blueprint.toStructure(), body, altitude, phase);
+        ShipStructure structure = lander ? LanderCommand.landerStructure(server, true, false) : blueprint.toStructure();
+        ShipEntity ship = Flight.spawnInOrbit(server, structure, body, altitude, phase);
         if (ship == null) {
             source.sendFailure(Component.literal("Could not spawn the ship in orbit."));
             return 0;
@@ -89,7 +93,7 @@ public final class SeamlessCommands {
         return 1;
     }
 
-    private static int dive(CommandContext<CommandSourceStack> c, boolean chutes) throws CommandSyntaxException {
+    private static int dive(CommandContext<CommandSourceStack> c, boolean chutes, boolean emptyTanks) throws CommandSyntaxException {
         CommandSourceStack source = c.getSource();
         ServerPlayer player = source.getPlayerOrException();
         MinecraftServer server = source.getServer();
@@ -97,7 +101,7 @@ public final class SeamlessCommands {
         double speed = DoubleArgumentType.getDouble(c, "speed");
         double pathDeg = DoubleArgumentType.getDouble(c, "pathDeg");
         ShipStructure structure = chutes
-                ? LanderCommand.landerStructure(server, true, true)
+                ? LanderCommand.landerStructure(server, true, emptyTanks)
                 : Blueprint.load(server, "kestrel").toStructure();
         ShipEntity ship = Flight.spawnInOrbit(server, structure, BodyId.VERDANCE, altitude, 0, speed, pathDeg, true);
         if (ship == null) {

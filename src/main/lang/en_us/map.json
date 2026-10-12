@@ -25,6 +25,7 @@
   "apoapsis.map.top.apsides": "Ap %1$s  Pe %2$s",
   "apoapsis.map.top.periapsis": "Pe %s",
   "apoapsis.map.top.ap_in": "Ap in %s",
+  "apoapsis.map.top.escape": "Leaves the sphere in %s",
   "apoapsis.map.mark.ap": "AP %s",
   "apoapsis.map.mark.pe": "PE %s",
   "apoapsis.map.mark.encounter": "%s ENCOUNTER",

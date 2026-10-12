@@ -143,8 +143,11 @@ public final class GameTests {
                 new ApoapsisGameTest("chute_orbit_regime", environment, 200, LandingTests::chuteSlowsInOrbitRegime));
         event.registerTest(TestSupport.id("landing_legs_set_the_crash_limit"),
                 new ApoapsisGameTest("landing_legs_set_the_crash_limit", environment, 100, LandingTests::legsSetTheCrashLimit));
+        event.registerTest(TestSupport.id("pale_regolith_counts_in_the_heightmaps"),
+                new ApoapsisGameTest("pale_regolith_counts_in_the_heightmaps", environment, 40, LandingTests::regolithCountsInTheHeightmaps));
         ManeuverTests.register(event, environment);
         SiteTests.register(event, environment);
+        LangTests.register(event, environment);
         SphereTests.register(event, environment);
         MusicTests.register(event, environment);
         event.registerTest(TestSupport.id("guide_first_step_on_start"),

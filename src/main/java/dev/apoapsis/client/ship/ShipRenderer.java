@@ -17,6 +17,8 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -39,6 +41,10 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
      * pilot sees out over the hull instead of into it, and nose-down the ground shows past the stack below.
      */
     static final double COCKPIT_CUTAWAY = 1.1;
+    /** Ticks after a ship entity appears during which pitch-black light data is taken as "not loaded yet", not as darkness. */
+    static final int NO_LIGHT_FALLBACK_TICKS = 100;
+    private OpenSkyLight openSky;
+    private ClientLevel openSkyLevel;
     /** Lit canopy fill: vanilla has no minecraft:textures/misc/white.png in 26.x, so NeoForge's 16x16 white is used. */
     private static final RenderType CANOPY_TYPE = RenderTypes.entitySolid(
         Identifier.fromNamespaceAndPath("neoforge", "textures/white.png"));
@@ -76,6 +82,16 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
             var biome = level.getBiome(pos);
             var lighting = level.cardinalLighting();
             var lightEngine = level.getLightEngine();
+            if (ship.tickCount < NO_LIGHT_FALLBACK_TICKS && level.getBrightness(LightLayer.SKY, pos) == 0
+                && level.getBrightness(LightLayer.BLOCK, pos) == 0) {
+                // A ship that has just arrived from the orbit dimension has no light under it yet: see OpenSkyLight.
+                if (openSky == null || openSkyLevel != level) {
+                    openSky = new OpenSkyLight(level.getChunkSource());
+                    openSkyLevel = level;
+                }
+                lightEngine = openSky;
+                state.lightCoords = LightCoordsUtil.pack(0, 15);
+            }
             for (ShipRenderState.ShipBlock block : state.blocks) {
                 MovingBlockRenderState moving = block.moving();
                 moving.blockPos = pos;

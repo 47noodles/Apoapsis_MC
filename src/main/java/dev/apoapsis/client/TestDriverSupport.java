@@ -65,10 +65,21 @@ final class TestDriverSupport {
         return ship.getY() - FlightDimensions.seaLevel(BodyId.byOrdinal(p.body()));
     }
 
-    /** Speed in m/s: the orbit speed, or the ship's own speed on a surface. */
+    /**
+     * Speed in m/s: the orbit speed, or the ship's own speed on a surface. A ship that has just changed regime is a new
+     * entity whose velocity reads zero until its first sync, so for its first few ticks the payload's speed counts too
+     * (a braking script that read that zero thought it had stopped and cut its engines at 120 m/s).
+     */
     static double speedMps(ShipEntity ship, OrbitStatePayload p) {
-        return inOrbit(p) ? stateOf(p).v().length() : ship.getVelocity().length();
+        if (inOrbit(p)) {
+            return stateOf(p).v().length();
+        }
+        double own = ship.getVelocity().length();
+        return ship.tickCount < NEW_SHIP_TICKS ? Math.max(own, stateOf(p).v().length()) : own;
     }
+
+    /** Client ticks after a ship entity appears during which its own velocity is not trusted. */
+    private static final int NEW_SHIP_TICKS = 6;
 
     /** One line with the regime, body, altitude and speed. */
     static void logState(ShipEntity ship, OrbitStatePayload p, String when) {

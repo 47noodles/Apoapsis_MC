@@ -8,6 +8,8 @@ import dev.apoapsis.net.PlayerMessages;
 import dev.apoapsis.orbit.MeridianSystem;
 import dev.apoapsis.ownership.ShipOwnership;
 import dev.apoapsis.ship.ShipEntity;
+import dev.apoapsis.ship.ShipStructure;
+import dev.apoapsis.test.LanderCommand;
 import java.util.Set;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -21,6 +23,8 @@ public final class KestrelOrbit {
     /** Time from now until the Hohmann burn, s. */
     public static final double WINDOW_S = 120.0;
     private static final double SHIP_PHASE_DEG = 0.0;
+    /** JVM system property: {@code lander} spawns the Kestrel with four parachutes and four landing legs, full tanks (the return-trip run). */
+    public static final String SHIP_PROPERTY = "apoapsis.testShip";
 
     private KestrelOrbit() {}
 
@@ -51,7 +55,10 @@ public final class KestrelOrbit {
         double leadNowDeg = leadAtBurnDeg + (360.0 / shipPeriodS - 360.0 / palePeriodS) * WINDOW_S;
         Flight.setPalePhase(server, SHIP_PHASE_DEG + leadNowDeg);
 
-        ShipEntity ship = Flight.spawnInOrbit(server, blueprint.toStructure(), BodyId.VERDANCE, ALTITUDE_M, SHIP_PHASE_DEG);
+        ShipStructure structure = "lander".equals(System.getProperty(SHIP_PROPERTY))
+                ? LanderCommand.landerStructure(server, true, false)
+                : blueprint.toStructure();
+        ShipEntity ship = Flight.spawnInOrbit(server, structure, BodyId.VERDANCE, ALTITUDE_M, SHIP_PHASE_DEG);
         if (ship == null) {
             PlayerMessages.warning(player, Component.translatable("apoapsis.scenario.orbit.failed"));
             return false;

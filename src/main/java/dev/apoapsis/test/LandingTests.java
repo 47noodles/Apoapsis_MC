@@ -14,8 +14,10 @@ import dev.apoapsis.ship.ShipStructure;
 import dev.apoapsis.test.ApoapsisGameTest.ShipCleanup;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 
@@ -243,5 +245,29 @@ final class LandingTests {
                     helper.assertTrue(wrong.length() == 0, wrong.toString());
                 })
                 .thenSucceed();
+    }
+
+    /**
+     * Pale's regolith counts as ground in the motion-blocking heightmaps, as stone does. It was missing from the
+     * {@code blocks_motion_no_leaves} tag, so on Pale those heightmaps put the ground 3 m under the real surface: a
+     * ship's broad phase and the landing radar read the regolith as air. The test sets one regolith block high in an
+     * empty column and reads the height back through every heightmap the ship code uses.
+     */
+    static void regolithCountsInTheHeightmaps(GameTestHelper helper, ShipCleanup ships) {
+        BlockState regolith = TestSupport.block(helper, "regolith").defaultBlockState();
+        helper.assertTrue(regolith.is(BlockTags.BLOCKS_MOTION_IN_HEIGHTMAP), "regolith is not in blocks_motion_in_heightmap");
+        helper.assertTrue(regolith.is(BlockTags.BLOCKS_MOTION_IN_HEIGHTMAP_NO_LEAVES),
+                "regolith is not in blocks_motion_in_heightmap_no_leaves");
+        BlockPos local = new BlockPos(1, 20, 1);
+        helper.setBlock(local, regolith);
+        BlockPos abs = helper.absolutePos(local);
+        for (Heightmap.Types type : new Heightmap.Types[] {Heightmap.Types.MOTION_BLOCKING,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Heightmap.Types.OCEAN_FLOOR}) {
+            int height = helper.getLevel().getHeight(type, abs.getX(), abs.getZ());
+            helper.assertTrue(height >= abs.getY() + 1, type + " heightmap reads " + height + " under a regolith block at y "
+                    + abs.getY());
+        }
+        helper.setBlock(local, Blocks.AIR);
+        helper.succeed();
     }
 }

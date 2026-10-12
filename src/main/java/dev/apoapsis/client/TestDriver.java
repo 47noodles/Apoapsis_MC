@@ -20,7 +20,8 @@ import org.slf4j.Logger;
  * takes screenshots of the flight view, the map and a short engine burn into run/screenshots, logs the orbit before and
  * after the burn, then quits the game. The other values choose a named script: {@code transfer} (the Pale transfer),
  * {@code ascent} (a launch from the pad), {@code pale} (the transfer, then a landing on Pale) and {@code land} (a drop
- * from 1,200 m under parachutes) and {@code m07} (the landing aids and re-entry screenshots).
+ * from 1,200 m under parachutes), {@code m07} (the landing aids and re-entry screenshots) and {@code return} (the whole
+ * way home from Pale: ascent, transfer, re-entry and landing).
  */
 public final class TestDriver {
     private static final Logger LOG = LogUtils.getLogger();
@@ -32,6 +33,11 @@ public final class TestDriver {
     private static int pilotTicks;
     private static int leftShipTicks;
     private static boolean done;
+    /** Client ticks seen, the tick the pilot was last in a ship, that ship's id, and whether the orbit state vanished since. */
+    private static int allTicks;
+    private static int lastShipTick = -1;
+    private static int lastShipId = -1;
+    private static boolean orbitDroppedInGap;
 
     private TestDriver() {}
 
@@ -54,6 +60,7 @@ public final class TestDriver {
             case "land" -> new TestDriverLand();
             case "map" -> new TestDriverMap();
             case "m07" -> new TestDriverM07();
+            case "return" -> new TestDriverReturn();
             default -> null;
         };
     }
@@ -64,7 +71,12 @@ public final class TestDriver {
     }
 
     private static void tick(Minecraft mc) {
-        if (done || mc.player == null || mc.level == null) {
+        allTicks++;
+        if (done) {
+            return;
+        }
+        if (mc.player == null || mc.level == null) {
+            noteGap();
             return;
         }
         if (inWorldTicks++ == 0) {
@@ -73,10 +85,15 @@ public final class TestDriver {
             mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
         }
         if (!(mc.player.getVehicle() instanceof ShipEntity ship)) {
+            noteGap();
             if (SCRIPT != null && pilotTicks > 0) {
                 // A crash or ejection ends a named script: it is told once the pilot has been gone for a while.
                 if (++leftShipTicks == LEFT_SHIP_TICKS) {
-                    SCRIPT.tick(mc, null);
+                    if (SCRIPT.tick(mc, null)) {
+                        // The script says it is still waiting for a ship (a stage start moving the pilot): give it longer.
+                        leftShipTicks = 0;
+                        return;
+                    }
                     finish(mc);
                 }
                 return;
@@ -90,6 +107,7 @@ public final class TestDriver {
         }
         leftShipTicks = 0;
         pilotTicks++;
+        logShipReturn(mc, ship);
         if (SCRIPT != null) {
             if (!SCRIPT.tick(mc, ship)) {
                 finish(mc);
@@ -120,6 +138,31 @@ public final class TestDriver {
             case 480 -> finish(mc);
             default -> { }
         }
+    }
+
+    /** Called on a tick without a ship: remembers whether the client dropped its orbit state during the gap. */
+    private static void noteGap() {
+        if (lastShipTick >= 0 && ClientState.orbit == null) {
+            orbitDroppedInGap = true;
+        }
+    }
+
+    /**
+     * Called on every tick with a ship. When the ship is a different entity from the last one (a regime change at the
+     * atmosphere edge replaces it), logs how many ticks the pilot was without one, whether the client kept its orbit state
+     * through the gap, the camera and the open screen: what a player sees as the change.
+     */
+    private static void logShipReturn(Minecraft mc, ShipEntity ship) {
+        int gap = allTicks - lastShipTick - 1;
+        if (lastShipTick >= 0 && (gap > 0 || ship.getId() != lastShipId)) {
+            LOG.info("[test driver] ship changed: id {} -> {}, {} ticks without one, orbit state dropped in the gap: {}, "
+                            + "kept now: {}, camera {}, screen {}, hud hidden {}", lastShipId, ship.getId(), gap,
+                    orbitDroppedInGap, ClientState.orbit != null, mc.options.getCameraType(),
+                    mc.gui.screen() == null ? "none" : mc.gui.screen().getClass().getSimpleName(), mc.gui.hud.isHidden());
+        }
+        lastShipTick = allTicks;
+        lastShipId = ship.getId();
+        orbitDroppedInGap = false;
     }
 
     private static void logOrbitNow(String when) {

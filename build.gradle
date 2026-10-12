@@ -120,6 +120,19 @@ neoForge {
             programArguments.addAll '--width', '1600', '--height', '900'
         }
 
+        // The whole way home by script, as one run: Pale landing, Pale ascent, transfer back, re-entry with chutes and the
+        // landing on legs; telemetry CSV and m09-*.png into run/screenshots, then quits. The ship is the Kestrel with four
+        // chutes and four legs. -PreturnStage=ascent|escape|entry starts a later leg from a labelled stage start.
+        testReturn {
+            client()
+            systemProperty 'apoapsis.testFlight', 'true'
+            systemProperty 'apoapsis.testDriver', 'return'
+            systemProperty 'apoapsis.testShip', 'lander'
+            systemProperty 'apoapsis.testSave', 'Apoapsis Return Test'
+            systemProperty 'apoapsis.returnStage', project.findProperty('returnStage') ?: 'full'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
         server {
             server()
             programArgument '--nogui'
@@ -150,7 +163,8 @@ dependencies {
 
 // The scripted runs with their own save start from a fresh world: each deletes its save folder before it launches.
 def freshSaves = [runTestAscent: 'Apoapsis Ascent Test', runTestAscentRecord: 'Apoapsis Ascent Test',
-        runTestPale: 'Apoapsis Pale Test', runTestLand: 'Apoapsis Land Test', runTestM07: 'Apoapsis M07 Test']
+        runTestPale: 'Apoapsis Pale Test', runTestLand: 'Apoapsis Land Test', runTestM07: 'Apoapsis M07 Test',
+        runTestReturn: 'Apoapsis Return Test']
 tasks.matching { freshSaves.containsKey(it.name) }.configureEach { task ->
     task.doFirst { file("run/saves/${freshSaves[task.name]}").deleteDir() }
 }

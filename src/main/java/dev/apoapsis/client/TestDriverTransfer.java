@@ -44,6 +44,11 @@ final class TestDriverTransfer implements TestDriverSupport.Script {
         return phase == Phase.DONE;
     }
 
+    /** The current phase's name, for telemetry. */
+    String phaseName() {
+        return phase.name();
+    }
+
     /** Advances the script one client tick; returns false when finished. */
     @Override
     public boolean tick(Minecraft mc, ShipEntity ship) {

@@ -116,6 +116,16 @@ final class TestDriverPale implements TestDriverSupport.Script {
     /** Vertical speed at the last descent log line, for the measured vertical acceleration. */
     private double logVz;
 
+    /** True once the ship has touched down on Pale (the run is in its landed phase or past it). */
+    boolean touchedDown() {
+        return phase == Phase.LANDED || phase == Phase.DONE;
+    }
+
+    /** The current phase's name, for telemetry; the transfer's own phase names while it runs. */
+    String phaseName() {
+        return phase == Phase.TRANSFER ? "transfer-" + transfer.phaseName() : phase.name();
+    }
+
     @Override
     public boolean tick(Minecraft mc, ShipEntity ship) {
         if (ship == null) {

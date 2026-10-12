@@ -131,6 +131,8 @@ Gates: the crafting result is withheld, and placing or using the item is refused
 - `/apoapsis seamless dive <altitude> <speed> <path deg> <plain|chutes>`: a *Kestrel* in the orbit regime above Verdance at that speed, its velocity that many degrees below prograde and its nose retrograde, with you in the cockpit (for re-entry heating; `chutes` is the lander with parachutes and empty tanks).
 - `gradlew runTestFlight` starts the game with the system property `apoapsis.testFlight=true`. On the title screen it opens the save **Apoapsis Test Flight**, creating it on first launch (creative, cheats on, fixed seed). On the first join it runs the orbit scenario and builds a second Kestrel on a pad at spawn. No dedicated server and no EULA file are involved.
 
+- `gradlew runTestReturn` flies the whole way home by script in one run (Pale landing, ascent, transfer back, Verdance re-entry with chutes, landing on legs) with the player's own controls, and writes `run/screenshots/m09-telemetry.csv` and `m09-*.png`; `-PreturnStage=ascent|escape|entry` starts a later leg from a labelled stage start (`/apoapsis scenario lander pale [fuel %]`, `/apoapsis seamless orbit <body> ... lander`, `/apoapsis seamless dive ... lander`).
+
 ## Cross-module hooks added before dispatch
 
 - `grid.FuelTankBlockEntity`: `getFuelKg()`, `setFuelKg(double)`, `CAPACITY_KG = 1200` (BLK implements; SHIP and SCN call).
