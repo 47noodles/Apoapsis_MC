@@ -2,6 +2,7 @@ package dev.apoapsis.client.ship;
 
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.ship.ShipEntity;
+import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.neoforged.api.distmarker.Dist;
@@ -9,6 +10,7 @@ import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.CalculateDetachedCameraDistanceEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import org.joml.Quaternionf;
@@ -19,7 +21,8 @@ import org.joml.Vector3f;
  * distance is {@code clamp(2.5 * halfExtent + 4, 4, 48)} blocks times a zoom factor. The mouse wheel changes the zoom
  * (steps of 1.15, range 0.5 to 4) only in that case, and the factor is kept for the session. The distance eases
  * toward its target over a few frames. The camera also orbits to a three-quarter view (see {@link #onComputeCameraAngles}).
- * First person and on foot stay vanilla. Client only.
+ * First person and on foot stay vanilla. The Chase view key (V by default) toggles between cockpit and chase view
+ * while piloting; F5 still works. Client only.
  */
 @EventBusSubscriber(modid = Apoapsis.MODID, value = Dist.CLIENT)
 public final class ChaseCamera {
@@ -61,6 +64,18 @@ public final class ChaseCamera {
             return null;
         }
         return mc.player.getVehicle() instanceof ShipEntity ship ? ship : null;
+    }
+
+    /** Toggles cockpit (first person) and chase (third person) view when the Chase view key is pressed while piloting. */
+    @SubscribeEvent
+    public static void onClientTick(ClientTickEvent.Pre event) {
+        Minecraft mc = Minecraft.getInstance();
+        boolean pressed = PilotKeys.pressed(PilotKeys.CHASE_VIEW);
+        if (!pressed || mc.player == null || mc.gui.screen() != null || !(mc.player.getVehicle() instanceof ShipEntity)) {
+            return;
+        }
+        boolean firstPerson = mc.options.getCameraType().isFirstPerson();
+        mc.options.setCameraType(firstPerson ? CameraType.THIRD_PERSON_BACK : CameraType.FIRST_PERSON);
     }
 
     /**

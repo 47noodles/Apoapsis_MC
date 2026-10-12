@@ -28,6 +28,7 @@ public final class PilotKeys {
     public static final KeyMapping SYSTEM_MAP = key("system_map", InputConstants.KEY_M);
     public static final KeyMapping WARP_UP = key("warp_up", InputConstants.KEY_PERIOD);
     public static final KeyMapping WARP_DOWN = key("warp_down", InputConstants.KEY_COMMA);
+    public static final KeyMapping CHASE_VIEW = key("chase_view", InputConstants.KEY_V);
 
     private PilotKeys() {}
 
@@ -50,6 +51,12 @@ public final class PilotKeys {
         event.register(SYSTEM_MAP);
         event.register(WARP_UP);
         event.register(WARP_DOWN);
+        event.register(CHASE_VIEW);
+    }
+
+    /** The chase view key, so the HUD can show the player's bound key. */
+    public static KeyMapping chaseViewKey() {
+        return CHASE_VIEW;
     }
 
     /**

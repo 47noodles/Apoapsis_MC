@@ -22,6 +22,8 @@ public final class ShipRenderState extends EntityRenderState {
     public float heat;
     /** Unit direction of motion in dimension axes, which the air flows against; zero when cold. */
     public Vec3 heatWind = Vec3.ZERO;
+    /** True when the camera is the local pilot's own eye in first person: the blocks near the eye are cut away. */
+    public boolean cockpitView;
     /** Half the ship's size in metres, plus a margin: the radius the plasma sheath is drawn at. */
     public double glowRadius;
 

@@ -5,6 +5,7 @@ import dev.apoapsis.grid.ShipParts;
 import dev.apoapsis.ship.DescentGear;
 import dev.apoapsis.ship.ShipEntity;
 import dev.apoapsis.ship.ShipStructure;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.block.MovingBlockRenderState;
@@ -32,6 +33,12 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
     public static final double RENDER_RANGE = 256.0;
     /** A block whose cube is nearer the camera than this is not drawn, in metres: twice the 0.05 m near plane. */
     static final double CAMERA_CLEARANCE = 0.1;
+    /**
+     * In the cockpit view, blocks whose cube is nearer the eye than this are not drawn, in metres. The eye sits 0.62 m
+     * above the cockpit's top face, so this takes the cockpit and the ring of blocks around it out of the view: the
+     * pilot sees out over the hull instead of into it, and nose-down the ground shows past the stack below.
+     */
+    static final double COCKPIT_CUTAWAY = 1.1;
     /** Lit canopy fill: vanilla has no minecraft:textures/misc/white.png in 26.x, so NeoForge's 16x16 white is used. */
     private static final RenderType CANOPY_TYPE = RenderTypes.entitySolid(
         Identifier.fromNamespaceAndPath("neoforge", "textures/white.png"));
@@ -58,6 +65,9 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
         state.heat = heat.intensity();
         state.heatWind = heat.wind();
         AABB localBounds = ship.getStructure().localBounds();
+        Minecraft mc = Minecraft.getInstance();
+        state.cockpitView = mc.player != null && mc.player.getVehicle() == ship && mc.getCameraEntity() == mc.player
+            && mc.options.getCameraType().isFirstPerson();
         state.glowRadius = 0.5 * Math.max(localBounds.getXsize(), Math.max(localBounds.getYsize(), localBounds.getZsize())) + 1.0;
         if (ship.level() instanceof ClientLevel level) {
             // Every block takes its light from the ship's position, as FallingBlockRenderer does for its block.
@@ -94,7 +104,7 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
                 continue;
             }
             BlockPos p = block.pos();
-            if (isAtCamera(p, eye.x, eye.y, eye.z)) {
+            if (isAtCamera(p, eye.x, eye.y, eye.z) || (state.cockpitView && withinCutaway(p, eye.x, eye.y, eye.z))) {
                 continue;
             }
             poseStack.pushPose();
@@ -138,6 +148,14 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
         return ex > p.getX() - CAMERA_CLEARANCE && ex < p.getX() + 1 + CAMERA_CLEARANCE
             && ey > p.getY() - CAMERA_CLEARANCE && ey < p.getY() + 1 + CAMERA_CLEARANCE
             && ez > p.getZ() - CAMERA_CLEARANCE && ez < p.getZ() + 1 + CAMERA_CLEARANCE;
+    }
+
+    /** True when the cube of block {@code p} is within {@link #COCKPIT_CUTAWAY} of the point (ex, ey, ez) in block coordinates. */
+    static boolean withinCutaway(BlockPos p, double ex, double ey, double ez) {
+        double dx = Math.max(Math.max(p.getX() - ex, ex - (p.getX() + 1)), 0.0);
+        double dy = Math.max(Math.max(p.getY() - ey, ey - (p.getY() + 1)), 0.0);
+        double dz = Math.max(Math.max(p.getZ() - ez, ez - (p.getZ() + 1)), 0.0);
+        return dx * dx + dy * dy + dz * dz < COCKPIT_CUTAWAY * COCKPIT_CUTAWAY;
     }
 
     /** Culls against the whole ship, not the 1 m entity box: it is drawn while any part is in view. */

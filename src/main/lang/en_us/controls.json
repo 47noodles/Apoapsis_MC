@@ -11,5 +11,6 @@
   "key.apoapsis.deploy_parachutes": "Deploy parachutes",
   "key.apoapsis.system_map": "System map",
   "key.apoapsis.warp_up": "Time warp up",
-  "key.apoapsis.warp_down": "Time warp down"
+  "key.apoapsis.warp_down": "Time warp down",
+  "key.apoapsis.chase_view": "Chase view"
 }
