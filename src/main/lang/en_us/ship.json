@@ -7,7 +7,7 @@
   "message.apoapsis.ship.no_cockpit": "No cockpit here",
   "message.apoapsis.ship.no_parachutes": "No parachutes on this ship",
   "message.apoapsis.ship.no_room": "No room to place the ship here",
-  "message.apoapsis.ship.no_spacewalks": "No spacewalks in the prototype",
+  "message.apoapsis.ship.no_spacewalks": "Spacewalks are not possible yet",
   "message.apoapsis.ship.not_landed": "Land and come to a stop before you leave the ship as blocks",
   "message.apoapsis.ship.not_level": "Level the ship before you leave it as blocks",
   "message.apoapsis.ship.protected": "Some of these blocks are protected",

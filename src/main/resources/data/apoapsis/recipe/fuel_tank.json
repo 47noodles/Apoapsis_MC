@@ -1,5 +1,6 @@
 {
   "type": "minecraft:crafting_shaped",
+  "show_notification": false,
   "key": {
     "C": "minecraft:copper_ingot",
     "I": "minecraft:iron_ingot",

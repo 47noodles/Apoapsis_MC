@@ -2,6 +2,7 @@ package dev.apoapsis.scenario;
 
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.ages.Ages;
+import dev.apoapsis.net.PlayerMessages;
 import dev.apoapsis.ship.ShipAssembler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -72,7 +73,7 @@ public final class TestFlight {
             blueprint = Blueprint.load(server, "kestrel");
         } catch (IllegalStateException e) {
             Apoapsis.LOG.error("Test flight: the Kestrel blueprint could not be read");
-            player.sendSystemMessage(Component.translatable("apoapsis.scenario.blueprint.failed"));
+            PlayerMessages.warning(player, Component.translatable("apoapsis.scenario.blueprint.failed"));
             return;
         }
         if (padStart) {
@@ -85,9 +86,9 @@ public final class TestFlight {
         }
         boolean orbitOk = KestrelOrbit.run(player);
         if (padOk && orbitOk) {
-            player.sendSystemMessage(Component.translatable("apoapsis.scenario.testflight.done"));
+            PlayerMessages.event(player, Component.translatable("apoapsis.scenario.testflight.done"));
         } else if (!padOk) {
-            player.sendSystemMessage(Component.translatable("apoapsis.scenario.testflight.pad_failed"));
+            PlayerMessages.warning(player, Component.translatable("apoapsis.scenario.testflight.pad_failed"));
         }
     }
 
@@ -99,16 +100,16 @@ public final class TestFlight {
         BlockPos cockpit = KestrelPad.placeCockpit(overworld, spawn.getX(), spawn.getZ(), blueprint);
         if (cockpit == null) {
             Apoapsis.LOG.warn("Test flight: no room for the spawn pad at {}", spawn);
-            player.sendSystemMessage(Component.translatable("apoapsis.scenario.testflight.pad_failed"));
+            PlayerMessages.warning(player, Component.translatable("apoapsis.scenario.testflight.pad_failed"));
             return;
         }
         // stored value: sandbox must not leak a raised Age into the save
         Ages.setAge(player, Math.max(Ages.stored(player), 4), false);
         ShipAssembler.Result result = ShipAssembler.assemble(overworld, cockpit, player);
         if (result.error() != null) {
-            player.sendSystemMessage(result.error());
+            PlayerMessages.warning(player, result.error());
         } else {
-            player.sendSystemMessage(Component.translatable("apoapsis.scenario.testflight.done"));
+            PlayerMessages.event(player, Component.translatable("apoapsis.scenario.testflight.done"));
         }
     }
 }

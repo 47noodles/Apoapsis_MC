@@ -2,10 +2,11 @@ package dev.apoapsis.ship;
 
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.flight.FlightHooks;
+import dev.apoapsis.net.PlayerMessages;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
-import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityMountEvent;
@@ -41,8 +42,8 @@ public final class ShipEntities {
             return;
         }
         event.setCanceled(true);
-        if (event.getEntityMounting() instanceof Player player && !ship.level().isClientSide()) {
-            player.sendOverlayMessage(Component.translatable("message.apoapsis.ship.no_spacewalks"));
+        if (event.getEntityMounting() instanceof ServerPlayer player && !ship.level().isClientSide()) {
+            PlayerMessages.event(player, Component.translatable("message.apoapsis.ship.no_spacewalks"));
         }
     }
 }

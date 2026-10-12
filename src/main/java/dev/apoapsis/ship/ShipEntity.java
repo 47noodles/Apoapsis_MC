@@ -5,6 +5,7 @@ import dev.apoapsis.flight.Environment;
 import dev.apoapsis.flight.FlightHooks;
 import dev.apoapsis.flight.OrbitFlight;
 import dev.apoapsis.grid.ShipParts;
+import dev.apoapsis.net.PlayerMessages;
 import dev.apoapsis.ownership.ShipOwnership;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,6 +21,7 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
@@ -520,9 +522,13 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
 
     /** An action-bar line for the pilot, if there is one. */
     private void tell(String key) {
-        Player pilot = getPilot();
-        if (pilot != null) {
-            pilot.sendOverlayMessage(Component.translatable(key));
+        if (getPilot() instanceof ServerPlayer pilot) {
+            Component text = Component.translatable(key);
+            if ("message.apoapsis.ship.chutes_torn".equals(key)) {
+                PlayerMessages.warning(pilot, text);
+            } else {
+                PlayerMessages.event(pilot, text);
+            }
         }
     }
 
@@ -1114,9 +1120,8 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
 
     private void onHardLanding() {
         level().playSound(null, getX(), getY(), getZ(), SoundEvents.ANVIL_LAND, SoundSource.NEUTRAL, 1.0f, 0.6f);
-        Player pilot = getPilot();
-        if (pilot != null) {
-            pilot.sendOverlayMessage(Component.translatable("message.apoapsis.ship.hard_landing"));
+        if (getPilot() instanceof ServerPlayer pilot) {
+            PlayerMessages.warning(pilot, Component.translatable("message.apoapsis.ship.hard_landing"));
         }
     }
 
@@ -1142,7 +1147,10 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
             if (!pilot.isCreative()) {
                 pilot.hurtServer(serverLevel, serverLevel.damageSources().fall(), CRASH_PILOT_DAMAGE);
             }
-            pilot.sendSystemMessage(Component.translatable("message.apoapsis.ship.lost_on_impact", Math.round(speedMps)));
+            if (pilot instanceof ServerPlayer sp) {
+                PlayerMessages.warning(sp,
+                        Component.translatable("message.apoapsis.ship.lost_on_impact", Math.round(speedMps)));
+            }
         }
         remove(RemovalReason.DISCARDED);
     }

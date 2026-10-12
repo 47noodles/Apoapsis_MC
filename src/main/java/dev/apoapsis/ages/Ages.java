@@ -4,6 +4,7 @@ import dev.apoapsis.Apoapsis;
 import dev.apoapsis.client.ClientState;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.net.AgeSyncPayload;
+import dev.apoapsis.net.PlayerMessages;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -110,7 +111,10 @@ public final class Ages {
             recipes.add(ResourceKey.create(Registries.RECIPE, Identifier.fromNamespaceAndPath(Apoapsis.MODID, name)));
         }
         player.awardRecipesByKey(recipes);
-        AgeAnnounce.custodian(player, Component.translatable("apoapsis.ages.line.start"));
+        PlayerMessages.age(player,
+                Component.translatable("apoapsis.ages.format", String.valueOf(START_AGE),
+                        Component.translatable("apoapsis.ages.name." + START_AGE)),
+                Component.translatable("apoapsis.ages.line.start"));
         Guide.reach(player, Guide.Step.PARTS);
     }
 

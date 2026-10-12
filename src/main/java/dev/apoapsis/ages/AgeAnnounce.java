@@ -1,5 +1,6 @@
 package dev.apoapsis.ages;
 
+import dev.apoapsis.net.PlayerMessages;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
@@ -8,13 +9,16 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
-/** The Custodian's voice: chat lines and a short chime when the Age goes up. */
+/** The Custodian's voice: Age banners, chat lines and a short chime when the Age goes up. */
 final class AgeAnnounce {
     private AgeAnnounce() {}
 
-    /** Announces a reached Age: its chat line from the Custodian and a soft chime to this player only. */
+    /** Announces a reached Age: its banner from the Custodian and a soft chime to this player only. */
     static void ageReached(ServerPlayer player, int age) {
-        custodian(player, line(age));
+        PlayerMessages.age(player,
+                Component.translatable("apoapsis.ages.format", String.valueOf(age),
+                        Component.translatable("apoapsis.ages.name." + age)),
+                line(age));
         player.connection.send(new ClientboundSoundPacket(
                 Holder.direct(SoundEvents.UI_TOAST_IN),
                 SoundSource.PLAYERS,

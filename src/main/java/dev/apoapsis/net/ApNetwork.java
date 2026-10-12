@@ -20,6 +20,7 @@ public final class ApNetwork {
         r.playToClient(OrbitStatePayload.TYPE, OrbitStatePayload.STREAM_CODEC);
         r.playToClient(AgeSyncPayload.TYPE, AgeSyncPayload.STREAM_CODEC);
         r.playToClient(GuideStepPayload.TYPE, GuideStepPayload.STREAM_CODEC);
+        r.playToClient(MessagePayload.TYPE, MessagePayload.STREAM_CODEC);
         r.playToClient(PlanetMapPayload.TYPE, PlanetMapPayload.STREAM_CODEC);
         r.playToClient(TerrainTilePayload.TYPE, TerrainTilePayload.STREAM_CODEC);
         r.playToServer(TerrainTilePayload.Request.TYPE, TerrainTilePayload.Request.STREAM_CODEC,

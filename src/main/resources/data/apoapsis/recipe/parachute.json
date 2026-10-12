@@ -1,5 +1,6 @@
 {
   "type": "minecraft:crafting_shaped",
+  "show_notification": false,
   "key": {
     "W": "minecraft:white_wool",
     "S": "minecraft:string",

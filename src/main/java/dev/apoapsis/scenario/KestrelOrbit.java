@@ -4,6 +4,7 @@ import dev.apoapsis.Apoapsis;
 import dev.apoapsis.ages.Ages;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.Flight;
+import dev.apoapsis.net.PlayerMessages;
 import dev.apoapsis.orbit.MeridianSystem;
 import dev.apoapsis.ownership.ShipOwnership;
 import dev.apoapsis.ship.ShipEntity;
@@ -33,7 +34,7 @@ public final class KestrelOrbit {
         try {
             blueprint = Blueprint.load(server, "kestrel");
         } catch (IllegalStateException e) {
-            player.sendSystemMessage(Component.translatable("apoapsis.scenario.blueprint.failed"));
+            PlayerMessages.warning(player, Component.translatable("apoapsis.scenario.blueprint.failed"));
             return false;
         }
 
@@ -52,7 +53,7 @@ public final class KestrelOrbit {
 
         ShipEntity ship = Flight.spawnInOrbit(server, blueprint.toStructure(), BodyId.VERDANCE, ALTITUDE_M, SHIP_PHASE_DEG);
         if (ship == null) {
-            player.sendSystemMessage(Component.translatable("apoapsis.scenario.orbit.failed"));
+            PlayerMessages.warning(player, Component.translatable("apoapsis.scenario.orbit.failed"));
             return false;
         }
         ShipOwnership.claim(ship, player);
@@ -69,8 +70,9 @@ public final class KestrelOrbit {
         // Quiet: no flight has happened, so the Custodian does not announce First Flight.
         // stored value: sandbox must not leak a raised Age into the save
         Ages.setAge(player, Math.max(Ages.stored(player), 4), false);
-        player.sendSystemMessage(Component.translatable("apoapsis.scenario.orbit.done"));
-        player.sendSystemMessage(Component.translatable("apoapsis.scenario.orbit.hint"));
+        PlayerMessages.event(player, Component.translatable("apoapsis.scenario.orbit.done"));
+        PlayerMessages.event(player, Component.translatable("apoapsis.scenario.orbit.hint",
+                Component.keybind("key.apoapsis.sas"), Component.keybind("key.apoapsis.system_map")));
         return true;
     }
 }

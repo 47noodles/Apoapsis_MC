@@ -2,12 +2,14 @@ package dev.apoapsis.ship;
 
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.flight.FlightHooks;
+import dev.apoapsis.net.PlayerMessages;
 import dev.apoapsis.net.ShipInputPayload;
 import dev.apoapsis.ownership.ShipOwnership;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -147,8 +149,8 @@ public final class ShipControls {
         if (fire(gate, edges, ShipInputPayload.FLAG_ASSEMBLY, now, FLAG_COOLDOWN_TICKS)) {
             Component error = ShipOwnership.mayDisassemble(ship, player)
                     ? ShipAssembler.disassemble(ship) : ShipOwnership.notYours(ship);
-            if (error != null) {
-                player.sendOverlayMessage(error);
+            if (error != null && player instanceof ServerPlayer serverPlayer) {
+                PlayerMessages.event(serverPlayer, error);
             }
         }
     }

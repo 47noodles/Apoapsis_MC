@@ -1,5 +1,7 @@
 package dev.apoapsis.client;
 
+import dev.apoapsis.client.notify.CleanFlightView;
+import dev.apoapsis.client.notify.Notify;
 import dev.apoapsis.mixin.client.HudAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -21,10 +23,19 @@ public final class OverlayMessages {
 
     private OverlayMessages() {}
 
-    /** The overlay message while its time is above zero, or null. Call from the render thread. */
+    /**
+     * The line a screen shows where the action bar would be, or null: the mod's event line while it shows, else the
+     * overlay message while its time is above zero. Vanilla's boarding hint is never returned (see
+     * {@link CleanFlightView}). Call from the render thread.
+     */
     public static @Nullable Component current(Minecraft mc) {
+        Component event = Notify.eventLine();
+        if (event != null) {
+            return event;
+        }
         HudAccessor hud = (HudAccessor) mc.gui.hud;
-        return hud.apoapsis$overlayTime() > 0 ? hud.apoapsis$overlayMessage() : null;
+        Component msg = hud.apoapsis$overlayTime() > 0 ? hud.apoapsis$overlayMessage() : null;
+        return CleanFlightView.isBoardingHint(msg) ? null : msg;
     }
 
     /** The overlay message only when it is one of ours, else null: the map shows Apoapsis messages and no vanilla ones. */

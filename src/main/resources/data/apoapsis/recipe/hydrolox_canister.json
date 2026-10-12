@@ -1,5 +1,6 @@
 {
   "type": "minecraft:crafting_shapeless",
+  "show_notification": false,
   "ingredients": [
     "minecraft:water_bucket",
     "minecraft:iron_nugget",

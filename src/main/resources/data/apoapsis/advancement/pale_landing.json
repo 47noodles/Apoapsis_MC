@@ -10,7 +10,7 @@
     "description": {
       "translate": "apoapsis.advancement.pale_landing.description"
     },
-    "show_toast": true,
+    "show_toast": false,
     "announce_to_chat": false,
     "hidden": false
   },

@@ -167,6 +167,15 @@ public final class GameTests {
         event.registerTest(TestSupport.id("guide_step_payload_round_trips"),
                 new ApoapsisGameTest("guide_step_payload_round_trips", environment, 40,
                         GuideTests::guideStepPayloadRoundTrips));
+        event.registerTest(TestSupport.id("message_payload_round_trips"),
+                new ApoapsisGameTest("message_payload_round_trips", environment, 40,
+                        MessageTests::messagePayloadRoundTrips));
+        event.registerTest(TestSupport.id("messages_fall_back_to_chat"),
+                new ApoapsisGameTest("messages_fall_back_to_chat", environment, 40,
+                        MessageTests::messagesFallBackToChat));
+        event.registerTest(TestSupport.id("message_text_is_complete"),
+                new ApoapsisGameTest("message_text_is_complete", environment, 40,
+                        MessageTests::messageTextIsComplete));
     }
 
     /** Scoreboard team names used by the ownership tests; each test removes its teams when it is done. */

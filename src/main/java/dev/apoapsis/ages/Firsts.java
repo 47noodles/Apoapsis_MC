@@ -3,6 +3,7 @@ package dev.apoapsis.ages;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.FlightDimensions;
+import dev.apoapsis.net.PlayerMessages;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Vec3d;
 import java.util.ArrayList;
@@ -59,7 +60,8 @@ public final class Firsts {
         done.add(first.id());
         player.setData(AgeData.FIRSTS.get(), List.copyOf(done));
         if (line) {
-            AgeAnnounce.custodian(player, Component.translatable("apoapsis.firsts." + first.id() + ".line"));
+            PlayerMessages.first(player, Component.translatable("apoapsis.advancement." + first.id() + ".title"),
+                    Component.translatable("apoapsis.firsts." + first.id() + ".line"));
         }
         AdvancementHolder holder = player.level().getServer().getAdvancements()
                 .get(Identifier.fromNamespaceAndPath(Apoapsis.MODID, first.id()));
