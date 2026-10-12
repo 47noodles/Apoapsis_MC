@@ -132,6 +132,11 @@ public final class FarTerrainClient {
             float end = Math.max(fog.environmentalEnd, HORIZON_FOG_FACTOR * horizon);
             fog.environmentalEnd += (end - fog.environmentalEnd) * fade;
         }
+        if (v.water() && event.getType() == FogType.ATMOSPHERIC) {
+            // Verdance's haze hides the join between the voxels and the far tiles (client/atmosphere).
+            dev.apoapsis.client.atmosphere.Haze.apply(fog, fade, v.altitude(),
+                    mc.options.getEffectiveRenderDistance() * 16.0f);
+        }
     }
 
     /** The view of the last client tick that wanted tiles, for the test driver. */

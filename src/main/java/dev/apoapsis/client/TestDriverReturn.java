@@ -846,7 +846,9 @@ final class TestDriverReturn implements TestDriverSupport.Script {
     private void crossingFrames(Minecraft mc, ShipEntity ship, OrbitStatePayload p) {
         if (!fpSet && lastAlt < 2600) {
             fpSet = true;
-            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            // APOAPSIS_CROSSING_CAMERA=third takes the crossing frames from the chase camera instead.
+            mc.options.setCameraType("third".equalsIgnoreCase(System.getenv("APOAPSIS_CROSSING_CAMERA"))
+                    ? CameraType.THIRD_PERSON_BACK : CameraType.FIRST_PERSON);
         }
         if (!fpSet || crossingDone) {
             return;

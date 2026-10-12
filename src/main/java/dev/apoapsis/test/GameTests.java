@@ -155,6 +155,8 @@ public final class GameTests {
                 new ApoapsisGameTest("landing_legs_set_the_crash_limit", environment, 100, LandingTests::legsSetTheCrashLimit));
         event.registerTest(TestSupport.id("pale_regolith_counts_in_the_heightmaps"),
                 new ApoapsisGameTest("pale_regolith_counts_in_the_heightmaps", environment, 40, LandingTests::regolithCountsInTheHeightmaps));
+        event.registerTest(TestSupport.id("fresh_ship_sends_its_chute_state"),
+                new ApoapsisGameTest("fresh_ship_sends_its_chute_state", environment, 40, SpawnSyncTests::freshShipSendsItsChuteState));
         ManeuverTests.register(event, environment);
         SiteTests.register(event, environment);
         LangTests.register(event, environment);

@@ -29,13 +29,38 @@ final class TestDriverAscent implements TestDriverSupport.Script {
     private static final int SETTLE_TICKS = 60;
     private static final int SAS_TIMEOUT_TICKS = 200;
     /** Altitude (m) at which each climb shot is taken, its file, and its camera. */
-    private static final double[] SHOT_M = {20, 200, 300, 1000, 1500, 1900};
-    private static final String[] SHOT_FILE = {
-            "ascent-01-20m-first-person.png", "ascent-02-200m-third-person.png", "ascent-03-300m-first-person.png",
-            "ascent-04-1000m-first-person.png", "ascent-05-1500m-first-person.png", "ascent-06-1900m-first-person.png"};
-    private static final CameraType[] SHOT_CAMERA = {
-            CameraType.FIRST_PERSON, CameraType.THIRD_PERSON_BACK, CameraType.FIRST_PERSON, CameraType.FIRST_PERSON,
-            CameraType.FIRST_PERSON, CameraType.FIRST_PERSON};
+    private static final double[] SHOT_M;
+    private static final String[] SHOT_FILE;
+    private static final CameraType[] SHOT_CAMERA;
+
+    static {
+        // -Dapoapsis.climbShots (or APOAPSIS_CLIMB_SHOTS)=15t,60t,500f,... takes one shot per altitude, first (f) or third (t) person (effects checks).
+        String custom = System.getProperty("apoapsis.climbShots", System.getenv().getOrDefault("APOAPSIS_CLIMB_SHOTS", ""));
+        if (custom.isBlank()) {
+            SHOT_M = new double[] {20, 200, 300, 1000, 1500, 1900};
+            SHOT_FILE = new String[] {
+                    "ascent-01-20m-first-person.png", "ascent-02-200m-third-person.png", "ascent-03-300m-first-person.png",
+                    "ascent-04-1000m-first-person.png", "ascent-05-1500m-first-person.png",
+                    "ascent-06-1900m-first-person.png"};
+            SHOT_CAMERA = new CameraType[] {
+                    CameraType.FIRST_PERSON, CameraType.THIRD_PERSON_BACK, CameraType.FIRST_PERSON, CameraType.FIRST_PERSON,
+                    CameraType.FIRST_PERSON, CameraType.FIRST_PERSON};
+        } else {
+            // Each entry is an altitude with f (first person) or t (third person): 15f,60t,500f,...
+            String[] parts = custom.split(",");
+            SHOT_M = new double[parts.length];
+            SHOT_FILE = new String[parts.length];
+            SHOT_CAMERA = new CameraType[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                String part = parts[i].trim();
+                boolean third = part.endsWith("t");
+                SHOT_M[i] = Double.parseDouble(part.substring(0, part.length() - 1));
+                SHOT_FILE[i] = "climb-" + part.substring(0, part.length() - 1) + "m-" + (third ? "third" : "first") + ".png";
+                SHOT_CAMERA[i] = third ? CameraType.THIRD_PERSON_BACK : CameraType.FIRST_PERSON;
+            }
+        }
+    }
+
     /** Ticks between switching the camera and the shot, so the new view is drawn before it is grabbed. */
     private static final int CAMERA_LEAD_TICKS = 5;
     private static final int AFTER_ORBIT_SHOT_TICK = 20;

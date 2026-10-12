@@ -1,6 +1,8 @@
 package dev.apoapsis.client.ship;
 
 import dev.apoapsis.client.ship.ReentryState.Heat;
+import dev.apoapsis.client.ship.fx.FxLayers;
+import dev.apoapsis.client.ship.fx.FxParticle;
 import dev.apoapsis.flight.FlightDimensions;
 import dev.apoapsis.ship.ShipEntity;
 import java.util.Map;
@@ -9,24 +11,22 @@ import java.util.concurrent.ThreadLocalRandom;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * Re-entry glow for ships moving fast through air: flame and smoke on the windward faces of the hull, scaled by
+ * Re-entry streaks for ships moving fast through air: sparse additive streaks and sparks on the windward faces of the hull, scaled by
  * {@link ReentryState.Heat#intensity()}. In a surface dimension the particles hang in still air and the ship flies out
  * through them, so they trail behind; in the orbit dimension they stream aft. Spawns and velocities that would reach the
  * camera are skipped, so the glow never fills the view. Client only.
  */
 public final class ReentryParticles {
     /** Particles per ship per client tick within {@link EngineParticles#NEAR_M} of the camera, at full heating. */
-    private static final int MAX_PER_SHIP = 12;
+    private static final int MAX_PER_SHIP = 6;
     /** Particles per ship per client tick beyond {@link EngineParticles#NEAR_M}, at full heating. */
-    private static final int FAR_PER_SHIP = 3;
+    private static final int FAR_PER_SHIP = 2;
     /** Spawn points closer than this to the camera are skipped, blocks. */
     private static final double CLEAR_M = 8.0;
     /** Particles heading into a cone of this half-angle toward the camera, within {@link #CONE_M}, are skipped. */
@@ -117,7 +117,7 @@ public final class ReentryParticles {
             if (nearCamera(cam, x, y, z, vx, vy, vz)) {
                 continue;
             }
-            level.addParticle(pickType(rnd, h.intensity()), x, y, z, vx, vy, vz);
+            spawn(level, rnd, x, y, z, wind, h.intensity(), vx, vy, vz);
         }
     }
 
@@ -139,12 +139,26 @@ public final class ReentryParticles {
         return null;
     }
 
-    /** Flame mostly, small flame sometimes, and smoke when the heating is light. */
-    private static ParticleOptions pickType(ThreadLocalRandom rnd, float intensity) {
-        if (intensity < 0.5f && rnd.nextDouble() < 0.2) {
-            return ParticleTypes.LARGE_SMOKE;
+    /**
+     * One streak or spark: additive, white-hot to orange to dull red, drifting aft along the wind so a streak lines up
+     * with the flow. Hotter heating gives brighter and longer streaks.
+     */
+    private static void spawn(ClientLevel level, ThreadLocalRandom rnd, double x, double y, double z, Vec3 wind,
+            float intensity, double vx, double vy, double vz) {
+        boolean streak = rnd.nextDouble() < 0.7;
+        double drift = 0.2 + 0.3 * intensity;
+        FxParticle p = new FxParticle(level, x, y, z, FxLayers.sprite(streak ? FxLayers.STREAK : FxLayers.SPARK),
+                FxLayers.additive())
+                .motion(vx - wind.x * drift, vy - wind.y * drift, vz - wind.z * drift, 0.97F,
+                        8 + rnd.nextInt(6))
+                .colors(1.0F, 0.95F, 0.85F, 1.0F, 0.55F + 0.2F * intensity, 0.15F, 0.6F, 0.12F, 0.03F)
+                .alpha(0.45F + 0.5F * intensity, 1.2F);
+        if (streak) {
+            p.streak().sizes(0.5F + 0.5F * intensity, 0.35F);
+        } else {
+            p.sizes(0.14F, 0.05F);
         }
-        return rnd.nextDouble() < 0.3 ? ParticleTypes.SMALL_FLAME : ParticleTypes.FLAME;
+        Minecraft.getInstance().particleEngine.add(p);
     }
 
     /**

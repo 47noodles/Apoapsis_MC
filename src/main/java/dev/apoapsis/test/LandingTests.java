@@ -62,7 +62,7 @@ final class LandingTests {
     }
 
     /** Nine hull plates and four parachutes: 4,000 kg, no fuel. */
-    private static ShipStructure chuteShip(GameTestHelper helper) {
+    static ShipStructure chuteShip(GameTestHelper helper) {
         ShipStructure structure = new ShipStructure();
         hullLayer(helper, structure, 0);
         BlockState chute = TestSupport.block(helper, "parachute").defaultBlockState();

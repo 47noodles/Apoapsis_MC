@@ -24,14 +24,14 @@ final class ReentryGlow {
     private static final double BUBBLE_RADIAL = 0.95;
     /** The bubble ends where its normal has dot product -RIM_DOT with the wind, just behind the equator. */
     private static final double RIM_DOT = 0.15;
-    private static final int BUBBLE_RINGS = 10;
+    private static final int BUBBLE_RINGS = 8;
     /** Wake base and tip radii in ship radii; length in ship radii is {@code 2 + 2.5 * intensity}. */
     private static final double WAKE_BASE_RADIUS = 0.7;
     private static final double WAKE_TIP_RADIUS = 0.05;
-    private static final double WAKE_LENGTH_BASE = 2.0;
-    private static final double WAKE_LENGTH_HEAT = 2.5;
+    private static final double WAKE_LENGTH_BASE = 1.6;
+    private static final double WAKE_LENGTH_HEAT = 2.0;
     private static final int WAKE_RINGS = 6;
-    private static final int SEGMENTS = 24;
+    private static final int SEGMENTS = 20;
     /** Vertex order of a quad as built, then reversed. Culling is on, so each side of a quad draws one copy. */
     private static final int[][] ORDERS = {{0, 1, 2, 3}, {0, 3, 2, 1}};
 
@@ -55,14 +55,38 @@ final class ReentryGlow {
         Vec3 a = w.cross(helper).normalize();
         Vec3 b = w.cross(a);
         float heat = (float) Math.pow(intensity, 1.5);
-        Look look = new Look(255, mix(90, 235, heat), mix(30, 180, heat), 0.45f * intensity * fade, toCamera);
-        Grid bubble = bubble(w, a, b, radius);
-        Grid wake = wake(w, a, b, intensity, radius);
-        collector.submitCustomGeometry(poseStack, RenderTypes.lightning(),
-            (pose, buffer) -> emit(pose, buffer, bubble, look));
-        collector.submitCustomGeometry(poseStack, RenderTypes.lightning(),
-            (pose, buffer) -> emit(pose, buffer, wake, look));
+        double time = System.nanoTime() * 1.0e-9;
+        float flare = (float) (0.92 + 0.08 * Math.sin(time * 29.0));
+        float strength = intensity * fade * flare;
+        // Nested shells from a dull red outer sheath to a white-yellow inner one: soft where they overlap.
+        for (Shell shell : SHELLS) {
+            Look look = new Look(255, mix(shell.g0, shell.g1, heat), mix(shell.b0, shell.b1, heat),
+                    shell.strength * strength, toCamera, time);
+            Grid bubble = bubble(w, a, b, radius * shell.scale);
+            collector.submitCustomGeometry(poseStack, RenderTypes.lightning(),
+                (pose, buffer) -> emit(pose, buffer, bubble, look));
+        }
+        for (Shell shell : WAKES) {
+            Look look = new Look(255, mix(shell.g0, shell.g1, heat), mix(shell.b0, shell.b1, heat),
+                    shell.strength * strength, toCamera, time);
+            Grid wake = wake(w, a, b, intensity, radius, shell.scale);
+            collector.submitCustomGeometry(poseStack, RenderTypes.lightning(),
+                (pose, buffer) -> emit(pose, buffer, wake, look));
+        }
     }
+
+    /** One nested layer of the sheath: size against the full one, colour range (cool to hot) and strength. */
+    private record Shell(double scale, int g0, int g1, int b0, int b1, float strength) {}
+
+    private static final Shell[] SHELLS = {
+        new Shell(1.2, 60, 140, 10, 50, 0.40F),
+        new Shell(1.0, 100, 190, 25, 100, 0.55F),
+        new Shell(0.78, 150, 240, 70, 210, 0.70F),
+    };
+    private static final Shell[] WAKES = {
+        new Shell(1.0, 80, 170, 15, 70, 0.40F),
+        new Shell(0.5, 150, 235, 60, 190, 0.60F),
+    };
 
     /** The windward half of an ellipsoid: rings of latitude from the nose to a rim just behind the equator. */
     private static Grid bubble(Vec3 w, Vec3 a, Vec3 b, double radius) {
@@ -83,17 +107,17 @@ final class ReentryGlow {
         // Full strength over the nose, fading to nothing at the rim, so the bubble has no hard edge around the hull.
         double[] scale = new double[BUBBLE_RINGS + 1];
         for (int i = 0; i <= BUBBLE_RINGS; i++) {
-            scale[i] = 1.0 - smoothstep(0.55, 1.0, (double) i / BUBBLE_RINGS);
+            scale[i] = 1.0 - smoothstep(0.3, 1.0, (double) i / BUBBLE_RINGS);
         }
         return new Grid(pos, nrm, scale);
     }
 
     /** A cone from the centre of mass aft along -wind, narrowing to its tip. Alpha fades to nothing at the tip. */
-    private static Grid wake(Vec3 w, Vec3 a, Vec3 b, float intensity, double radius) {
+    private static Grid wake(Vec3 w, Vec3 a, Vec3 b, float intensity, double radius, double widthScale) {
         Vec3 aft = w.scale(-1);
-        double length = (WAKE_LENGTH_BASE + WAKE_LENGTH_HEAT * intensity) * radius;
-        double r0 = WAKE_BASE_RADIUS * radius;
-        double r1 = WAKE_TIP_RADIUS * radius;
+        double length = (WAKE_LENGTH_BASE + WAKE_LENGTH_HEAT * intensity) * radius * (0.6 + 0.4 * widthScale);
+        double r0 = WAKE_BASE_RADIUS * radius * widthScale;
+        double r1 = WAKE_TIP_RADIUS * radius * widthScale;
         double slope = (r0 - r1) / length;
         Vec3[][] pos = new Vec3[WAKE_RINGS + 1][SEGMENTS];
         Vec3[][] nrm = new Vec3[WAKE_RINGS + 1][SEGMENTS];
@@ -101,7 +125,7 @@ final class ReentryGlow {
         for (int i = 0; i <= WAKE_RINGS; i++) {
             double t = (double) i / WAKE_RINGS;
             double rr = r0 + (r1 - r0) * t;
-            scale[i] = Math.pow(1 - t, 2.2);
+            scale[i] = Math.pow(1 - t, 2.6);
             for (int j = 0; j < SEGMENTS; j++) {
                 Vec3 c = radial(a, b, j);
                 pos[i][j] = aft.scale(length * t).add(c.scale(rr));
@@ -149,8 +173,10 @@ final class ReentryGlow {
         Vec3 v = look.toCamera().subtract(p);
         double len = v.length();
         double facing = len < 1e-9 ? 0.0 : Math.abs(n.dot(v)) / len;
-        double fres = Math.pow(1 - facing, 2.0) * 0.8 + 0.2;
-        int alpha = (int) Math.round(255 * Math.min(1.0, look.strength() * fres * ringScale));
+        // Strongest where the sheath is seen face on, fading to nothing at its silhouette, so it has no hard edge.
+        double soft = Math.pow(facing, 1.8);
+        double flicker = 0.82 + 0.18 * Math.sin(look.time() * 14.0 + (p.x * 3.1 + p.y * 2.3 + p.z * 1.7));
+        int alpha = (int) Math.round(255 * Math.min(1.0, look.strength() * soft * ringScale * flicker));
         buffer.addVertex(pose, (float) p.x, (float) p.y, (float) p.z).setColor(look.r(), look.g(), look.b(), alpha);
     }
 
@@ -168,5 +194,5 @@ final class ReentryGlow {
     private record Grid(Vec3[][] pos, Vec3[][] nrm, double[] ringScale) {}
 
     /** The colour of a mesh, its alpha before the Fresnel and ring terms, and the camera offset for the Fresnel term. */
-    private record Look(int r, int g, int b, float strength, Vec3 toCamera) {}
+    private record Look(int r, int g, int b, float strength, Vec3 toCamera, double time) {}
 }

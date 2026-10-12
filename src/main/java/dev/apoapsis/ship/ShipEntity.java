@@ -307,6 +307,11 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
     public void setVelocity(Vec3 v) {
         velocity = v;
         wake();
+        if (!remote()) {
+            // A ship placed in a new level gets its state before the first client sees it: the spawn data is what
+            // the client draws from until the first stamped sample (see ShipInterpolation).
+            syncToClients();
+        }
     }
 
     /** Angular velocity in rad/s, body axes. Server only; clients see zero. */
@@ -421,6 +426,11 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
         return remote() ? entityData.get(CHUTE) : chuteState;
     }
 
+    /** The chute state as clients see it: the synced value, which the server writes in syncToClients. For tests. */
+    public int syncedChuteState() {
+        return entityData.get(CHUTE);
+    }
+
     /** Parachute blocks on the ship now. */
     public int parachuteCount() {
         ensureStructureCache();
@@ -505,6 +515,9 @@ public class ShipEntity extends Entity implements IEntityWithComplexSpawn {
     public void copyChuteStateFrom(ShipEntity other) {
         this.chuteState = other.getChuteState();
         wake();
+        if (!remote()) {
+            syncToClients();
+        }
     }
 
     /** The chutes are shredded: removed from the ship, for good. */

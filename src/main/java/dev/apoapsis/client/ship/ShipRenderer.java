@@ -82,9 +82,10 @@ public final class ShipRenderer extends EntityRenderer<ShipEntity, ShipRenderSta
             var biome = level.getBiome(pos);
             var lighting = level.cardinalLighting();
             var lightEngine = level.getLightEngine();
-            if (ship.tickCount < NO_LIGHT_FALLBACK_TICKS && level.getBrightness(LightLayer.SKY, pos) == 0
-                && level.getBrightness(LightLayer.BLOCK, pos) == 0) {
-                // A ship that has just arrived from the orbit dimension has no light under it yet: see OpenSkyLight.
+            if ((ship.tickCount < NO_LIGHT_FALLBACK_TICKS || pos.getY() > level.getMaxY())
+                && level.getBrightness(LightLayer.SKY, pos) == 0 && level.getBrightness(LightLayer.BLOCK, pos) == 0) {
+                // A ship that has just arrived from the orbit dimension has no light under it yet, and one that climbs above
+                // the top of the world (the last metres before the orbit regime) reads no light either: see OpenSkyLight.
                 if (openSky == null || openSkyLevel != level) {
                     openSky = new OpenSkyLight(level.getChunkSource());
                     openSkyLevel = level;
