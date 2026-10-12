@@ -2,7 +2,7 @@
 
 **Space Engineers-style building, KSP-style orbits and SevTech-style ages: a fully open-source Minecraft mod and modpack for the latest Minecraft Java (26.3).**
 
-> **Status: Stage 0 prototype (0.0.2-alpha.1).** The first playable slice is on the `stage0-prototype` branch. The design draft (October 2026) and the research behind it are here too.
+> **Status: Stage 0 prototype (0.0.2-alpha.1).** The first playable slice is on the `main` branch. The design draft (October 2026) and the research behind it are here too.
 
 ## Try the prototype
 
@@ -13,7 +13,7 @@ The **Stage 0 prototype** (0.0.2-alpha.1) is the first playable slice, with plac
 You need Git and any JDK 21 or newer to start Gradle. Gradle fetches Java 25 itself. On a fresh machine, run these three commands in a terminal, one at a time:
 
 ```bash
-git clone -b stage0-prototype https://github.com/47noodles/Apoapsis_MC.git
+git clone https://github.com/47noodles/Apoapsis_MC.git
 cd Apoapsis_MC
 ./gradlew runTestFlight
 ```
@@ -28,7 +28,7 @@ It opens straight into the test save, **Apoapsis Test Flight**, with a Kestrel r
 
 ### As a jar
 
-Open the **Actions** tab on GitHub, pick the latest **Build** run on `stage0-prototype`, and download the `apoapsis-<short sha>` artifact. Unzip it and put the jar in the mods folder of a NeoForge 26.3.0.69-beta instance, for example one made with [Prism Launcher](https://prismlauncher.org/) or CurseForge. Then create a creative world with cheats on and run `/apoapsis scenario orbit` for the same start as the test save.
+Open the **Actions** tab on GitHub, pick the latest **Build** run on `main`, and download the `apoapsis-<short sha>` artifact. Unzip it and put the jar in the mods folder of a NeoForge 26.3.0.69-beta instance, for example one made with [Prism Launcher](https://prismlauncher.org/) or CurseForge. Then create a creative world with cheats on and run `/apoapsis scenario orbit` for the same start as the test save.
 
 ### Controls
 

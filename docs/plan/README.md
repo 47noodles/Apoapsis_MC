@@ -41,7 +41,7 @@ How agents are organised: [AGENTS.md](../../AGENTS.md).
 ## Where things stand (11 Oct 2026)
 
 - **Done:** the design draft, the UI concept pack, and the build setup with the module contract.
-- **In progress:** the Stage 0 prototype on the `stage0-prototype` branch. It is a playable slice with ship blocks and assembly, flight physics, orbits with a transfer to Pale, Ages gating, the map and HUD, and a test save with a rocket already in orbit.
+- **In progress:** the Stage 0 prototype on the `main` branch. It is a playable slice with ship blocks and assembly, flight physics, orbits with a transfer to Pale, Ages gating, the map and HUD, and a test save with a rocket already in orbit.
 - **Next on the critical path:** the Lean MVP slice (M.01 to M.12), which starts from the Stage 0 prototype and runs alongside the two Stage 0 spikes, the cube-sphere seam (0.18) and the Jolt physics spike (0.19), and the Stage 1 design pack (0.26 to 0.31). The spikes and the design pack feed the Stage 0 go/no-go gate (0.32), which still gates the heavy Stage 1 work.
 
 ## Lean MVP

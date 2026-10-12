@@ -6,7 +6,7 @@ All notable changes to Apoapsis are recorded here. The format follows [Keep a Ch
 
 ### 0.0.2-alpha.1 — Stage 0 prototype
 
-Unreleased, on the `stage0-prototype` branch. Placeholder art and UI.
+Unreleased, on the `main` branch. Placeholder art and UI.
 
 #### Added
 - **Orbit library** (`orbit/`, pure Java, no Minecraft classes): Kepler propagation, orbital elements, Meridian system bodies, patched-conic trajectory predictor, RK4 integrator.
