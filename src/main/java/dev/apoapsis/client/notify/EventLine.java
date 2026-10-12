@@ -1,13 +1,15 @@
 package dev.apoapsis.client.notify;
 
+import dev.apoapsis.client.hud.HudLayout;
+import dev.apoapsis.client.ui.UiScale;
+import dev.apoapsis.client.ui.UiText;
+import dev.apoapsis.client.ui.UiTextSmooth;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -25,9 +27,12 @@ final class EventLine {
     /** The least a line shows before it gives way to a waiting one. */
     private static final int MIN_SHOW = 40;
     private static final int MAX_HELD = 2;
-    private static final int PAD_X = 7;
-    private static final int HEIGHT = 14;
-    private static final int ROW = 10;
+    private static final int PAD_X = 8;
+    private static final int PAD_Y = 4;
+    private static final int RULE_W = 2;
+    /** The plate height for one row; each further row adds {@link #ROW}. */
+    private static final int HEIGHT = 16;
+    private static final int ROW = 11;
 
     private record Line(Component text, boolean warning) {}
 
@@ -89,26 +94,33 @@ final class EventLine {
         if (fade <= 0.02) {
             return;
         }
-        Font font = mc.font;
-        // One row normally; a line longer than half the view wraps to a second row, so it never reaches the first chip
-        // at the top left or the regime label at the top right.
-        int wrap = Math.max(120, g.guiWidth() / 2 - 2 * PAD_X);
-        List<FormattedCharSequence> rows = font.split(line.text(), wrap);
-        int textW = 0;
-        for (FormattedCharSequence row : rows) {
-            textW = Math.max(textW, font.width(row));
-        }
-        int w = 2 + PAD_X + textW + PAD_X;
-        int h = HEIGHT + (rows.size() - 1) * ROW;
-        int x = (g.guiWidth() - w) / 2;
-        int y = NotifyStyle.EDGE;
-        int rule = line.warning() ? NotifyStyle.RULE_WARNING : NotifyStyle.RULE;
-        g.fill(x, y, x + w, y + h, NotifyStyle.faded(NotifyStyle.PLATE, fade));
-        g.fill(x, y, x + 2, y + h, NotifyStyle.faded(rule, fade));
-        int ty = y + (HEIGHT - 8) / 2;
-        for (FormattedCharSequence row : rows) {
-            g.text(font, row, x + 2 + PAD_X, ty, NotifyStyle.faded(NotifyStyle.TEXT, fade), true);
-            ty += ROW;
+        HudLayout lay = HudLayout.current();
+        UiScale s = lay.scale();
+        s.begin(g, 0, 0);
+        try {
+            // One row normally; a line longer than half the view wraps to a second row, so it never reaches the first
+            // chip at the top left or the regime label at the top right.
+            List<String> rows = NotifyStyle.wrap(UiText.Type.BODY, line.text().getString(),
+                    Math.max(120, lay.width() / 2 - 2 * PAD_X));
+            float textW = 0;
+            for (String row : rows) {
+                textW = Math.max(textW, UiTextSmooth.width(UiText.Type.BODY, row));
+            }
+            int w = (int) Math.ceil(textW) + RULE_W + 2 * PAD_X;
+            int h = HEIGHT + (rows.size() - 1) * ROW;
+            int x = lay.width() / 2 - w / 2;
+            int y = lay.top();
+            int rule = line.warning() ? NotifyStyle.RULE_WARNING : NotifyStyle.RULE;
+            g.fill(x, y, x + w, y + h, NotifyStyle.faded(NotifyStyle.PLATE, fade));
+            g.fill(x, y, x + RULE_W, y + h, NotifyStyle.faded(rule, fade));
+            int ty = y + PAD_Y;
+            float tx = x + RULE_W + PAD_X;
+            for (String row : rows) {
+                UiTextSmooth.draw(g, UiText.Type.BODY, row, tx, ty, NotifyStyle.faded(NotifyStyle.TEXT, fade));
+                ty += ROW;
+            }
+        } finally {
+            s.end(g);
         }
     }
 }

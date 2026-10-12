@@ -191,6 +191,13 @@ public final class GameTests {
         event.registerTest(TestSupport.id("message_text_is_complete"),
                 new ApoapsisGameTest("message_text_is_complete", environment, 40,
                         MessageTests::messageTextIsComplete));
+        event.registerTest(TestSupport.id("hud_numbers_are_formatted"),
+                new ApoapsisGameTest("hud_numbers_are_formatted", environment, 40, HudTests::hudNumbersAreFormatted));
+        event.registerTest(TestSupport.id("navball_horizon_frame_is_orthonormal"),
+                new ApoapsisGameTest("navball_horizon_frame_is_orthonormal", environment, 40,
+                        HudTests::navballHorizonFrameIsOrthonormal));
+        event.registerTest(TestSupport.id("hud_text_is_complete"),
+                new ApoapsisGameTest("hud_text_is_complete", environment, 40, HudTests::hudTextIsComplete));
     }
 
     /** Scoreboard team names used by the ownership tests; each test removes its teams when it is done. */

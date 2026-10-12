@@ -1,10 +1,14 @@
 package dev.apoapsis.client;
 
+import dev.apoapsis.client.hud.HudLayout;
 import dev.apoapsis.client.notify.CleanFlightView;
 import dev.apoapsis.client.notify.Notify;
+import dev.apoapsis.client.ui.UiPalette;
+import dev.apoapsis.client.ui.UiScale;
+import dev.apoapsis.client.ui.UiText;
+import dev.apoapsis.client.ui.UiTextSmooth;
 import dev.apoapsis.mixin.client.HudAccessor;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -18,8 +22,10 @@ import org.jspecify.annotations.Nullable;
  * Client only.
  */
 public final class OverlayMessages {
-    private static final int ABOVE_PANEL_PX = 12;
-    private static final int TEXT_COLOUR = 0xFFFFFFFF;
+    /** Space between the plate and the container's panel, and the plate's padding, UI units. */
+    private static final int PLATE_GAP = 4;
+    private static final int PAD_X = 8;
+    private static final int PAD_Y = 4;
 
     private OverlayMessages() {}
 
@@ -44,7 +50,7 @@ public final class OverlayMessages {
         return msg != null && isOurs(msg) ? msg : null;
     }
 
-    /** Draws an Apoapsis overlay message centred just above a container's panel, on a backdrop like the HUD's. */
+    /** Draws an Apoapsis overlay message centred just above a container's panel, in the kit's type on a faint plate. */
     static void onScreenRender(ScreenEvent.Render.Post event) {
         if (!(event.getScreen() instanceof AbstractContainerScreen<?> screen)) {
             return;
@@ -55,10 +61,20 @@ public final class OverlayMessages {
             return;
         }
         GuiGraphicsExtractor g = event.getGuiGraphics();
-        Font font = mc.font;
-        int width = font.width(msg);
-        int x = screen.getLeftPos() + screen.getImageWidth() / 2 - width / 2;
-        g.textWithBackdrop(font, msg, x, screen.getTopPos() - ABOVE_PANEL_PX, width, TEXT_COLOUR);
+        UiScale s = UiScale.current();
+        String text = msg.getString();
+        float width = UiTextSmooth.width(UiText.Type.BODY, text);
+        float cx = (screen.getLeftPos() + screen.getImageWidth() / 2f) / s.scale();
+        int capTop = Math.max(HudLayout.TOP_MARGIN, Math.round(screen.getTopPos() / s.scale()) - PLATE_GAP - PAD_Y
+                - UiText.Type.BODY.capHeight());
+        s.begin(g, 0, 0);
+        int x0 = Math.round(cx - width / 2f) - PAD_X;
+        int x1 = Math.round(cx + width / 2f) + PAD_X;
+        g.fill(x0, capTop - PAD_Y, x1, capTop + UiText.Type.BODY.capHeight() + PAD_Y,
+                UiPalette.alpha(UiPalette.STEEL_950, 0xC0));
+        g.fill(x0, capTop - PAD_Y, x0 + 2, capTop + UiText.Type.BODY.capHeight() + PAD_Y, UiPalette.BRASS);
+        UiTextSmooth.drawCentered(g, UiText.Type.BODY, text, cx, capTop, UiPalette.INK);
+        s.end(g);
     }
 
     /** True for a message this mod sent: its translation key is in the apoapsis namespace. */

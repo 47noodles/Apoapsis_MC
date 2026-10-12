@@ -16,9 +16,9 @@ import net.minecraft.resources.Identifier;
  * advance to a whole font pixel, and {@code UiText} rounds each glyph to a whole UI unit, which at 8 to 13 pixels an em
  * leaves tracked capitals unevenly spaced ("AT MOSPHERE") and makes moving labels step. This draws the same typefaces
  * from copies of the font definitions at three times the size ({@code map_label}, {@code map_body},
- * {@code map_heading}) under a pose scaled down by three, so advances round to a third of a font pixel, and places each
+ * {@code map_heading}, {@code map_title}) under a pose scaled down by three, so advances round to a third of a font pixel, and places each
  * glyph at its exact position. Sizes, tracking and caps match {@link UiText.Type}; {@link #width} is the width this
- * draws. Only the label, body and heading types are available. Client only.
+ * draws. The label, body, title and heading types are available. Client only.
  */
 public final class UiTextSmooth {
     /** How much larger the fonts are than their type's size. */
@@ -33,6 +33,7 @@ public final class UiTextSmooth {
             case LABEL -> "map_label";
             case BODY -> "map_body";
             case HEADING -> "map_heading";
+            case TITLE -> "map_title";
             default -> throw new IllegalArgumentException("no smooth font for " + type);
         };
         return new FontDescription.Resource(Identifier.fromNamespaceAndPath(Apoapsis.MODID, name));
@@ -40,7 +41,7 @@ public final class UiTextSmooth {
 
     /** Tracking between glyphs, UI units, as {@link UiText.Type}: zero for running text. */
     private static float tracking(Type type) {
-        return type == Type.LABEL ? 1.0f : type == Type.HEADING ? 2f : 0f;
+        return type == Type.LABEL ? 1.0f : type == Type.HEADING || type == Type.TITLE ? 2f : 0f;
     }
 
     private static String prepare(Type type, String text) {
@@ -97,5 +98,15 @@ public final class UiTextSmooth {
             }
         }
         g.pose().popMatrix();
+    }
+
+    /** Draws {@code text} centred on {@code cx}. */
+    public static void drawCentered(GuiGraphicsExtractor g, Type type, String text, float cx, float y, int argb) {
+        draw(g, type, text, cx - width(type, text) / 2f, y, argb);
+    }
+
+    /** Draws {@code text} with its right edge at {@code right}. */
+    public static void drawRight(GuiGraphicsExtractor g, Type type, String text, float right, float y, int argb) {
+        draw(g, type, text, right - width(type, text), y, argb);
     }
 }

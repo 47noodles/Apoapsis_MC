@@ -3,6 +3,12 @@ package dev.apoapsis.client.map;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Landing;
 import dev.apoapsis.ship.ShipEntity;
+import dev.apoapsis.client.hud.HudFormat;
+import dev.apoapsis.client.ui.UiNumber;
+import dev.apoapsis.client.ui.UiPalette;
+import dev.apoapsis.client.ui.UiText;
+import dev.apoapsis.client.ui.UiTextSmooth;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 import java.util.Locale;
@@ -13,9 +19,9 @@ import java.util.Locale;
  * only.
  */
 final class LandingReadout {
-    private static final int PILL_FILL = Palette.alpha(Palette.STEEL_950, 0xB8);
-    private static final int LINE = 9;
-    private static final int GAP = 8;
+    /** Row pitch and the width of the label column, UI units. */
+    private static final int ROW = 13;
+    private static final int LABEL_W = 30;
     private static final double MAX_RADAR_M = 1500;
     private static final double NEAR_GROUND_M = 25;
     private static final double DESCENT_MPS = 2.0;
@@ -26,61 +32,56 @@ final class LandingReadout {
     private LandingReadout() {}
 
     /**
-     * Draws the radar row, and the burn cue row while descending, as a pill whose bottom edge sits at {@code bottomY}
-     * and whose left edge is {@code x}. Draws nothing unless the ship is near the ground or descending fast, and not
-     * landed.
+     * Draws the radar altitude, and while descending the burn cue under it, in UI units: left edge {@code x}, the last
+     * row's capitals ending at {@code bottomY}. Call between {@code UiScale.begin} and {@code end}. Draws nothing unless
+     * the ship is near the ground or descending fast, and not landed. Calm accents only: the cue turns brass when the
+     * burn is near and copper-red at the moment, never louder.
      */
-    static void draw(Canvas c, ShipEntity ship, double radar, double vs, CelestialBody body, double altAboveSeaM, int x,
-                     int bottomY, double scale) {
+    static void draw(GuiGraphicsExtractor g, ShipEntity ship, double radar, double vs, CelestialBody body,
+                     double altAboveSeaM, int x, int bottomY) {
         if (!Double.isFinite(radar) || ship.isLanded() || radar > MAX_RADAR_M
                 || (vs > -DESCENT_MPS && radar > NEAR_GROUND_M)) {
             return;
         }
-        Component cue = null;
-        int cueArgb = Palette.INK_MUTED;
+        String cue = null;
+        int cueArgb = UiPalette.INK_MUTED;
         double vDown = -vs;
         if (vDown > DESCENT_MPS && ship.fuelKg() > 0) {
             // Ground pressure is the worst case: rocket thrust falls as the ambient pressure rises.
             double pf = Bodies.pressureFraction(body, altAboveSeaM - radar);
             double thrustAccel = ship.maxThrustN(pf) / ship.massKg();
-            double g = body.gravity(body.radius + altAboveSeaM - radar);
-            double t = Landing.burnStartIn(radar, vDown, g, thrustAccel);
+            double gr = body.gravity(body.radius + altAboveSeaM - radar);
+            double t = Landing.burnStartIn(radar, vDown, gr, thrustAccel);
             if (Double.isNaN(t)) {
-                cue = Component.translatable("apoapsis.hud.burn.low");
-                cueArgb = Palette.ALERT;
+                cue = Component.translatable("apoapsis.hud.burn.low").getString();
+                cueArgb = UiPalette.ALERT;
             } else if (t == 0) {
-                cue = Component.translatable("apoapsis.hud.burn.now");
-                cueArgb = Palette.ALERT;
+                cue = Component.translatable("apoapsis.hud.burn.now").getString();
+                cueArgb = UiPalette.ALERT;
             } else if (!Double.isInfinite(t)) {
-                cue = Component.translatable("apoapsis.hud.burn.in", String.format(Locale.ROOT, "%.1f s", t));
-                cueArgb = t <= SOON_S ? Palette.BRASS : Palette.INK_MUTED;
+                cue = Component.translatable("apoapsis.hud.burn.in", String.format(Locale.ROOT, "%.1f s", t))
+                        .getString();
+                cueArgb = t <= SOON_S ? UiPalette.BRASS : UiPalette.INK_MUTED;
             }
         }
-
-        float fs = (float) scale;
-        int lineH = px(LINE, scale);
-        int rows = cue == null ? 1 : 2;
-        int rowTop = bottomY - rows * lineH;
-        Component label = Component.translatable("apoapsis.hud.label.radar");
-        Component value = Component.literal(Fmt.distance(radar));
-        int valueArgb = radar < ALERT_RADAR_M && vs < ALERT_VS_MPS ? Palette.ALERT : Palette.INK;
-        int labelW = (int) Math.round(c.textWidth(label) * scale);
-        int valueW = (int) Math.round(c.textWidth(value) * scale);
-        int width = labelW + px(GAP, scale) + valueW;
+        int cap = UiNumber.CAP_HEIGHT;
+        String[] parts = HudFormat.distance(radar);
+        float width = LABEL_W + UiNumber.width(parts[0]) + 3 + UiNumber.unitWidth(parts[1]);
         if (cue != null) {
-            width = Math.max(width, (int) Math.round(c.textWidth(cue) * scale));
+            width = Math.max(width, UiTextSmooth.width(UiText.Type.LABEL, cue));
         }
-        int right = x + width;
-        c.rect(x - 3, rowTop - 1, right + 3, bottomY, PILL_FILL);
-        c.text(label, x, rowTop, fs, Palette.INK_MUTED, true);
-        c.text(value, right - valueW, rowTop, fs, valueArgb, true);
+        int plateTop = bottomY - cap - (cue != null ? ROW : 0) - 4;
+        g.fill(x - 5, plateTop, Math.round(x + width) + 6, bottomY + 4, UiPalette.alpha(UiPalette.STEEL_950, 0x99));
+        int rowTop = bottomY - cap;
         if (cue != null) {
-            c.text(cue, x, rowTop + lineH, fs, cueArgb, true);
+            UiTextSmooth.draw(g, UiText.Type.LABEL, cue, x, bottomY - UiText.Type.LABEL.capHeight(), cueArgb);
+            rowTop -= ROW;
         }
-    }
-
-    /** A unit-scale length at scale {@code s}, rounded to GUI px. */
-    private static int px(int v, double s) {
-        return (int) Math.round(v * s);
+        int valueArgb = radar < ALERT_RADAR_M && vs < ALERT_VS_MPS ? UiPalette.COPPER : UiPalette.INK;
+        String label = Component.translatable("apoapsis.hud.label.radar").getString();
+        UiTextSmooth.draw(g, UiText.Type.LABEL, label, x, rowTop + cap - UiText.Type.LABEL.capHeight(), UiPalette.INK_MUTED);
+        int vx = x + LABEL_W;
+        UiNumber.draw(g, parts[0], vx, rowTop, valueArgb);
+        UiNumber.drawUnit(g, parts[1], vx + UiNumber.width(parts[0]) + 3, rowTop, UiPalette.INK_MUTED);
     }
 }

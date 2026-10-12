@@ -1,5 +1,4 @@
 {
-  "apoapsis.hud.pe": "Pe %s",
   "apoapsis.hud.escape": "Escape",
   "apoapsis.hud.impact": "Impact",
   "apoapsis.hud.none": "--",
@@ -13,13 +12,12 @@
   "apoapsis.hud.prograde": "PROGRADE",
   "apoapsis.hud.retrograde": "RETROGRADE",
   "apoapsis.hud.target": "%1$s · %2$s",
-  "apoapsis.hud.pill.fuel": "FUEL %1$s  Δv %2$s",
-  "apoapsis.hud.pill.dry": "NO FUEL",
-  "apoapsis.hud.hint": "[%1$s] %2$s",
-  "apoapsis.hud.keys": "%1$s/%2$s",
-  "apoapsis.hud.hint.sas": "SAS",
+  "apoapsis.hud.fuel.empty": "No fuel",
+  "apoapsis.hud.fuel.low": "Low fuel",
+  "apoapsis.hud.warp": "Warp",
+  "apoapsis.hud.hint.chase": "Chase view",
   "apoapsis.hud.hint.throttle": "Throttle",
-  "apoapsis.hud.hint.roll": "Roll",
-  "apoapsis.hud.hint.warp": "Warp",
-  "apoapsis.hud.hint.map": "Map"
+  "apoapsis.hud.hint.sas": "SAS",
+  "apoapsis.hud.hint.map": "Map",
+  "apoapsis.hud.hint.warp": "Warp"
 }

@@ -76,6 +76,34 @@ public final class Navball {
     }
 
     /**
+     * North and east along the local horizon, in dimension coordinates, written to {@code out[0..2]} and
+     * {@code out[3..5]}. North is dimension -Z projected onto the horizon, or +X when the vertical is along Z, as in
+     * {@link #heading}; east is north x up.
+     */
+    public static void horizon(double ux, double uy, double uz, double[] out) {
+        double nd = -uz;
+        double px = -nd * ux;
+        double py = -nd * uy;
+        double pz = -1 - nd * uz;
+        double pl = Math.sqrt(px * px + py * py + pz * pz);
+        if (pl < 1e-6) {
+            px = 1 - ux * ux;
+            py = -ux * uy;
+            pz = -ux * uz;
+            pl = Math.sqrt(px * px + py * py + pz * pz);
+        }
+        px /= pl;
+        py /= pl;
+        pz /= pl;
+        out[0] = px;
+        out[1] = py;
+        out[2] = pz;
+        out[3] = py * uz - pz * uy;
+        out[4] = pz * ux - px * uz;
+        out[5] = px * uy - py * ux;
+    }
+
+    /**
      * The compass heading of the nose, degrees 0..360 from north, measured in the local horizontal plane. North is
      * dimension -Z, or +X when that is along the vertical. Returns NaN when the nose is vertical.
      */

@@ -23,9 +23,6 @@ import org.jspecify.annotations.Nullable;
  * event line near the top centre ({@link EventLine}), a short banner for a new Age ({@link AgeBanner}) and a small chip
  * for a first ({@link FirstChip}). The server sends {@link MessagePayload}; {@link CleanFlightView} takes the vanilla
  * hotbar, crosshair and dismount hint off the screen while the local player pilots a ship. Client only.
- *
- * <p>These are drawn with a small private style (the Brassworks palette in {@link NotifyStyle}) and not the UI kit, which
- * was not on this branch when they were written; the flight HUD pass can move them onto the kit.
  */
 public final class Notify {
     private static final Identifier LAYER = Identifier.fromNamespaceAndPath(Apoapsis.MODID, "notify");

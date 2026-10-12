@@ -21,9 +21,22 @@ public final class UiKeycap {
         return mapping.getTranslatedKeyMessage().getString();
     }
 
+    /**
+     * Whether the label's characters are all in the kit typefaces. Evenly spaced (smooth) text is drawn from a font three
+     * times the size under a smaller pose, which would shrink a glyph the game draws from its fallback font (an arrow), so
+     * those labels use the plain type.
+     */
+    private static boolean smooth(String label) {
+        return label.chars().allMatch(c -> c < 0x2000);
+    }
+
+    private static float textWidth(String label) {
+        return smooth(label) ? UiTextSmooth.width(UiText.Type.LABEL, label) : UiText.width(UiText.Type.LABEL, label);
+    }
+
     /** Width of a keycap showing {@code label}. */
     public static int width(String label) {
-        return Math.max(HEIGHT, Math.round(UiText.width(UiText.Type.LABEL, label)) + PAD * 2);
+        return Math.max(HEIGHT, Math.round(textWidth(label)) + PAD * 2);
     }
 
     /** Draws a keycap with its top left at ({@code x}, {@code y}); returns its width. */
@@ -33,7 +46,11 @@ public final class UiKeycap {
         UiPanel.edge(g, x, y, x + w, y + HEIGHT, UiPalette.STEEL_500);
         g.fill(x + 1, y + HEIGHT - 2, x + w - 1, y + HEIGHT - 1, UiPalette.STEEL_700);
         int capTop = y + (HEIGHT - UiText.Type.LABEL.capHeight()) / 2 - 1;
-        UiText.drawCentered(g, UiText.Type.LABEL, label, x + w / 2f, capTop, UiPalette.INK);
+        if (smooth(label)) {
+            UiTextSmooth.drawCentered(g, UiText.Type.LABEL, label, x + w / 2f, capTop, UiPalette.INK);
+        } else {
+            UiText.drawCentered(g, UiText.Type.LABEL, label, x + w / 2f, capTop, UiPalette.INK);
+        }
         return w;
     }
 
@@ -46,12 +63,12 @@ public final class UiKeycap {
     public static int hint(GuiGraphicsExtractor g, int x, int y, String keyLabel, String caption) {
         int w = draw(g, x, y, keyLabel);
         int capTop = y + (HEIGHT - UiText.Type.LABEL.capHeight()) / 2 - 1;
-        UiText.draw(g, UiText.Type.LABEL, caption, x + w + GAP, capTop, UiPalette.INK_MUTED);
-        return w + GAP + Math.round(UiText.width(UiText.Type.LABEL, caption));
+        UiTextSmooth.draw(g, UiText.Type.LABEL, caption, x + w + GAP, capTop, UiPalette.INK_MUTED);
+        return w + GAP + Math.round(UiTextSmooth.width(UiText.Type.LABEL, caption));
     }
 
     /** Width {@link #hint(GuiGraphicsExtractor, int, int, String, String)} would take. */
     public static int hintWidth(String keyLabel, String caption) {
-        return width(keyLabel) + GAP + Math.round(UiText.width(UiText.Type.LABEL, caption));
+        return width(keyLabel) + GAP + Math.round(UiTextSmooth.width(UiText.Type.LABEL, caption));
     }
 }
