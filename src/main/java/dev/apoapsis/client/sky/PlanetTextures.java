@@ -1,6 +1,7 @@
 package dev.apoapsis.client.sky;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.logging.LogUtils;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.net.PlanetMapPayload;
 import java.util.HashMap;
@@ -10,6 +11,7 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
 
 /**
  * The bodies' surface colour maps on the client, as textures the sky can draw. Each map is registered under
@@ -17,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  * thread.
  */
 public final class PlanetTextures {
+    private static final Logger LOG = LogUtils.getLogger();
     private static final Map<String, Identifier> IDS = new HashMap<>();
 
     private PlanetTextures() {}
@@ -29,14 +32,22 @@ public final class PlanetTextures {
         if (!body.matches("[a-z_]{1,32}") || w < 1 || h < 1 || rgb.length != w * h * 3) {
             return;
         }
-        NativeImage image = new NativeImage(w, h, false);
-        int i = 0;
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int r = rgb[i] & 0xFF, g = rgb[i + 1] & 0xFF, b = rgb[i + 2] & 0xFF;
-                image.setPixel(x, y, 0xFF000000 | (r << 16) | (g << 8) | b);
-                i += 3;
+        NativeImage image;
+        if (SpaceSky.off()) {
+            image = new NativeImage(w, h, false);
+            int i = 0;
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int r = rgb[i] & 0xFF, g = rgb[i + 1] & 0xFF, b = rgb[i + 2] & 0xFF;
+                    image.setPixel(x, y, 0xFF000000 | (r << 16) | (g << 8) | b);
+                    i += 3;
+                }
             }
+        } else {
+            long t0 = System.nanoTime();
+            image = PlanetDetail.magnify(rgb, w, h);
+            LOG.info("[planet map] {} magnified {}x to {}x{} in {} ms", body, PlanetDetail.FACTOR, image.getWidth(),
+                    image.getHeight(), (System.nanoTime() - t0) / 1_000_000L);
         }
         Identifier id = Identifier.fromNamespaceAndPath(Apoapsis.MODID, "planet_map/" + body);
         // TextureManager.register closes the texture it replaces.

@@ -1,9 +1,12 @@
 package dev.apoapsis.client.sky;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.renderpearl.api.pipeline.CompareOp;
 import com.mojang.renderpearl.api.pipeline.DepthStencilState;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.textures.AddressMode;
+import com.mojang.renderpearl.api.textures.FilterMode;
 import dev.apoapsis.Apoapsis;
 import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.OrbitNow;
@@ -69,6 +72,14 @@ public final class SkyBodies {
      */
     private static final RenderPipeline PLANET_PIPELINE = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath(Apoapsis.MODID, "pipeline/planet"))
+            .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+            .withCull(false)
+            .build();
+    /** The finer planet look: the same quads with the planet shader (lit as the far terrain, a blue night side). */
+    private static final RenderPipeline PLANET_PIPELINE_SPACE = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+            .withLocation(Identifier.fromNamespaceAndPath(Apoapsis.MODID, "pipeline/planet_space"))
+            .withVertexShader(Identifier.fromNamespaceAndPath(Apoapsis.MODID, "core/space_planet"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath(Apoapsis.MODID, "core/space_planet"))
             .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
             .withCull(false)
             .build();
@@ -169,8 +180,15 @@ public final class SkyBodies {
         if (map == null) {
             return null;
         }
-        return PLANET_TYPES.computeIfAbsent(body.id, id -> RenderType.create("apoapsis_planet",
-                RenderSetup.builder(PLANET_PIPELINE).withTexture("Sampler0", map).createRenderSetup()));
+        if (SpaceSky.off()) {
+            return PLANET_TYPES.computeIfAbsent(body.id, id -> RenderType.create("apoapsis_planet",
+                    RenderSetup.builder(PLANET_PIPELINE).withTexture("Sampler0", map).createRenderSetup()));
+        }
+        // Linear filtering, wrapping round the longitude and clamped at the poles.
+        return PLANET_TYPES.computeIfAbsent(body.id, id -> RenderType.create("apoapsis_planet_space",
+                RenderSetup.builder(PLANET_PIPELINE_SPACE).withTexture("Sampler0", map, () -> RenderSystem.getSamplerCache()
+                        .getSampler(AddressMode.REPEAT, AddressMode.CLAMP_TO_EDGE, FilterMode.LINEAR, FilterMode.LINEAR,
+                                false)).createRenderSetup()));
     }
 
     /** Universal time now: the piloted ship's, advanced to this frame, else the level's game time in seconds. */
@@ -353,6 +371,7 @@ public final class SkyBodies {
             double far) {
         PlanetCap cap = disc.body() == MeridianSystem.PALE ? PALE_CAP : VERDANCE_CAP;
         cap.build(disc.body().radius, disc.viewer(), disc.axes(), far, SUN, disc.alpha());
+        cap.setNightBlue(SpaceSky.off() ? -1 : disc.body().atmosphereTop > 0 ? 255 : 0);
         collector.submitCustomGeometry(poseStack, type, (pose, buffer) -> cap.emit(pose, buffer));
     }
 }

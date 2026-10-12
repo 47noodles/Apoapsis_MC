@@ -27,6 +27,13 @@ final class PlanetCap {
     private final double[] cosTheta = new double[V], sinTheta = new double[V];
     /** Alpha of every vertex, 0..255, set by {@link #build}: the climb fades the planet in. */
     private int alpha = 255;
+    /** Vertex green: how blue the night side is (255 for a body with air, 0 without); -1 draws the old grey shade. */
+    private int nightBlue = -1;
+
+    /** Sets the night-side style for the next frames; see the planet shader. -1 is the old flat shade. */
+    void setNightBlue(int nightBlue) {
+        this.nightBlue = nightBlue;
+    }
 
     /**
      * Fills the grid for a sphere of {@code radius} seen from {@code viewer} (inertial, relative to its centre), placing
@@ -107,7 +114,7 @@ final class PlanetCap {
         int l = shade[i];
         buffer.addVertex(pose, sky[3 * i], sky[3 * i + 1], sky[3 * i + 2])
                 .setUv((float) unwrap(u0, texU(i)), (float) v)
-                .setColor(l, l, l, alpha);
+                .setColor(l, nightBlue < 0 ? l : nightBlue, nightBlue < 0 ? l : 0, alpha);
     }
 
     private double texU(int i) {

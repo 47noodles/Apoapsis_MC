@@ -2,12 +2,16 @@ package dev.apoapsis.client;
 
 import dev.apoapsis.client.sky.PlanetTextures;
 import dev.apoapsis.client.sky.SkyBodies;
+import dev.apoapsis.client.sky.SkyShots;
+import dev.apoapsis.client.sky.SpaceSky;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.level.material.FogType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.ExtractLevelRenderStateEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -23,6 +27,9 @@ public final class SkyClient {
     /** Called from {@code ApoapsisClient} with the mod event bus. */
     public static void register(IEventBus modBus) {
         NeoForge.EVENT_BUS.addListener(SubmitCustomGeometryEvent.class, SkyBodies::onSubmitCustomGeometry);
+        NeoForge.EVENT_BUS.addListener(ExtractLevelRenderStateEvent.class, SpaceSky::onExtract);
+        NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterSky.class, SpaceSky::onAfterSky);
+        SkyShots.register();
         NeoForge.EVENT_BUS.addListener(ViewportEvent.ComputeFogColor.class, SkyClient::climbFogColour);
         NeoForge.EVENT_BUS.addListener(ViewportEvent.RenderFog.class, SkyClient::climbFogFar);
         NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingOut.class, e -> PlanetTextures.clear());
