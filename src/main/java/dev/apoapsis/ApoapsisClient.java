@@ -7,6 +7,7 @@ import dev.apoapsis.client.SeamlessTransitions;
 import dev.apoapsis.client.ShipClient;
 import dev.apoapsis.client.SkyClient;
 import dev.apoapsis.client.TestDriver;
+import dev.apoapsis.client.menu.MenuClient;
 import dev.apoapsis.client.sky.PlanetTextures;
 import dev.apoapsis.net.AgeSyncPayload;
 import dev.apoapsis.net.GuideStepPayload;
@@ -27,6 +28,7 @@ public final class ApoapsisClient {
         GuidePanel.register(modBus);
         SkyClient.register(modBus);
         SeamlessTransitions.register(modBus);
+        MenuClient.register(modBus);
         modBus.addListener(ApoapsisClient::onClientPayloads);
         if (TestDriver.enabled()) {
             TestDriver.register();
