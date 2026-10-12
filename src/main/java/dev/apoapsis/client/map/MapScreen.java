@@ -4,8 +4,13 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.OrbitNow;
 import dev.apoapsis.client.OverlayMessages;
+import dev.apoapsis.client.map3d.OrbitCamera;
 import dev.apoapsis.client.ship.PilotKeys;
 import dev.apoapsis.client.sky.PlanetTextures;
+import dev.apoapsis.client.ui.UiBackdrop;
+import dev.apoapsis.client.ui.UiPalette;
+import dev.apoapsis.client.ui.UiScale;
+import dev.apoapsis.client.ui.UiText.Type;
 import dev.apoapsis.flight.FlightRegime;
 import dev.apoapsis.net.OrbitStatePayload;
 import dev.apoapsis.net.ShipInputPayload;
@@ -16,6 +21,10 @@ import dev.apoapsis.orbit.StateVector;
 import dev.apoapsis.orbit.Transfers;
 import dev.apoapsis.orbit.Vec3d;
 import dev.apoapsis.ship.ShipEntity;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -25,74 +34,52 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The full-screen system map (the System map key, M by default). Full-bleed, no panel, does not pause the game. Shows
- * the piloted ship's orbit and predicted coast over Verdance and Pale. Client only.
+ * The full-screen system map seen from above (Tab in the 3D map, or the System map key when 2D is chosen). Full-bleed,
+ * no panel, does not pause the game. Shows the piloted ship's orbit and predicted coast over Verdance and Pale, with
+ * the same look as the 3D map: textured spheres lit from the sun on +X with an atmosphere, smooth glowing orbit lines,
+ * and light overlays and labels from {@link MapChrome} and {@link Labels}. Everything is in UI units, so the layout is
+ * the same at any GUI scale. Client only.
  *
  * <p>Frame rule: the current patch and its marks are drawn at their body's position now (the current extrapolated
  * time), so a Pale patch the ship is in sits around Pale's disc. A future patch around a non-root body (Pale) is drawn
- * at that body's position when the ship enters it, so the predicted line meets the encounter's white dot. The encounter
+ * at that body's position when the ship enters it, so the predicted line meets the encounter's dot. The encounter
  * shows a faint ghost of Pale where it will be at that time: its outline, a dashed sphere of influence and brackets.
- *
- * <p>Look: the current patch is a clean one-pixel line, future patches are dashed, Pale's orbit a quiet thin ring. Bodies
- * are shaded discs lit from the upper left, textured when the server has sent a surface map. Labels are drawn after the
- * bodies and the paths, on a dark backdrop. Chrome sits in the four corners and reserves its boxes before any label is
- * placed, so nothing lands on it. The bottom row holds the keycaps on the left and the warp strip on the right.
  */
 public final class MapScreen extends Screen {
     private static final int RECOMPUTE_FRAMES = 10;
     /** Zoom change, as a ratio either way, that re-samples the polylines. */
     private static final double RESAMPLE_ZOOM_RATIO = 1.5;
-    private static final int STAR_COUNT = 160;
-    private static final int PALE_ORBIT_SEGMENTS = 256;
-    private static final int ATMOSPHERE_SEGMENTS = 256;
     private static final double SYSTEM_HALF_EXTENT_M = 360_000.0;
     private static final double ORBIT_FIT_MARGIN = 1.3;
     private static final double SOI_FIT_MARGIN = 1.1;
-    private static final double MARGIN_PX = 24;
-    private static final int LINE_STEP = 12;
-    private static final int LABEL_H = 9;
-    /** Light comes from the upper left of the screen (screen y grows downward). */
-    private static final double LIGHT_X = -0.6;
-    private static final double LIGHT_Y = -0.8;
+    private static final double MARGIN = 12;
     private static final double STANDARD_GRAVITY = 9.80665;
-    /** Dash length of a future patch, px. */
-    private static final double DASH_PX = 6;
-    /** The bottom row sits this far above the bottom edge, px. The transfer card stands 8 px above it. */
-    private static final int BOTTOM_INSET = 22;
-    /** Clear space between the keycaps and the warp strip, px. */
-    private static final int BOTTOM_GAP = 12;
-    /** Below this GUI width the scroll, drag and focus hints are left out, so the warp keys fit, px. */
-    private static final int NARROW_GUI_PX = 376;
+    /** Dash and gap of a future patch, UI units. */
+    private static final double DASH = 4.5;
+    private static final double GAP = 3.5;
     /** Within this many degrees of the Hohmann lead, the window is open now. */
     private static final double WINDOW_NOW_DEG = 2;
     /** Eccentricity below which the Pale window cue applies. */
     private static final double WINDOW_MAX_ECC = 0.1;
-    private static final long STAR_SEED = 0x41504F41L;
-
-    private static final float[] STAR_X = new float[STAR_COUNT];
-    private static final float[] STAR_Y = new float[STAR_COUNT];
-    private static final int[] STAR_ALPHA = new int[STAR_COUNT];
-
-    static {
-        Random rng = new Random(STAR_SEED);
-        for (int i = 0; i < STAR_COUNT; i++) {
-            STAR_X[i] = rng.nextFloat();
-            STAR_Y[i] = rng.nextFloat();
-            STAR_ALPHA[i] = 0x38 + rng.nextInt(0x70);
-        }
-    }
+    private static final double MARK_RADIUS = 2.4;
+    private static final double HELP_FIRST_S = 7;
+    private static final double HELP_FADE_S = 1.5;
+    /** Distance of the camera that builds a body's sphere, in body radii: far enough to be flat. */
+    private static final double SPHERE_CAMERA = 1000;
+    private static boolean helpSeen;
 
     private final MapView view = new MapView();
+    private final MapScene out = new MapScene();
+    private final Labels labels = new Labels();
+    private final MapChrome chrome = new MapChrome();
+    private final OrbitCamera downCamera = OrbitCamera.topDown(SPHERE_CAMERA);
     private final double[] bufX = new double[MapPrediction.MAX_SAMPLES + 1];
     private final double[] bufY = new double[MapPrediction.MAX_SAMPLES + 1];
+    private final double[] ringHelper = new double[2];
+    private final Identifier[] mapIds = new Identifier[2];
     /** Pilot keys whose press the map has acted on and that are still held: their key-repeats are swallowed. */
     private final Set<Integer> heldPilotKeys = new HashSet<>();
     private MapPrediction prediction;
@@ -103,10 +90,17 @@ public final class MapScreen extends Screen {
     private long frame;
     private long lastComputeFrame = -RECOMPUTE_FRAMES;
     private long lastSampleFrame = -RECOMPUTE_FRAMES;
+    private float uiScale = 1;
+    private boolean helpPinned;
+    private long helpUntilNanos;
 
     /** Opened by {@link dev.apoapsis.client.MapClient#openMap()}. */
     public MapScreen() {
         super(Component.translatable("screen.apoapsis.map"));
+        if (!helpSeen) {
+            helpSeen = true;
+            helpUntilNanos = System.nanoTime() + (long) (HELP_FIRST_S * 1e9);
+        }
     }
 
     @Override
@@ -114,35 +108,30 @@ public final class MapScreen extends Screen {
         return false;
     }
 
-    /** Full-bleed steel with a sparse, fixed star field. Replaces the vanilla panorama and blur. */
+    /** Full-bleed steel with the kit's fixed star field. */
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        int w = graphics.guiWidth();
-        int h = graphics.guiHeight();
-        graphics.fill(0, 0, w, h, Palette.STEEL_950);
-        for (int i = 0; i < STAR_COUNT; i++) {
-            int x = (int) (STAR_X[i] * (w - 1));
-            int y = (int) (STAR_Y[i] * (h - 1));
-            graphics.fill(x, y, x + 1, y + 1, Palette.alpha(Palette.INK, STAR_ALPHA[i]));
-        }
+        UiBackdrop.draw(graphics);
         Minecraft.getInstance().gui.hud.extractDeferredSubtitles();
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         frame++;
-        Canvas c = new Canvas(graphics);
-        view.setSize(c.width, c.height);
-        Labels labels = new Labels();
+        uiScale = UiScale.current().scale();
+        double w = graphics.guiWidth() / (double) uiScale;
+        double h = graphics.guiHeight() / (double) uiScale;
+        view.setSize(w, h);
+        chrome.begin(graphics);
+        labels.begin(w, h);
+        out.begin(w, h);
         OrbitStatePayload p = ClientState.orbit;
-        int bottomY = c.height - BOTTOM_INSET;
-        // The bottom row claims its box first so no label lands on it; it is drawn last so it sits on the paths.
-        labels.reserve(8, bottomY - 6, c.width - 8, bottomY + LABEL_H + 6);
         Component overlay = OverlayMessages.currentOwn(Minecraft.getInstance());
         if (p == null) {
-            Component msg = Component.translatable("apoapsis.map.board");
-            c.text(msg, (c.width - c.textWidth(msg)) / 2, c.height / 2 - 4, 1f, Palette.INK_MUTED, false);
-            drawBottom(c, null, bottomY, overlay);
+            bottomRow(null);
+            chrome.textCentered(Type.BODY, Component.translatable("apoapsis.map.board").getString(), (float) (w / 2),
+                    (float) (h / 2 - 4), UiPalette.INK_MUTED);
+            chrome.flush();
             return;
         }
         CelestialBody body = Bodies.of(p);
@@ -150,17 +139,27 @@ public final class MapScreen extends Screen {
         ensurePrediction(p);
         double nowUt = OrbitNow.utNow(p, partialTick);
         resolveCentre(nowUt);
-        drawTopLeft(c, labels, p, body, nowUt);
-        drawTime(c, labels, nowUt);
-        Card card = transferCard(c, p, body, nowUt);
-        if (card != null) {
-            labels.reserve(card.x0() - 2, card.y0() - 2, card.x1() + 2, card.y1() + 2);
+
+        // The overlays lay out first and claim their boxes, so no label lands under one.
+        chrome.crumb(labels, Component.translatable("apoapsis.map.system").getString(), focusName(body));
+        chrome.time(labels, Component.translatable("apoapsis.map.time").getString(), Fmt.universalTime(nowUt));
+        chrome.stats(labels, stats(p, body, nowUt));
+        chrome.card(labels, transferCard(p, body, nowUt), chrome.cardBottom());
+        bottomRow(p);
+        if (overlay != null) {
+            chrome.notice(labels, overlay.getString());
         }
-        drawSystem(c, labels, p, nowUt);
-        drawBottom(c, p, bottomY, overlay);
-        if (card != null) {
-            drawCard(c, card);
-        }
+
+        drawSystem(p, nowUt);
+        chrome.scrims(out.front);
+        MapPip.submit(graphics, out, uiScale, mapIds);
+        chrome.flush();
+    }
+
+    /** Follows 0 Verdance, 1 Pale or 2 the ship and fits {@code halfExtentM} metres to the view: for {@link MapScript}. */
+    void focusFor(int which, double halfExtentM) {
+        view.follow = MapView.Follow.values()[which + 1];
+        view.fit(halfExtentM);
     }
 
     /** Escape closes (vanilla), the System map key closes, 1 2 3 choose what the view follows, the pilot keys act. */
@@ -184,6 +183,10 @@ public final class MapScreen extends Screen {
             return true;
         }
         int key = event.input();
+        if (key == InputConstants.KEY_H) {
+            helpPinned = !helpPinned;
+            return true;
+        }
         if (key == InputConstants.KEY_TAB) {
             dev.apoapsis.client.MapClient.switchMap();
             return true;
@@ -242,13 +245,15 @@ public final class MapScreen extends Screen {
         if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
             return false;
         }
-        view.pan(dx, dy);
+        double scale = UiScale.current().scale();
+        view.pan(dx / scale, dy / scale);
         return true;
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        view.zoom(mouseX, mouseY, scrollY);
+        double scale = UiScale.current().scale();
+        view.zoom(mouseX / scale, mouseY / scale, scrollY);
         return true;
     }
 
@@ -267,7 +272,7 @@ public final class MapScreen extends Screen {
             view.follow = MapView.Follow.PALE;
             view.fit(MeridianSystem.PALE.soiRadius() * SOI_FIT_MARGIN);
         } else {
-            view.follow = MapView.Follow.SHIP;
+            view.follow = MapView.Follow.VERDANCE;
             if (first) {
                 view.fit(initialHalfExtent(p, body));
             }
@@ -332,7 +337,9 @@ public final class MapScreen extends Screen {
         }
     }
 
-    private void drawSystem(Canvas c, Labels labels, OrbitStatePayload p, double nowUt) {
+    // ---- the system ----
+
+    private void drawSystem(OrbitStatePayload p, double nowUt) {
         boolean orbit = FlightRegime.byOrdinal(p.regime()) == FlightRegime.ORBIT;
         CelestialBody verdance = MeridianSystem.VERDANCE;
         CelestialBody pale = MeridianSystem.PALE;
@@ -342,26 +349,75 @@ public final class MapScreen extends Screen {
         double px = view.sx(palePos.x());
         double py = view.sy(palePos.y());
         double verdanceR = view.px(verdance.radius);
-        double paleR = Math.max(1.5, view.px(pale.radius));
+        double paleR = view.px(pale.radius);
+        mapIds[0] = PlanetTextures.texture(verdance.id);
+        mapIds[1] = PlanetTextures.texture(pale.id);
+        QuadBatch back = out.back;
 
-        // Pale's orbit is a quiet thin ring; its sphere of influence dashed; the bodies, then Verdance's thin air ring.
-        c.ring(vx, vy, view.px(pale.orbitRadius), Palette.alpha(Palette.STEEL_500, 0xA0), PALE_ORBIT_SEGMENTS);
-        c.dashedRing(px, py, view.px(pale.soiRadius()), Palette.SIGNAL_EDGE, 6);
-        drawBody(c, PlanetTextures.texture(verdance.id), vx, vy, verdanceR, Palette.VERDANCE_LIT,
-                Palette.VERDANCE_GROUND);
-        c.ring(vx, vy, view.px(verdance.radius + verdance.atmosphereTop),
-                Palette.alpha(Palette.HYDROGEN, 0x70), ATMOSPHERE_SEGMENTS);
-        drawBody(c, PlanetTextures.texture(pale.id), px, py, paleR, Palette.PALE_LIT, Palette.PALE_GROUND);
+        // Pale's orbit: a quiet ring with a glow; its sphere of influence dashed. Both go under the bodies.
+        double orbitR = view.px(pale.orbitRadius);
+        back.ring(vx, vy, orbitR, MapScene.THIN_HALF + 0.04, MapScene.FEATHER,
+                UiPalette.alpha(UiPalette.SIGNAL_EDGE, 0xE0), 0, 0);
+        back.ring(vx, vy, orbitR, 0, 1.6, UiPalette.alpha(UiPalette.SIGNAL_EDGE, 0x1E), 0, 0);
+        labels.markCircle(vx, vy, orbitR, 1);
+        double soiR = view.px(pale.soiRadius());
+        back.ring(px, py, soiR, MapScene.THIN_HALF, MapScene.FEATHER, UiPalette.alpha(UiPalette.SIGNAL_EDGE, 0xB0), 3, 3);
+        labels.markCircle(px, py, soiR, 1);
+
+        body(0, verdance, vx, vy, verdanceR, Palette.VERDANCE_LIT);
+        body(1, pale, px, py, paleR, Palette.PALE_LIT);
+        order(vx, vy, px, py);
         if (prediction.patchCount() > 0) {
-            drawCoast(c, labels, orbit, nowUt);
+            drawCoast(orbit, nowUt);
         }
-        // The body names come last, over the bodies and the paths.
-        bodyLabel(c, labels, verdance, "apoapsis.map.body.verdance", vx, vy, verdanceR);
-        bodyLabel(c, labels, pale, "apoapsis.map.body.pale", px, py, paleR);
+        // The names come last of the labels placed here, after the paths and marks have claimed their spots.
+        bodyLabel(verdance, vx, vy, verdanceR);
+        bodyLabel(pale, px, py, paleR);
     }
 
-    /** The predicted coast, its marks and the ship marker. Labels on the marks are drawn over the paths. */
-    private void drawCoast(Canvas c, Labels labels, boolean orbit, double nowUt) {
+    /** Draws the nearer... both bodies sit in the plane, so the order only matters if their discs overlap: Pale last. */
+    private void order(double vx, double vy, double px, double py) {
+        out.meshCount = 0;
+        if (meshBuilt[0]) {
+            out.order[out.meshCount++] = 0;
+        }
+        if (meshBuilt[1]) {
+            out.order[out.meshCount++] = 1;
+        }
+    }
+
+    private final boolean[] meshBuilt = new boolean[2];
+
+    /**
+     * A body as a lit, textured sphere seen with its poles up and the sun on its right, with its haze and limb in front.
+     * Under about two units across it is one flat dot of its tone.
+     */
+    private void body(int index, CelestialBody b, double cx, double cy, double rPx, int tone) {
+        meshBuilt[index] = false;
+        if (!(rPx > 0) || !Double.isFinite(rPx)) {
+            return;
+        }
+        if (cx + rPx < -4 || cx - rPx > out.viewWidth() + 4 || cy + rPx < -4 || cy - rPx > out.viewHeight() + 4) {
+            return;
+        }
+        if (rPx < 2.2) {
+            out.front.disc(cx, cy, Math.max(1.1, rPx), 0.4, tone);
+            return;
+        }
+        double focal = rPx * Math.sqrt(SPHERE_CAMERA * SPHERE_CAMERA - 1);
+        out.mesh[index].build(downCamera, cx, cy, focal, 0, 0, 0, 1.0, 0, 0, SPHERE_CAMERA, -Math.PI / 2,
+                mapIds[index] != null ? 0xFFFFFF : tone & 0xFFFFFF);
+        meshBuilt[index] = true;
+        if (b.atmosphereTop > 0) {
+            out.atmosphere(cx, cy, rPx, view.px(b.radius + b.atmosphereTop), 1, 0, 0.5);
+        }
+        out.limb(cx, cy, rPx);
+        labels.markCircle(cx, cy, rPx, 4);
+    }
+
+    /** The predicted coast, its marks and the ship marker. */
+    private void drawCoast(boolean orbit, double nowUt) {
+        QuadBatch f = out.front;
         // The predicted coast: later patches first so the current one is drawn on top. Each patch is offset by
         // patchCentre. Known limitation, not fixed: after a flyby the next Verdance patch is drawn at its true
         // positions, so it starts away from the ghost-drawn Pale patch by Pale's motion during the flyby.
@@ -376,26 +432,16 @@ public final class MapScreen extends Screen {
                 bufY[k] = view.sy(o.y() + ys[k]);
             }
             if (i == cur) {
-                // The current patch is one clean pixel line: a halo read as a thick, jagged line.
-                c.glowPolyline(bufX, bufY, n, 0, Palette.SIGNAL, 0);
+                f.polyline(bufX, bufY, n, 0, 1.8, UiPalette.alpha(UiPalette.SIGNAL, 0x34));
+                f.polyline(bufX, bufY, n, MapScene.ORBIT_HALF, MapScene.FEATHER, UiPalette.SIGNAL);
             } else {
-                // Future patches are plain dashes: a halo turns short dashes into blobs.
-                c.glowPolyline(bufX, bufY, n, DASH_PX, Palette.HYDROGEN, 0);
+                f.dashedPolyline(bufX, bufY, n, MapScene.ORBIT_HALF * 0.85, MapScene.FEATHER, DASH, GAP,
+                        UiPalette.alpha(UiPalette.HYDROGEN, 0xC8));
             }
+            labels.markPolyline(bufX, bufY, n, 3);
         }
 
-        for (MapPrediction.Mark m : prediction.marks()) {
-            if (m.ut() < nowUt) {
-                continue;
-            }
-            // Apsides are an orbit's business: the surface shows none, as the HUD does.
-            if (!orbit && (m.kind() == MapPrediction.Kind.APOAPSIS || m.kind() == MapPrediction.Kind.PERIAPSIS)) {
-                continue;
-            }
-            drawMark(c, labels, prediction, m, cur, nowUt);
-        }
-
-        // Ship marker: a small triangle pointing along the velocity relative to the body it is around (screen y is -Y).
+        // The ship marker: a small triangle pointing along the velocity relative to the body it is around.
         StateVector rel = prediction.relativeState(cur, nowUt);
         Vec3d at = Bodies.placeNow(prediction.bodyOf(cur), nowUt, rel.r().x(), rel.r().y());
         double sx = view.sx(at.x());
@@ -407,30 +453,26 @@ public final class MapScreen extends Screen {
         double uy = len > 0 ? dy / len : -1;
         double nx = -uy;
         double ny = ux;
-        c.triangle(
-                new double[] {sx + ux * 7, sx - ux * 4 + nx * 4, sx - ux * 4 - nx * 4},
-                new double[] {sy + uy * 7, sy - uy * 4 + ny * 4, sy - uy * 4 - ny * 4},
-                Palette.SIGNAL);
-    }
+        f.disc(sx, sy, 6.5, 3.5, UiPalette.alpha(UiPalette.SIGNAL, 0x26));
+        f.triangle(sx + ux * 4.6, sy + uy * 4.6, UiPalette.SIGNAL, sx - ux * 3 + nx * 3, sy - uy * 3 + ny * 3,
+                UiPalette.SIGNAL, sx - ux * 3 - nx * 3, sy - uy * 3 - ny * 3, UiPalette.SIGNAL);
+        labels.reserve(sx - 4, sy - 4, sx + 4, sy + 4);
+        chrome.label(labels, Component.translatable("apoapsis.map3d.ship").getString(), UiPalette.SIGNAL, sx, sy, 5, true,
+                Labels.Side.RIGHT, Labels.Side.ABOVE_RIGHT, Labels.Side.BELOW_RIGHT, Labels.Side.LEFT, Labels.Side.ABOVE,
+                Labels.Side.BELOW);
 
-    /**
-     * Off: the surface maps come from base terrain columns (stone and water, before surface rules), so a textured disc
-     * reads as grey and blue static, and its square mask covers the chrome under it. Bodies use the shaded disc.
-     */
-    private static final boolean TEXTURED_BODIES = false;
-
-    /**
-     * A body as a disc. With its surface map (and {@link #TEXTURED_BODIES}), the map textured and shaded; else a lit disc
-     * in the body's palette colours. Under three pixels a disc has no shading to show, so it is one flat colour.
-     */
-    private static void drawBody(Canvas c, Identifier texture, double cx, double cy, double r, int lit, int dark) {
-        if (r < 3) {
-            c.disc(cx, cy, r, lit);
-        } else if (TEXTURED_BODIES && texture != null) {
-            c.texturedDisc(texture, cx, cy, r, LIGHT_X, LIGHT_Y, Palette.STEEL_950,
-                    Palette.alpha(Palette.STEEL_950, 0xB0));
-        } else {
-            c.shadedDisc(cx, cy, r, LIGHT_X, LIGHT_Y, lit, dark);
+        // The encounter first: it is the mark the player is after, so it gets the best place.
+        for (int pass = 0; pass < 2; pass++) {
+            for (MapPrediction.Mark m : prediction.marks()) {
+                if (m.ut() < nowUt || (m.kind() == MapPrediction.Kind.ENCOUNTER) != (pass == 0)) {
+                    continue;
+                }
+                // Apsides are an orbit's business: the surface shows none, as the HUD does.
+                if (!orbit && (m.kind() == MapPrediction.Kind.APOAPSIS || m.kind() == MapPrediction.Kind.PERIAPSIS)) {
+                    continue;
+                }
+                drawMark(m, cur, nowUt);
+            }
         }
     }
 
@@ -444,8 +486,7 @@ public final class MapScreen extends Screen {
         return Bodies.rootState(prediction.bodyOf(index), ut).r();
     }
 
-    private void drawMark(Canvas c, Labels labels, MapPrediction prediction, MapPrediction.Mark m, int cur,
-                          double nowUt) {
+    private void drawMark(MapPrediction.Mark m, int cur, double nowUt) {
         // The encounter's dot stays where its body is now (it lies on the Verdance line). Other marks sit on the drawn
         // line of their patch, so they use patchCentre.
         Vec3d base = m.kind() == MapPrediction.Kind.ENCOUNTER
@@ -453,226 +494,200 @@ public final class MapScreen extends Screen {
                 : patchCentre(prediction, m.patch(), cur, nowUt);
         double mx = view.sx(base.x() + m.x());
         double my = view.sy(base.y() + m.y());
-        if (mx < -MARGIN_PX || my < -MARGIN_PX || mx > c.width + MARGIN_PX || my > c.height + MARGIN_PX) {
+        if (mx < -MARGIN || my < -MARGIN || mx > out.viewWidth() + MARGIN || my > out.viewHeight() + MARGIN) {
             return;
         }
+        QuadBatch f = out.front;
         switch (m.kind()) {
             case APOAPSIS, PERIAPSIS -> {
-                double bx = view.sx(base.x());
-                double by = view.sy(base.y());
-                double dx = mx - bx;
-                double dy = my - by;
-                double len = Math.hypot(dx, dy);
-                if (len < 1e-9) {
-                    dx = 0;
-                    dy = -1;
-                } else {
-                    dx /= len;
-                    dy /= len;
-                }
-                c.line(mx + dx * 2, my + dy * 2, mx + dx * 6, my + dy * 6, Palette.BRASS);
+                marker(f, mx, my, UiPalette.INK);
                 String key = m.kind() == MapPrediction.Kind.APOAPSIS ? "apoapsis.map.mark.ap" : "apoapsis.map.mark.pe";
-                Component label = Component.translatable(key, Fmt.distance(m.altM()));
-                int lx = (int) Math.round(mx + dx * 9);
-                int ly = (int) Math.round(my + dy * 9 - 4);
-                int x = dx < -0.3 ? lx - c.textWidth(label) : lx;
-                label(c, labels, label, x, ly, Palette.INK_MUTED);
+                chrome.label(labels, Component.translatable(key, Fmt.distance(m.altM())).getString(),
+                        UiPalette.INK_MUTED, mx, my, MARK_RADIUS, false, Labels.Side.RIGHT, Labels.Side.ABOVE_RIGHT,
+                        Labels.Side.BELOW_RIGHT, Labels.Side.LEFT);
             }
             case ENCOUNTER -> {
-                c.rect((int) Math.round(mx) - 1, (int) Math.round(my) - 1,
-                        (int) Math.round(mx) + 2, (int) Math.round(my) + 2, Palette.INK);
-                if (m.body().isEmpty()) {
-                    return;
+                marker(f, mx, my, UiPalette.INK);
+                double ax = mx;
+                double ay = my;
+                double clearance = MARK_RADIUS;
+                if (!m.body().isEmpty()) {
+                    // The entered body where it will be at the encounter: a faint outline and sphere of influence, bracketed.
+                    CelestialBody entered = MeridianSystem.byId(m.body());
+                    Vec3d ghost = Bodies.rootState(entered, m.ut()).r();
+                    double gx = view.sx(ghost.x());
+                    double gy = view.sy(ghost.y());
+                    double gr = Math.max(3, view.px(entered.radius));
+                    f.ring(gx, gy, gr, MapScene.THIN_HALF, MapScene.FEATHER, UiPalette.alpha(UiPalette.INK, 0x90), 2.2, 2.2);
+                    f.ring(gx, gy, view.px(entered.soiRadius()), MapScene.THIN_HALF, MapScene.FEATHER,
+                            UiPalette.alpha(UiPalette.SIGNAL_EDGE, 0xA0), 3, 3);
+                    double half = gr + 4;
+                    double arm = 4;
+                    for (int sx = -1; sx <= 1; sx += 2) {
+                        for (int sy = -1; sy <= 1; sy += 2) {
+                            double cx = gx + sx * half;
+                            double cy = gy + sy * half;
+                            f.line(cx, cy, cx - sx * arm, cy, 0.2, MapScene.FEATHER, UiPalette.INK);
+                            f.line(cx, cy, cx, cy - sy * arm, 0.2, MapScene.FEATHER, UiPalette.INK);
+                        }
+                    }
+                    ax = gx;
+                    ay = gy;
+                    clearance = half + 2;
+                    String name = Component.translatable("apoapsis.map.mark.encounter",
+                            Component.translatable("apoapsis.map.body." + m.body()).getString()).getString();
+                    String detail = Component.translatable("apoapsis.map.mark.countdown",
+                            Fmt.clock(m.ut() - nowUt)).getString();
+                    chrome.label2(labels, name, UiPalette.INK, detail, ax, ay, clearance, true, Labels.Side.RIGHT,
+                            Labels.Side.ABOVE_RIGHT, Labels.Side.BELOW_RIGHT, Labels.Side.LEFT, Labels.Side.ABOVE,
+                            Labels.Side.BELOW);
                 }
-                // The entered body where it will be at the encounter: a faint outline and sphere of influence, bracketed.
-                CelestialBody entered = MeridianSystem.byId(m.body());
-                Vec3d ghost = Bodies.rootState(entered, m.ut()).r();
-                double gx = view.sx(ghost.x());
-                double gy = view.sy(ghost.y());
-                double gr = Math.max(2, view.px(entered.radius));
-                c.ring(gx, gy, gr, Palette.STEEL_500);
-                c.dashedRing(gx, gy, view.px(entered.soiRadius()), Palette.alpha(Palette.SIGNAL_EDGE, 0x80), 6);
-                double half = Math.max(gr + 5, 9);
-                c.corners(gx - half, gy - half, gx + half, gy + half, 4, Palette.INK);
-                // Two lines beside the brackets: the name of the encounter, then the countdown to it.
-                Component title = Component.translatable("apoapsis.map.mark.encounter",
-                        Fmt.spaced(Component.translatable("apoapsis.map.body." + m.body()).getString()));
-                Component countdown = Component.translatable("apoapsis.map.mark.countdown",
-                        Fmt.clock(m.ut() - nowUt));
-                int lx = (int) Math.round(gx + half + 6);
-                int ly = (int) Math.round(gy - half);
-                if (!label(c, labels, title, lx, ly, Palette.INK)) {
-                    lx = (int) Math.round(gx - c.textWidth(title) / 2.0);
-                    ly = (int) Math.round(gy - half - LABEL_H - 4);
-                    label(c, labels, title, lx, ly, Palette.INK);
-                    label(c, labels, countdown, (int) Math.round(gx - c.textWidth(countdown) / 2.0),
-                            (int) Math.round(gy + half + 4), Palette.INK_MUTED);
-                    return;
-                }
-                label(c, labels, countdown, lx, ly + LABEL_H + 3, Palette.INK_MUTED);
             }
             case ESCAPE -> {
-                c.rect((int) Math.round(mx) - 1, (int) Math.round(my) - 1,
-                        (int) Math.round(mx) + 2, (int) Math.round(my) + 2, Palette.INK);
-                Component label = Component.translatable("apoapsis.map.mark.escape",
-                        Component.translatable("apoapsis.map.body." + m.anchor().id),
-                        Fmt.countdown(m.ut() - nowUt));
-                label(c, labels, label, (int) Math.round(mx + 7), (int) Math.round(my - 4), Palette.INK_MUTED);
+                marker(f, mx, my, UiPalette.INK);
+                chrome.label(labels, Component.translatable("apoapsis.map.mark.escape",
+                        Component.translatable("apoapsis.map.body." + m.anchor().id).getString(),
+                        Fmt.clock(m.ut() - nowUt)).getString(), UiPalette.INK_MUTED, mx, my, MARK_RADIUS, false,
+                        Labels.Side.RIGHT, Labels.Side.ABOVE_RIGHT, Labels.Side.BELOW_RIGHT);
             }
             case ATMOSPHERE, IMPACT -> {
-                c.rect((int) Math.round(mx) - 2, (int) Math.round(my) - 2,
-                        (int) Math.round(mx) + 3, (int) Math.round(my) + 3, Palette.COPPER);
+                marker(f, mx, my, UiPalette.COPPER);
                 String key = m.kind() == MapPrediction.Kind.ATMOSPHERE
                         ? "apoapsis.map.mark.atmosphere" : "apoapsis.map.mark.impact";
-                Component label = Component.translatable(key, Fmt.countdown(m.ut() - nowUt));
-                label(c, labels, label, (int) Math.round(mx + 7), (int) Math.round(my - 4), Palette.COPPER);
+                chrome.label(labels, Component.translatable(key, Fmt.clock(m.ut() - nowUt)).getString(),
+                        UiPalette.COPPER, mx, my, MARK_RADIUS, false, Labels.Side.RIGHT, Labels.Side.ABOVE_RIGHT,
+                        Labels.Side.BELOW_RIGHT);
             }
             default -> {
             }
         }
     }
 
-    /**
-     * A body's name in spaced caps above its disc, with its surface gravity beneath, or below the disc when the spot
-     * above is taken.
-     */
-    private static void bodyLabel(Canvas c, Labels labels, CelestialBody body, String key, double cx, double cy,
-                                  double radiusPx) {
-        Component name = Component.literal(Fmt.spaced(Component.translatable(key).getString()));
-        Component sub = Component.literal(Fmt.gees(body.gravity(body.radius) / STANDARD_GRAVITY));
-        int x = (int) Math.round(cx - c.textWidth(name) / 2.0);
-        int subX = (int) Math.round(cx - c.textWidth(sub) / 2.0);
-        int above = (int) Math.round(cy - Math.max(2, radiusPx) - 2 * LABEL_H - 8);
-        if (label(c, labels, name, x, above, Palette.INK)) {
-            label(c, labels, sub, subX, above + LABEL_H + 3, Palette.INK_MUTED);
-        } else {
-            int below = (int) Math.round(cy + radiusPx + 3);
-            label(c, labels, name, x, below, Palette.INK);
-            label(c, labels, sub, subX, below + LABEL_H + 3, Palette.INK_MUTED);
-        }
+    private static void marker(QuadBatch f, double x, double y, int colour) {
+        f.disc(x, y, MARK_RADIUS + 3, 3, UiPalette.alpha(colour, 0x1C));
+        f.ring(x, y, MARK_RADIUS, 0.26, MapScene.FEATHER, colour, 0, 0);
     }
 
     /**
-     * Draws {@code text} at {@code x}, {@code y} when it is on screen and clear of every label already drawn. It sits
-     * on a dark backdrop so it reads over a disc or a path.
+     * A body's name above its disc with its surface gravity beneath, or below the disc when the spot above is taken. A
+     * body so big that the spot is off screen gets no label (the breadcrumb names the focus).
      */
-    private static boolean label(Canvas c, Labels labels, Component text, int x, int y, int argb) {
-        int w = c.textWidth(text);
-        if (x + w < 0 || y + LABEL_H < 0 || x > c.width || y > c.height) {
-            return false;
-        }
-        if (!labels.claim(x - 1, y - 1, x + w + 1, y + LABEL_H + 1)) {
-            return false;
-        }
-        c.rect(x - 1, y - 1, x + w + 1, y + LABEL_H + 1, Palette.alpha(Palette.STEEL_950, 0xB0));
-        c.text(text, x, y, 1f, argb, false);
-        return true;
+    private void bodyLabel(CelestialBody body, double cx, double cy, double radiusPx) {
+        String name = Component.translatable("apoapsis.map.body." + body.id).getString();
+        String gees = Fmt.gees(body.gravity(body.radius) / STANDARD_GRAVITY);
+        chrome.label2(labels, name, UiPalette.INK, gees, cx, cy, Math.max(2, radiusPx), false, Labels.Side.ABOVE,
+                Labels.Side.BELOW, Labels.Side.RIGHT, Labels.Side.LEFT);
+    }
+
+    // ---- overlays ----
+
+    private String focusName(CelestialBody shipBody) {
+        CelestialBody b = switch (view.follow) {
+            case VERDANCE -> MeridianSystem.VERDANCE;
+            case PALE -> MeridianSystem.PALE;
+            default -> shipBody;
+        };
+        return Component.translatable("apoapsis.map.body." + b.id).getString();
+    }
+
+    private static String t(String key) {
+        return Component.translatable("apoapsis.map." + key).getString();
     }
 
     /**
-     * Top left, no box round the figures: the breadcrumb (system and body) in a bracketed frame, then altitude and
-     * speed, then apsides for an orbit that stays in its sphere of influence (else periapsis).
+     * The figures of the selected thing, down the left edge: for the ship its altitude, speed and apsides; for a body
+     * its gravity, size and, for Pale, its orbit.
      */
-    private void drawTopLeft(Canvas c, Labels labels, OrbitStatePayload p, CelestialBody body, double nowUt) {
-        int x = 16;
-        int y = 14;
-        Component crumb = Component.translatable("apoapsis.map.crumb",
-                Fmt.spaced(Component.translatable("apoapsis.map.system").getString()),
-                Fmt.spaced(Component.translatable("apoapsis.map.body." + body.id).getString()));
-        int crumbW = c.textWidth(crumb);
-        c.corners(x, y, x + crumbW + 14, y + LABEL_H + 8, 5, Palette.STEEL_500);
-        c.text(crumb, x + 7, y + 4, 1f, Palette.INK, false);
-        int blockRight = x + crumbW + 14;
-
+    private List<MapChrome.Stat> stats(OrbitStatePayload p, CelestialBody body, double nowUt) {
+        List<MapChrome.Stat> stats = new ArrayList<>();
+        CelestialBody followed = view.follow == MapView.Follow.PALE ? MeridianSystem.PALE : MeridianSystem.VERDANCE;
+        if ((view.follow == MapView.Follow.VERDANCE || view.follow == MapView.Follow.PALE) && followed != body) {
+            CelestialBody b = view.follow == MapView.Follow.PALE ? MeridianSystem.PALE : MeridianSystem.VERDANCE;
+            stats.add(new MapChrome.Stat(t("stat.gravity"), Fmt.gees(b.gravity(b.radius) / STANDARD_GRAVITY)));
+            stats.add(new MapChrome.Stat(t("stat.radius"), Fmt.distance(b.radius)));
+            stats.add(new MapChrome.Stat(t("stat.atmosphere"),
+                    b.atmosphereTop > 0 ? Fmt.distance(b.atmosphereTop) : t("stat.none")));
+            if (b.parent != null) {
+                stats.add(new MapChrome.Stat(t("stat.orbit"), Fmt.distance(b.orbitRadius)));
+                stats.add(new MapChrome.Stat(t("stat.period"), Fmt.clock(b.orbitPeriod())));
+            }
+            return stats;
+        }
         double r = Math.sqrt(p.rx() * p.rx() + p.ry() * p.ry() + p.rz() * p.rz());
         double speed = Math.sqrt(p.vx() * p.vx() + p.vy() * p.vy() + p.vz() * p.vz());
-        List<Component> lines = new ArrayList<>();
-        lines.add(Component.translatable("apoapsis.map.top.alt", Fmt.distance(r - body.radius)));
-        lines.add(Component.translatable("apoapsis.map.top.speed", Fmt.speed(speed)));
+        stats.add(new MapChrome.Stat(t("stat.alt"), Fmt.distance(r - body.radius)));
+        stats.add(new MapChrome.Stat(t("stat.speed"), Fmt.speed(speed)));
         if (FlightRegime.byOrdinal(p.regime()) == FlightRegime.ORBIT) {
             Elements el = Elements.of(body.mu, Bodies.stateOf(p));
             if (MapPrediction.boundWithinSoi(el, body)) {
-                lines.add(Component.translatable("apoapsis.map.top.apsides",
-                        Fmt.distance(el.apoapsisRadius() - body.radius),
-                        Fmt.distance(el.periapsisRadius() - body.radius)));
                 double toAp = el.timeToApoapsis() - (nowUt - p.ut());
-                lines.add(Component.translatable("apoapsis.map.top.ap_in", Fmt.clock(toAp)));
+                stats.add(new MapChrome.Stat(t("stat.ap"), Fmt.distance(el.apoapsisRadius() - body.radius),
+                        Component.translatable("apoapsis.map.stat.in", Fmt.clock(toAp)).getString(), UiPalette.INK));
+                stats.add(new MapChrome.Stat(t("stat.pe"), Fmt.distance(el.periapsisRadius() - body.radius)));
             } else {
-                lines.add(Component.translatable("apoapsis.map.top.periapsis",
-                        Fmt.distance(el.periapsisRadius() - body.radius)));
+                stats.add(new MapChrome.Stat(t("stat.pe"), Fmt.distance(el.periapsisRadius() - body.radius)));
             }
         }
-        int lineY = y + LABEL_H + 8 + 12;
-        for (Component line : lines) {
-            c.text(line, x, lineY, 1f, Palette.INK, false);
-            blockRight = Math.max(blockRight, x + c.textWidth(line));
-            lineY += LINE_STEP;
-        }
-        labels.reserve(x - 2, y - 2, blockRight + 2, lineY);
+        return stats;
     }
-
-    /** Top right: the universal time in a bracketed frame. */
-    private static void drawTime(Canvas c, Labels labels, double nowUt) {
-        Component time = Component.translatable("apoapsis.map.time", Fmt.universalTime(nowUt));
-        int w = c.textWidth(time);
-        int x1 = c.width - 16;
-        int x0 = x1 - w - 14;
-        int y = 14;
-        c.corners(x0, y, x1, y + LABEL_H + 8, 5, Palette.STEEL_500);
-        c.text(time, x0 + 7, y + 4, 1f, Palette.INK, false);
-        labels.reserve(x0 - 2, y - 2, x1 + 2, y + LABEL_H + 10);
-    }
-
-    /** The transfer card's lines and box, bottom right, standing just above the bottom row. */
-    private record Card(Component title, Component timer, Component burn, int x0, int y0, int x1, int y1) {}
 
     /**
-     * The transfer card: "TRANSFER · VERDANCE TO PALE", then the encounter countdown once one is on the path, else the
-     * departure time of the Pale window, with the burn's delta-v for that transfer. Null when no window or encounter applies.
+     * The transfer card: a caption, then the encounter countdown once one is on the path, else the departure time of the
+     * Pale window as the one big line, with the burn's delta-v for that transfer. Empty when no window or encounter
+     * applies.
      */
-    private Card transferCard(Canvas c, OrbitStatePayload p, CelestialBody body, double nowUt) {
-        Component timer;
-        Component burn = null;
+    private List<MapChrome.Line> transferCard(OrbitStatePayload p, CelestialBody body, double nowUt) {
+        List<MapChrome.Line> lines = new ArrayList<>();
+        String timer;
+        String burn = null;
         double encounterUt = encounterUt(nowUt);
         if (!Double.isNaN(encounterUt)) {
-            timer = Component.translatable("apoapsis.map.card.encounter", Fmt.clock(encounterUt - nowUt));
+            timer = Component.translatable("apoapsis.map.card.encounter", Fmt.clock(encounterUt - nowUt)).getString();
         } else {
             double windowIn = paleWindowIn(p, body, nowUt);
             if (Double.isNaN(windowIn)) {
-                return null;
+                return lines;
             }
             timer = windowIn == 0
-                    ? Component.translatable("apoapsis.map.card.now")
-                    : Component.translatable("apoapsis.map.card.depart", Fmt.clock(windowIn));
+                    ? Component.translatable("apoapsis.map.card.now").getString()
+                    : Component.translatable("apoapsis.map.card.depart", Fmt.clock(windowIn)).getString();
             int cur = prediction.indexAt(nowUt);
             StateVector s = prediction.relativeState(cur, nowUt);
             double dv = TransferMath.hohmannDeltaV(body.mu, s.r().length(), s.v().length(),
                     MeridianSystem.PALE.orbitRadius);
             if (Double.isFinite(dv)) {
-                burn = Component.translatable("apoapsis.map.card.burn", Fmt.speed(dv));
+                burn = Component.translatable("apoapsis.map.card.burn", Fmt.speed(dv)).getString();
             }
         }
-        Component title = Component.translatable("apoapsis.map.card.title",
-                Component.translatable("apoapsis.map.body.verdance"), Component.translatable("apoapsis.map.body.pale"));
-        int w = Math.max(c.textWidth(title), c.textWidth(timer));
+        lines.add(new MapChrome.Line(Component.translatable("apoapsis.map.card.title",
+                Component.translatable("apoapsis.map.body.verdance").getString(),
+                Component.translatable("apoapsis.map.body.pale").getString()).getString(), Type.LABEL,
+                UiPalette.INK_MUTED));
+        lines.add(new MapChrome.Line(timer, Type.HEADING, UiPalette.SIGNAL));
         if (burn != null) {
-            w = Math.max(w, c.textWidth(burn));
+            lines.add(new MapChrome.Line(burn, Type.BODY, UiPalette.INK));
         }
-        int x1 = c.width - 16;
-        int y1 = c.height - BOTTOM_INSET - 8;
-        int h = 3 * LINE_STEP + 10;
-        return new Card(title, timer, burn, x1 - w - 20, y1 - h, x1, y1);
+        return lines;
     }
 
-    private static void drawCard(Canvas c, Card card) {
-        c.rect(card.x0(), card.y0(), card.x1(), card.y1(), Palette.alpha(Palette.STEEL_950, 0xC0));
-        c.corners(card.x0(), card.y0(), card.x1() - 1, card.y1() - 1, 6, Palette.STEEL_500);
-        int tx = card.x0() + 10;
-        int ty = card.y0() + 6;
-        c.text(card.title(), tx, ty, 1f, Palette.INK_MUTED, false);
-        c.text(card.timer(), tx, ty + LINE_STEP, 1f, Palette.SIGNAL, false);
-        if (card.burn() != null) {
-            c.text(card.burn(), tx, ty + 2 * LINE_STEP, 1f, Palette.INK, false);
+    /** The bottom row: the keys that matter and a key for the rest, and the warp while piloting. */
+    private void bottomRow(@Nullable OrbitStatePayload p) {
+        List<MapChrome.Hint> hints = new ArrayList<>();
+        hints.add(MapChrome.Hint.of("SCROLL", t("hint.zoom")));
+        hints.add(MapChrome.Hint.of("DRAG", t("hint.pan")));
+        hints.add(MapChrome.Hint.of(new String[] {"1", "2", "3"}, t("hint.focus")));
+        hints.add(MapChrome.Hint.of(PilotKeys.SYSTEM_MAP, t("hint.close")));
+        hints.add(MapChrome.Hint.of("H", t("hint.more")));
+        chrome.bottomRow(labels, hints, t("warp"), p == null ? null : Fmt.warp(p.warp()));
+        double left = (helpUntilNanos - System.nanoTime()) / 1e9;
+        float alpha = helpPinned ? 1f : (float) Math.max(0, Math.min(1, left / HELP_FADE_S));
+        if (alpha > 0.01f) {
+            List<MapChrome.Hint> help = new ArrayList<>();
+            help.add(MapChrome.Hint.of(PilotKeys.WARP_UP, t("key.faster")));
+            help.add(MapChrome.Hint.of(PilotKeys.WARP_DOWN, t("key.slower")));
+            help.add(MapChrome.Hint.of(PilotKeys.THROTTLE_CUT, Component.translatable("apoapsis.map3d.key.cut").getString()));
+            help.add(MapChrome.Hint.of("TAB", Component.translatable("apoapsis.map3d.key.map3d").getString()));
+            chrome.help(labels, help, alpha);
         }
     }
 
@@ -724,92 +739,5 @@ public final class MapScreen extends Screen {
     static String regimeKey(int ordinal) {
         return FlightRegime.byOrdinal(ordinal) == FlightRegime.ORBIT
                 ? "apoapsis.map.regime.orbit" : "apoapsis.map.regime.surface";
-    }
-
-    /**
-     * Bottom row: the controls as keycaps from the left, the warp strip at the right edge. Hints that do not fit before
-     * the strip are left out, scroll and drag first (on narrow GUI widths they and the focus keys are not tried at all, so
-     * faster and slower fit at GUI width 320). The warp hints show
-     * only while piloting. While a vanilla overlay message is showing (warp refusals, sphere of influence entry, hard
-     * landing) it takes the keycaps' place, in full ink, so it stays readable.
-     */
-    private static void drawBottom(Canvas c, OrbitStatePayload p, int y, Component overlay) {
-        String step = p == null ? null : Fmt.warp(p.warp());
-        int stripLeft = step == null ? c.width - 16 : c.width - 32 - warpTotal(c, step);
-        if (overlay != null) {
-            c.text(overlay, 16, y, 1f, Palette.INK, false);
-        } else {
-            int limit = stripLeft - BOTTOM_GAP;
-            int x = 16;
-            if (c.width >= NARROW_GUI_PX) {
-                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.zoom"), Component.literal("SCROLL"));
-                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.pan"), Component.literal("DRAG"));
-                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.focus"),
-                        Component.literal("1"), Component.literal("2"), Component.literal("3"));
-            }
-            if (p != null) {
-                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.faster"),
-                        PilotKeys.WARP_UP.getTranslatedKeyMessage());
-                x = hint(c, x, y, limit, Component.translatable("apoapsis.map.key.slower"),
-                        PilotKeys.WARP_DOWN.getTranslatedKeyMessage());
-            }
-            hint(c, x, y, limit, Component.translatable("apoapsis.map.key.close"),
-                    PilotKeys.SYSTEM_MAP.getTranslatedKeyMessage());
-        }
-        if (step != null) {
-            drawWarp(c, step, y);
-        }
-    }
-
-    /**
-     * Keycaps for one control, then what they do, drawn only when they end by {@code limit}. Returns the x after the
-     * hint, or {@code x} unchanged when it does not fit.
-     */
-    private static int hint(Canvas c, int x, int y, int limit, Component what, Component... keys) {
-        int w = 3 + c.textWidth(what) + 18;
-        for (Component key : keys) {
-            w += c.textWidth(key) + 8 + 3;
-        }
-        if (x + w > limit) {
-            return x;
-        }
-        int at = x;
-        for (Component key : keys) {
-            at += keycap(c, at, y, key) + 3;
-        }
-        c.text(what, at + 3, y + 2, 1f, Palette.INK_MUTED, false);
-        return x + w;
-    }
-
-    /** One keycap: a small raised box with its key name. Returns its width. */
-    private static int keycap(Canvas c, int x, int y, Component key) {
-        int w = c.textWidth(key) + 8;
-        int h = LABEL_H + 5;
-        c.rect(x, y - 2, x + w, y - 2 + h, Palette.STEEL_700);
-        c.rect(x, y - 2, x + w, y - 1, Palette.STEEL_500);
-        c.rect(x, y - 2 + h - 1, x + w, y - 2 + h, Palette.STEEL_500);
-        c.rect(x, y - 2, x + 1, y - 2 + h, Palette.STEEL_500);
-        c.rect(x + w - 1, y - 2, x + w, y - 2 + h, Palette.STEEL_500);
-        c.text(key, x + 4, y, 1f, Palette.INK, false);
-        return w;
-    }
-
-    /** Width of the warp strip's label and step cell for {@code step}, GUI px. */
-    private static int warpTotal(Canvas c, String step) {
-        return c.textWidth(Component.translatable("apoapsis.map.warp")) + 10 + c.textWidth(Component.literal(step)) + 12;
-    }
-
-    /** The warp strip: "WARP" and the current step in a bracketed cell, at the bottom right edge. */
-    private static void drawWarp(Canvas c, String step, int y) {
-        Component label = Component.translatable("apoapsis.map.warp");
-        int labelW = c.textWidth(label);
-        int cellW = c.textWidth(Component.literal(step)) + 12;
-        int total = warpTotal(c, step);
-        int x0 = c.width - 24 - total;
-        c.corners(x0 - 8, y - 6, x0 + total + 8, y + LABEL_H + 5, 6, Palette.STEEL_500);
-        c.text(label, x0, y, 1f, Palette.INK_MUTED, false);
-        int cx = x0 + labelW + 10;
-        c.rect(cx, y - 3, cx + cellW, y + LABEL_H + 3, Palette.alpha(Palette.SIGNAL_EDGE, 0xA0));
-        c.text(Component.literal(step), cx + 6, y, 1f, Palette.SIGNAL, false);
     }
 }

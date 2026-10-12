@@ -55,6 +55,11 @@ public final class TexturedSphere {
     private final double[] sx = new double[4];
     private final double[] sy = new double[4];
 
+
+    /** Rotated normals of the grid vertices for the build in hand (the body turned about X by a tilt). */
+    private final double[] ry = new double[(LAT + 1) * (LON + 1)];
+    private final double[] rz = new double[(LAT + 1) * (LON + 1)];
+
     /**
      * Builds the visible quads for a sphere of {@code radius} centred at ({@code ccx}, {@code ccy}, {@code ccz}) and
      * seen from the eye at ({@code ex}, {@code ey}, {@code ez}). All positions are relative to the camera's focus, as
@@ -64,15 +69,37 @@ public final class TexturedSphere {
      */
     public void build(OrbitCamera cam, double cx, double cy, double focal, double ccx, double ccy, double ccz,
             double radius, double ex, double ey, double ez) {
+        buildMesh(cam, cx, cy, focal, ccx, ccy, ccz, radius, ex, ey, ez, 0, 0xFFFFFF, false);
+    }
+
+    /**
+     * As {@link #build}, for the maps: the body is turned by {@code tiltX} radians about the X axis (which the sun
+     * lies on, so the lighting does not change), and each vertex is {@code baseRgb} lit by
+     * {@link dev.apoapsis.client.map.MapScene#shade}: white for a body wearing its map, the body's tone for one
+     * without.
+     */
+    public void build(OrbitCamera cam, double cx, double cy, double focal, double ccx, double ccy, double ccz,
+            double radius, double ex, double ey, double ez, double tiltX, int baseRgb) {
+        buildMesh(cam, cx, cy, focal, ccx, ccy, ccz, radius, ex, ey, ez, tiltX, baseRgb, true);
+    }
+
+    private void buildMesh(OrbitCamera cam, double cx, double cy, double focal, double ccx, double ccy, double ccz,
+            double radius, double ex, double ey, double ez, double tiltX, int baseRgb, boolean mapLight) {
         count = 0;
+        double ct = Math.cos(tiltX);
+        double st = Math.sin(tiltX);
+        for (int g = 0; g < NX.length; g++) {
+            ry[g] = NY[g] * ct - NZ[g] * st;
+            rz[g] = NY[g] * st + NZ[g] * ct;
+        }
         for (int i = 0; i < LAT; i++) {
             for (int j = 0; j < LON; j++) {
                 int a = i * (LON + 1) + j;
                 boolean facing = false;
                 for (int k = 0; k < 4 && !facing; k++) {
                     int g = a + CORNER[k];
-                    double dot = NX[g] * (ex - (ccx + radius * NX[g])) + NY[g] * (ey - (ccy + radius * NY[g]))
-                            + NZ[g] * (ez - (ccz + radius * NZ[g]));
+                    double dot = NX[g] * (ex - (ccx + radius * NX[g])) + ry[g] * (ey - (ccy + radius * ry[g]))
+                            + rz[g] * (ez - (ccz + radius * rz[g]));
                     facing = dot > 0;
                 }
                 if (!facing) {
@@ -81,7 +108,7 @@ public final class TexturedSphere {
                 boolean inFront = true;
                 for (int k = 0; k < 4 && inFront; k++) {
                     int g = a + CORNER[k];
-                    double depth = cam.project(ccx + radius * NX[g], ccy + radius * NY[g], ccz + radius * NZ[g],
+                    double depth = cam.project(ccx + radius * NX[g], ccy + radius * ry[g], ccz + radius * rz[g],
                             cx, cy, focal, out);
                     inFront = !Double.isNaN(depth);
                     sx[k] = out[0];
@@ -96,7 +123,15 @@ public final class TexturedSphere {
                     y[count] = (float) sy[k];
                     u[count] = GU[g];
                     v[count] = GV[g];
-                    argb[count] = Scene3D.shade(0xFFFFFFFF, NX[g]);
+                    if (mapLight) {
+                        double px = ccx + radius * NX[g] - ex, py = ccy + radius * ry[g] - ey,
+                                pz = ccz + radius * rz[g] - ez;
+                        double dist = Math.sqrt(px * px + py * py + pz * pz);
+                        double view = dist > 0 ? -(NX[g] * px + ry[g] * py + rz[g] * pz) / dist : 1;
+                        argb[count] = dev.apoapsis.client.map.MapScene.shade(baseRgb, NX[g], view);
+                    } else {
+                        argb[count] = Scene3D.shade(0xFFFFFFFF, NX[g]);
+                    }
                     count++;
                 }
             }

@@ -110,6 +110,14 @@ neoForge {
             programArguments.addAll '--width', '1600', '--height', '900'
         }
 
+        // The map screenshot run for the map look: 3D and 2D maps at 1920x1080 and 1280x720, then a Pale transfer.
+        testMapShots {
+            client()
+            systemProperty 'apoapsis.testFlight', 'true'
+            systemProperty 'apoapsis.testDriver', 'mapshots'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
         // The landing aids and re-entry screenshots by script: a 1,700 m lander burn, a dive, chutes, and the rim at three times of day.
         testM07 {
             client()

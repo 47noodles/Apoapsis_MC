@@ -3,7 +3,10 @@ package dev.apoapsis.client.map3d;
 import com.mojang.logging.LogUtils;
 import dev.apoapsis.client.ClientState;
 import dev.apoapsis.client.map.Labels;
+import dev.apoapsis.client.map.MapChrome;
+import dev.apoapsis.client.map.MapScene;
 import dev.apoapsis.client.map.Palette;
+import dev.apoapsis.client.map.QuadBatch;
 import dev.apoapsis.flight.BodyId;
 import dev.apoapsis.flight.FlightRegime;
 import dev.apoapsis.net.OrbitStatePayload;
@@ -16,8 +19,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.Level;
@@ -34,8 +35,7 @@ public final class SiteMarkers {
     private static final Logger LOG = LogUtils.getLogger();
     private static final String FILE = "data/apoapsis/map_sites.txt";
     /** Below this on-screen radius a body is too small to show where on it a site is, px. */
-    private static final double MIN_DISC_PX = 14;
-    private static final int LABEL_H = 9;
+    private static final double MIN_DISC_PX = 12;
     private static final int HOME_COLOUR = Palette.INK;
     private static final int LANDING_COLOUR = Palette.GO;
 
@@ -102,26 +102,28 @@ public final class SiteMarkers {
         return server == null ? null : server.getWorldPath(LevelResource.ROOT).resolve(FILE);
     }
 
-    /** Draws the markers of the bodies big enough on screen, each with its label, clear of labels already placed. */
-    static void draw(GuiGraphicsExtractor g, Font font, Labels labels, int viewW, int viewH, double nowUt,
-            OrbitCamera camera, Vec3d focus, ManeuverEditor.Projector projector) {
+    /**
+     * Adds the markers of the bodies big enough on screen to the front layer, each with its label placed clear of the
+     * lines and the labels already placed. A site on the far side of its body is not shown.
+     */
+    static void draw(MapScene out, MapChrome chrome, Labels labels, double viewH, double nowUt, OrbitCamera camera,
+            Vec3d focus, ManeuverEditor.Projector projector) {
         double focal = OrbitCamera.focal(viewH);
         Vec3d eye = focus.add(camera.eye());
         MapSites.Site home = MapSites.CURRENT.home();
         if (home != null) {
-            marker(g, font, labels, viewW, viewH, nowUt, eye, projector, focal, MeridianSystem.VERDANCE, home, true);
+            marker(out, chrome, labels, nowUt, eye, projector, focal, MeridianSystem.VERDANCE, home, true);
         }
         for (BodyId b : BodyId.values()) {
             MapSites.Site s = MapSites.CURRENT.landing(b);
             if (s != null) {
-                marker(g, font, labels, viewW, viewH, nowUt, eye, projector, focal, MeridianSystem.byId(b.id), s, false);
+                marker(out, chrome, labels, nowUt, eye, projector, focal, MeridianSystem.byId(b.id), s, false);
             }
         }
     }
 
-    private static void marker(GuiGraphicsExtractor g, Font font, Labels labels, int viewW, int viewH, double nowUt,
-            Vec3d eye, ManeuverEditor.Projector projector, double focal, CelestialBody body, MapSites.Site site,
-            boolean home) {
+    private static void marker(MapScene out, MapChrome chrome, Labels labels, double nowUt, Vec3d eye,
+            ManeuverEditor.Projector projector, double focal, CelestialBody body, MapSites.Site site, boolean home) {
         Vec3d centre = OrbitPlot.rootPosition(body, nowUt);
         Vec3d up = MapSites.unit(site);
         // On the near side of the body: the point is seen when the eye is beyond its tangent plane.
@@ -132,42 +134,22 @@ public final class SiteMarkers {
         if (s == null || focal * body.radius / s[2] < MIN_DISC_PX) {
             return;
         }
-        int x = (int) Math.round(s[0]);
-        int y = (int) Math.round(s[1]);
         int colour = home ? HOME_COLOUR : LANDING_COLOUR;
-        shape(g, x, y, colour, home);
-        Component text = Component.translatable(home ? "apoapsis.map3d.site.home" : "apoapsis.map3d.site.landing");
-        int w = font.width(text);
-        // Beside the mark, else the other side, else above or below it: the first spot clear of other labels.
-        int[][] spots = {{x + 8, y - 4}, {x - 8 - w, y - 4}, {x - w / 2, y - 16}, {x - w / 2, y + 8}};
-        for (int[] spot : spots) {
-            if (plate(g, font, labels, viewW, viewH, text, spot[0], spot[1], colour)) {
-                return;
-            }
-        }
+        shape(out.front, s[0], s[1], colour, home);
+        String text = Component.translatable(home ? "apoapsis.map3d.site.home" : "apoapsis.map3d.site.landing").getString();
+        chrome.label(labels, text, colour, s[0], s[1], 4, false, Labels.Side.RIGHT, Labels.Side.LEFT,
+                Labels.Side.ABOVE, Labels.Side.BELOW);
     }
 
-    /** A label on a dark plate, so it reads over a bright map; false when off screen or on another label. */
-    private static boolean plate(GuiGraphicsExtractor g, Font font, Labels labels, int viewW, int viewH,
-            Component text, int x, int y, int argb) {
-        int w = font.width(text);
-        if (x + w < 0 || y + LABEL_H < 0 || x > viewW || y > viewH || !labels.claim(x - 3, y - 2, x + w + 3,
-                y + LABEL_H + 2)) {
-            return false;
-        }
-        g.fill(x - 2, y - 1, x + w + 2, y + LABEL_H + 1, Palette.alpha(Palette.STEEL_950, 0xB0));
-        g.text(font, text, x, y, argb, false);
-        return true;
-    }
-
-    /** A solid diamond (home) or up-pointing triangle (landing) in {@code argb}, with a dark rim, centred on (x, y). */
-    private static void shape(GuiGraphicsExtractor g, int x, int y, int argb, boolean diamond) {
+    /** A solid diamond (home) or up-pointing triangle (landing) in {@code argb} with a dark rim, centred on (x, y). */
+    private static void shape(QuadBatch f, double x, double y, int argb, boolean diamond) {
         for (int pass = 0; pass < 2; pass++) {
-            int r = pass == 0 ? 5 : 4;
+            double r = pass == 0 ? 4.2 : 3.2;
             int colour = pass == 0 ? Palette.STEEL_950 : argb;
-            for (int dy = -r; dy <= r; dy++) {
-                int half = diamond ? r - Math.abs(dy) : (dy + r) / 2;
-                g.fill(x - half, y + dy, x + half + 1, y + dy + 1, colour);
+            if (diamond) {
+                f.quad(x, y - r, colour, x + r, y, colour, x, y + r, colour, x - r, y, colour);
+            } else {
+                f.triangle(x, y - r, colour, x + r, y + r * 0.8, colour, x - r, y + r * 0.8, colour);
             }
         }
     }

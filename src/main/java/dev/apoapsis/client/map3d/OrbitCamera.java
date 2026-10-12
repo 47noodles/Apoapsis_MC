@@ -27,6 +27,16 @@ public final class OrbitCamera {
         this.distance = distance;
     }
 
+    private OrbitCamera(Quat q, double distance) {
+        this.q = q;
+        this.distance = distance;
+    }
+
+    /** A camera looking straight down the Z axis from {@code distance} m, with +X to the right and +Y up: the 2D map's view. */
+    public static OrbitCamera topDown(double distance) {
+        return new OrbitCamera(Quat.fromColumns(new Vec3d(1, 0, 0), new Vec3d(0, 1, 0), new Vec3d(0, 0, 1)), distance);
+    }
+
     /** The view looking along -Z in view space, from 30 degrees above the X-Y plane, with +Z roughly up on screen. */
     static Quat defaultView() {
         double c = Math.cos(Math.toRadians(DEFAULT_ELEVATION_DEG));

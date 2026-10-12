@@ -3,8 +3,13 @@ package dev.apoapsis.client.map3d;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.apoapsis.client.map.Fmt;
 import dev.apoapsis.client.map.Labels;
+import dev.apoapsis.client.map.MapChrome;
+import dev.apoapsis.client.map.MapScene;
 import dev.apoapsis.client.map.Palette;
+import dev.apoapsis.client.map.QuadBatch;
 import dev.apoapsis.client.map3d.ManeuverPlan.Handle;
+import dev.apoapsis.client.ui.UiPalette;
+import dev.apoapsis.client.ui.UiText.Type;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.Elements;
 import dev.apoapsis.orbit.Patch;
@@ -14,8 +19,6 @@ import dev.apoapsis.orbit.maneuver.ManeuverNode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 
@@ -36,22 +39,19 @@ public final class ManeuverEditor {
     /** What the ship the player flies can do, for the burn time. */
     record ShipBurn(double massKg, double ispS, double thrustN, double deltaVAvailable) {}
 
-    /** The card's box, GUI px. */
-    record Box(int x0, int y0, int x1, int y1) {}
 
     private static final ManeuverPlan PLAN = new ManeuverPlan();
 
-    private static final double LINE_PICK_PX = 7;
-    private static final double SLIDE_PICK_PX = 60;
-    private static final double NODE_PICK_PX = 10;
-    private static final double HANDLE_PICK_PX = 9;
+    private static final double LINE_PICK_PX = 6;
+    private static final double SLIDE_PICK_PX = 50;
+    private static final double NODE_PICK_PX = 8;
+    private static final double HANDLE_PICK_PX = 7;
     private static final double CLICK_SLOP_PX = 4;
-    private static final double HANDLE_FAR_PX = 46;
-    private static final double HANDLE_PROBE_PX = 40;
-    private static final double NODE_RING_PX = 7;
-    private static final int LINE_STEP = 12;
+    private static final double HANDLE_FAR_PX = 38;
+    private static final double HANDLE_PROBE_PX = 34;
+    private static final double NODE_RING_PX = 6;
     private static final int VIOLET = 0xFFB48CF0;
-    private static final int MARK_HALF_PX = 2;
+    private static final double MARK_RADIUS = 2.4;
 
     private @Nullable Scene3D scene;
     private @Nullable OrbitPlot plot;
@@ -334,29 +334,33 @@ public final class ManeuverEditor {
 
     // ---- drawing ----
 
-    /** The node, its handles and the marks of the orbit after the burn. */
-    void draw(GuiGraphicsExtractor g, Font font, Labels labels, int viewW, int viewH) {
+    /**
+     * The node, its handles and the marks of the orbit after the burn, as geometry in the scene's front layer, and the
+     * hover readout and mark labels through the label solver. Reserves the node's and the handles' boxes first.
+     */
+    void draw(MapScene out, MapChrome chrome, Labels labels, Scene3D scene) {
         if (!live) {
             return;
         }
-        drawPredictedMarks(g, font, labels, viewW, viewH);
+        QuadBatch f = out.front;
         double nx = nodeScreen[0];
         double ny = nodeScreen[1];
+        labels.reserve(nx - 10, ny - 10, nx + 10, ny + 10);
+        for (double[] hp : handlePos) {
+            labels.reserve(hp[0] - 7, hp[1] - 7, hp[0] + 7, hp[1] + 7);
+        }
+        drawPredictedMarks(out, chrome, labels, scene);
         for (int i = 0; i < handlePos.length; i++) {
             int colour = axisColour(ManeuverPlan.HANDLES.get(i));
             boolean on = i == hover;
             double[] u = handleDir[i];
-            line(g, nx + u[0] * (NODE_RING_PX + 1), ny + u[1] * (NODE_RING_PX + 1), handlePos[i][0], handlePos[i][1],
-                    Palette.alpha(colour, on ? 0xFF : 0x80));
-            drawHandle(g, handlePos[i][0], handlePos[i][1], colour, ManeuverPlan.HANDLES.get(i).sign() > 0, on);
+            f.line(nx + u[0] * (NODE_RING_PX + 1.5), ny + u[1] * (NODE_RING_PX + 1.5), handlePos[i][0], handlePos[i][1],
+                    0.2, MapScene.FEATHER, UiPalette.alpha(colour, on ? 0xFF : 0x88));
+            drawHandle(f, handlePos[i][0], handlePos[i][1], colour, ManeuverPlan.HANDLES.get(i).sign() > 0, on);
         }
-        ring(g, nx, ny, NODE_RING_PX, Palette.BRASS);
-        g.fill((int) Math.round(nx) - 1, (int) Math.round(ny) - 1, (int) Math.round(nx) + 2, (int) Math.round(ny) + 2,
-                Palette.BRASS);
-        labels.reserve((int) nx - 10, (int) ny - 10, (int) nx + 10, (int) ny + 10);
-        for (double[] h : handlePos) {
-            labels.reserve((int) h[0] - 6, (int) h[1] - 6, (int) h[0] + 7, (int) h[1] + 7);
-        }
+        f.disc(nx, ny, NODE_RING_PX + 3, 4, UiPalette.alpha(Palette.BRASS, 0x24));
+        f.ring(nx, ny, NODE_RING_PX, 0.3, MapScene.FEATHER, Palette.BRASS, 0, 0);
+        f.disc(nx, ny, 1.3, 0.4, Palette.BRASS);
         if (hover >= 0 && PLAN.node() != null) {
             ManeuverNode n = PLAN.node();
             Handle h = ManeuverPlan.HANDLES.get(hover);
@@ -365,18 +369,16 @@ public final class ManeuverEditor {
                 case NORMAL -> n.normal();
                 case RADIAL -> n.radial();
             };
-            Component text = Component.translatable("apoapsis.map3d.node.handle",
+            String text = Component.translatable("apoapsis.map3d.node.handle",
                     Component.translatable("apoapsis.map3d.axis." + h.axis().name().toLowerCase(Locale.ROOT)),
-                    String.format(Locale.ROOT, "%+.1f m/s", value));
-            int w = font.width(text);
+                    String.format(Locale.ROOT, "%+.1f m/s", value)).getString();
             double[] u = handleDir[hover];
-            int x = (int) Math.round(handlePos[hover][0] + (u[0] >= 0 ? 9 : -9 - w));
-            int y = (int) Math.round(handlePos[hover][1] - 4);
-            Map3DScreen.label(g, font, labels, viewW, viewH, text, x, y, Palette.INK);
+            chrome.label(labels, text, UiPalette.INK, handlePos[hover][0], handlePos[hover][1], 5, true,
+                    u[0] >= 0 ? Labels.Side.RIGHT : Labels.Side.LEFT, Labels.Side.ABOVE, Labels.Side.BELOW);
         }
     }
 
-    private void drawPredictedMarks(GuiGraphicsExtractor g, Font font, Labels labels, int viewW, int viewH) {
+    private void drawPredictedMarks(MapScene out, MapChrome chrome, Labels labels, Scene3D scene) {
         OrbitPlot p = predicted;
         if (p == null || PLAN.node() == null || PLAN.node().deltaV() < 0.05) {
             return;
@@ -388,7 +390,8 @@ public final class ManeuverEditor {
                 continue;
             }
             double[] s = projector.screenOf(m.at());
-            if (s == null || s[0] < 0 || s[1] < 0 || s[0] > viewW || s[1] > viewH) {
+            if (s == null || !scene.visible(m.at()) || s[0] < 0 || s[1] < 0 || s[0] > labels.width()
+                    || s[1] > labels.height()) {
                 continue;
             }
             // An apsis the burn leaves in place sits on the node: the card has its altitude, and a label would sit on
@@ -396,19 +399,18 @@ public final class ManeuverEditor {
             if (Math.hypot(s[0] - nodeScreen[0], s[1] - nodeScreen[1]) < 2 * HANDLE_FAR_PX / 3) {
                 continue;
             }
-            int x = (int) Math.round(s[0]);
-            int y = (int) Math.round(s[1]);
-            g.fill(x - MARK_HALF_PX, y - MARK_HALF_PX, x + MARK_HALF_PX + 1, y + MARK_HALF_PX + 1, Palette.BRASS);
-            Component text;
+            out.front.ring(s[0], s[1], MARK_RADIUS, 0.28, MapScene.FEATHER, Palette.BRASS, 0, 0);
+            String text;
             if (m.kind() == OrbitPlot.Kind.ENCOUNTER) {
                 text = Component.translatable("apoapsis.map.mark.encounter",
-                        Fmt.spaced(Component.translatable("apoapsis.map.body." + m.body().id).getString()));
+                        Component.translatable("apoapsis.map.body." + m.body().id).getString()).getString();
             } else {
                 double alt = m.at().sub(OrbitPlot.rootPosition(core, m.ut())).length() - core.radius;
                 String key = m.kind() == OrbitPlot.Kind.APOAPSIS ? "apoapsis.map.mark.ap" : "apoapsis.map.mark.pe";
-                text = Component.translatable(key, Fmt.distance(alt));
+                text = Component.translatable(key, Fmt.distance(alt)).getString();
             }
-            Map3DScreen.label(g, font, labels, viewW, viewH, text, x + 7, y - 4, Palette.BRASS);
+            chrome.label(labels, text, Palette.BRASS, s[0], s[1], MARK_RADIUS, false, Labels.Side.RIGHT,
+                    Labels.Side.ABOVE_RIGHT, Labels.Side.BELOW_RIGHT, Labels.Side.LEFT);
         }
     }
 
@@ -420,82 +422,25 @@ public final class ManeuverEditor {
         };
     }
 
-    private static void drawHandle(GuiGraphicsExtractor g, double cx, double cy, int colour, boolean solid, boolean on) {
-        int x = (int) Math.round(cx);
-        int y = (int) Math.round(cy);
-        int h = on ? 5 : 4;
+    /** A handle: a solid square for the positive direction, a hollow one for the negative, ringed when hovered. */
+    private static void drawHandle(QuadBatch f, double cx, double cy, int colour, boolean solid, boolean on) {
+        double r = on ? 3.6 : 3.0;
         if (solid) {
-            g.fill(x - h, y - h, x + h + 1, y + h + 1, colour);
+            f.rect(cx - r, cy - r, cx + r, cy + r, colour);
         } else {
-            Map3DScreen.frame(g, x - h, y - h, x + h, y + h, colour);
-            g.fill(x - h + 1, y - h + 1, x + h, y + h, Palette.alpha(Palette.STEEL_950, 0xC0));
+            f.rect(cx - r, cy - r, cx + r, cy + r, UiPalette.alpha(Palette.STEEL_950, 0xD0));
+            double hw = 0.3;
+            f.rect(cx - r, cy - r, cx + r, cy - r + 2 * hw, colour);
+            f.rect(cx - r, cy + r - 2 * hw, cx + r, cy + r, colour);
+            f.rect(cx - r, cy - r, cx - r + 2 * hw, cy + r, colour);
+            f.rect(cx + r - 2 * hw, cy - r, cx + r, cy + r, colour);
         }
         if (on) {
-            Map3DScreen.frame(g, x - h - 2, y - h - 2, x + h + 2, y + h + 2, Palette.INK);
-        }
-    }
-
-    private static void ring(GuiGraphicsExtractor g, double cx, double cy, double r, int argb) {
-        int n = 40;
-        for (int k = 0; k < n; k++) {
-            double a = 2 * Math.PI * k / n;
-            int x = (int) Math.round(cx + r * Math.cos(a));
-            int y = (int) Math.round(cy + r * Math.sin(a));
-            g.fill(x, y, x + 1, y + 1, argb);
-        }
-    }
-
-    private static void line(GuiGraphicsExtractor g, double x0, double y0, double x1, double y1, int argb) {
-        double dx = x1 - x0;
-        double dy = y1 - y0;
-        int steps = (int) Math.max(1, Math.round(Math.max(Math.abs(dx), Math.abs(dy))));
-        for (int i = 0; i <= steps; i++) {
-            int x = (int) Math.round(x0 + dx * i / steps);
-            int y = (int) Math.round(y0 + dy * i / steps);
-            g.fill(x, y, x + 1, y + 1, argb);
+            f.ring(cx, cy, r + 3.4, 0.26, MapScene.FEATHER, Palette.INK, 0, 0);
         }
     }
 
     // ---- the readout card ----
-
-    private record Line(Component text, int argb) {}
-
-    private List<Line> cardLines() {
-        ManeuverNode n = PLAN.node();
-        List<Line> lines = new ArrayList<>();
-        if (n == null || !live) {
-            return lines;
-        }
-        lines.add(new Line(Component.translatable("apoapsis.map3d.node.title", Fmt3d.clock(n.ut() - nowUt)),
-                Palette.INK_MUTED));
-        boolean over = ship != null && n.deltaV() > ship.deltaVAvailable() + 0.05;
-        Component dv = ship == null
-                ? Component.translatable("apoapsis.map3d.node.dv", speed(n.deltaV()))
-                : Component.translatable("apoapsis.map3d.node.dv_of", speed(n.deltaV()), speed(ship.deltaVAvailable()));
-        lines.add(new Line(dv, over ? Palette.ALERT : Palette.BRASS));
-        lines.add(new Line(Component.translatable("apoapsis.map3d.node.parts", signed(n.prograde()),
-                signed(n.normal()), signed(n.radial())), Palette.INK_MUTED));
-        ManeuverPlan.Timing t = timing;
-        if (t == null) {
-            lines.add(new Line(Component.translatable("apoapsis.map3d.node.nothrust"), Palette.ALERT));
-        } else if (t.secondsToStart() > 0) {
-            lines.add(new Line(Component.translatable("apoapsis.map3d.node.burn", duration(t.burnSeconds()),
-                    Fmt3d.clock(t.secondsToStart())), Palette.INK));
-        } else {
-            lines.add(new Line(Component.translatable("apoapsis.map3d.node.burn_now", duration(t.burnSeconds())),
-                    Palette.GO));
-        }
-        ManeuverPlan.Apsides a = after;
-        if (a != null) {
-            lines.add(a.bound()
-                    ? new Line(Component.translatable("apoapsis.map3d.node.after", Fmt.distance(a.apoapsisAltitude()),
-                            Fmt.distance(a.periapsisAltitude())), Palette.INK)
-                    : new Line(Component.translatable("apoapsis.map3d.node.after_escape",
-                            Fmt.distance(a.periapsisAltitude())), Palette.INK));
-        }
-        lines.add(new Line(Component.translatable("apoapsis.map3d.node.help"), Palette.INK_MUTED));
-        return lines;
-    }
 
     private static String speed(double ms) {
         return String.format(Locale.ROOT, "%.1f m/s", ms);
@@ -509,30 +454,45 @@ public final class ManeuverEditor {
         return seconds < 100 ? String.format(Locale.ROOT, "%.1f s", seconds) : Fmt.clock(seconds);
     }
 
-    /** The card's box in a {@code viewW} by {@code viewH} view, {@code lift} px above the bottom margin; null when no node. */
-    @Nullable Box cardBox(Font font, int viewW, int viewH, int lift) {
-        List<Line> lines = cardLines();
-        if (lines.isEmpty()) {
-            return null;
+    /**
+     * The node's card as lines for {@link MapChrome#card}: the countdown as the caption, the burn as the one big line,
+     * then the split and the result. Empty when there is no node in view.
+     */
+    List<MapChrome.Line> cardLines() {
+        ManeuverNode n = PLAN.node();
+        List<MapChrome.Line> lines = new ArrayList<>();
+        if (n == null || !live) {
+            return lines;
         }
-        int w = 0;
-        for (Line l : lines) {
-            w = Math.max(w, font.width(l.text()));
+        lines.add(new MapChrome.Line(Component.translatable("apoapsis.map3d.node.title",
+                Fmt3d.clock(n.ut() - nowUt)).getString(), Type.LABEL, UiPalette.INK_MUTED));
+        boolean over = ship != null && n.deltaV() > ship.deltaVAvailable() + 0.05;
+        String dv = ship == null
+                ? Component.translatable("apoapsis.map3d.node.dv", speed(n.deltaV())).getString()
+                : Component.translatable("apoapsis.map3d.node.dv_of", speed(n.deltaV()),
+                        speed(ship.deltaVAvailable())).getString();
+        lines.add(new MapChrome.Line(dv, Type.BODY, over ? UiPalette.ALERT : UiPalette.BRASS));
+        ManeuverPlan.Timing t = timing;
+        if (t == null) {
+            lines.add(new MapChrome.Line(Component.translatable("apoapsis.map3d.node.nothrust").getString(),
+                    Type.BODY, UiPalette.ALERT));
+        } else if (t.secondsToStart() > 0) {
+            lines.add(new MapChrome.Line(Component.translatable("apoapsis.map3d.node.burn", duration(t.burnSeconds()),
+                    Fmt3d.clock(t.secondsToStart())).getString(), Type.BODY, UiPalette.INK));
+        } else {
+            lines.add(new MapChrome.Line(Component.translatable("apoapsis.map3d.node.burn_now",
+                    duration(t.burnSeconds())).getString(), Type.BODY, UiPalette.GO));
         }
-        int x1 = viewW - 16;
-        int y1 = viewH - 16 - lift;
-        int h = lines.size() * LINE_STEP + 10;
-        return new Box(x1 - w - 20, y1 - h, x1, y1);
-    }
-
-    /** Draws the card in {@code box}, as from {@link #cardBox}. */
-    void drawCard(GuiGraphicsExtractor g, Font font, Box box) {
-        g.fill(box.x0(), box.y0(), box.x1(), box.y1(), Palette.alpha(Palette.STEEL_950, 0xC0));
-        Map3DScreen.frame(g, box.x0(), box.y0(), box.x1() - 1, box.y1() - 1, Palette.STEEL_500);
-        int y = box.y0() + 6;
-        for (Line l : cardLines()) {
-            g.text(font, l.text(), box.x0() + 10, y, l.argb(), false);
-            y += LINE_STEP;
+        ManeuverPlan.Apsides a = after;
+        if (a != null) {
+            lines.add(new MapChrome.Line(a.bound()
+                    ? Component.translatable("apoapsis.map3d.node.after", Fmt.distance(a.apoapsisAltitude()),
+                            Fmt.distance(a.periapsisAltitude())).getString()
+                    : Component.translatable("apoapsis.map3d.node.after_escape",
+                            Fmt.distance(a.periapsisAltitude())).getString(), Type.BODY, UiPalette.INK));
         }
+        lines.add(new MapChrome.Line(Component.translatable("apoapsis.map3d.node.parts", signed(n.prograde()),
+                signed(n.normal()), signed(n.radial())).getString(), Type.LABEL, UiPalette.INK_MUTED));
+        return lines;
     }
 }

@@ -30,7 +30,7 @@ public final class Fmt {
     }
 
     /** Speed in m/s with grouping ("2,140 m/s"). */
-    static String speed(double ms) {
+    public static String speed(double ms) {
         if (!Double.isFinite(ms)) {
             return NONE;
         }
@@ -82,7 +82,7 @@ public final class Fmt {
     }
 
     /** Surface gravity in g, two decimals ("1.00 g"). */
-    static String gees(double g) {
+    public static String gees(double g) {
         if (!Double.isFinite(g)) {
             return NONE;
         }
@@ -90,7 +90,7 @@ public final class Fmt {
     }
 
     /** Universal time as a day and a clock ("D003 · 06:47:12"), a day being 86400 s from the epoch. */
-    static String universalTime(double ut) {
+    public static String universalTime(double ut) {
         if (!Double.isFinite(ut)) {
             return NONE;
         }

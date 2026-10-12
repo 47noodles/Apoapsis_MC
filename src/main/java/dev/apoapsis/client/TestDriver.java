@@ -59,6 +59,7 @@ public final class TestDriver {
             case "pale" -> new TestDriverPale();
             case "land" -> new TestDriverLand();
             case "map" -> new TestDriverMap();
+            case "mapshots" -> new TestDriverMapShots();
             case "m07" -> new TestDriverM07();
             case "return" -> new TestDriverReturn();
             default -> null;

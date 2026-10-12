@@ -150,6 +150,7 @@ public final class GameTests {
         LangTests.register(event, environment);
         SphereTests.register(event, environment);
         MusicTests.register(event, environment);
+        MapTests.register(event, environment);
         event.registerTest(TestSupport.id("guide_first_step_on_start"),
                 new ApoapsisGameTest("guide_first_step_on_start", environment, 40, GuideTests::guideFirstStepOnStart));
         event.registerTest(TestSupport.id("guide_firsts_open_steps"),

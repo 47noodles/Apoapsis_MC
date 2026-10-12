@@ -1,71 +1,43 @@
 package dev.apoapsis.client.map3d;
 
+import dev.apoapsis.client.map.Labels;
+import dev.apoapsis.client.map.MapScene;
 import dev.apoapsis.client.map.Palette;
+import dev.apoapsis.client.ui.UiPalette;
 import dev.apoapsis.orbit.CelestialBody;
 import dev.apoapsis.orbit.MeridianSystem;
+import dev.apoapsis.orbit.StateVector;
 import dev.apoapsis.orbit.Vec3d;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The 3D map's geometry for one frame, as screen-space quads (4 vertices each, pixels from the view's top left, ARGB
- * per vertex). Spheres are front-facing triangles, shaded from the sun on +X, or, for a body whose surface map has
- * arrived, a {@link TexturedSphere} mesh that {@link Map3DPip} draws in a layer of its own; the atmosphere is an
- * annulus of fading quads; orbits, the ship's coast and the line after a planned burn are 2 px ribbons, hidden where a
- * sphere is in front of them, and the coast's screen points are kept for picking. Everything is
- * computed in double precision relative to the focus, then rounded to float only for the screen. The sphere mesh is
- * built once; each frame only transforms it. Pure maths, no game state. Client only.
+ * The 3D map's geometry for one frame, projected through an {@link OrbitCamera} into a {@link MapScene} (UI units).
+ * Bodies are textured sphere meshes in the scene's own layer, lit from the sun on +X, with an atmosphere haze and a
+ * limb drawn in front. Every line is split by what it passes: the part behind a body (or its far side) goes in the
+ * layer under the bodies, so the body hides it exactly, and the rest goes in the layer over them, so an orbit is never
+ * cut short of a body's edge and never z-fights with it. Lines are anti-aliased strips of one width at any zoom; the
+ * current orbit glows, later patches and the line after a planned burn are dashed. Every line also marks the label
+ * solver's grid, so labels keep off them. Everything is computed in double precision relative to the focus, then
+ * rounded to float only for the screen. Pure maths, no game state. Client only.
  */
 public final class Scene3D {
-    /** Capacity in vertices. A frame uses about 26 thousand. */
-    public static final int MAX_VERTS = 65536;
-    static final int SIGNAL = Palette.SIGNAL;
-    static final int HYDROGEN_RGB = Palette.HYDROGEN & 0xFFFFFF;
-    static final int STEEL_500 = Palette.STEEL_500;
+    static final int SIGNAL = UiPalette.SIGNAL;
+    static final int HYDROGEN = UiPalette.HYDROGEN;
+    static final int BRASS = UiPalette.BRASS;
     static final int VERDANCE_LIT = Palette.VERDANCE_LIT;
     static final int PALE_LIT = Palette.PALE_LIT;
-    /** The planned burn's line, as the node marker (brass). */
-    static final int PLAN = Palette.BRASS;
-    static final int PLAN_RGB = Palette.BRASS & 0xFFFFFF;
-    /** Brightness of the unlit side of a body, 0..1. */
-    static final double AMBIENT = 0.10;
-    /** Atmosphere haze at the inner edge, as alpha 0..255; it fades to zero at the outer edge. */
-    static final int HAZE_ALPHA = 0x50;
 
-    private static final int LAT = 20;
-    private static final int LON = 40;
-    private static final int TRIS = 2 * LAT * LON;
     private static final int RING = 256;
-    /** Unit sphere, nine coordinates per triangle, and the unit normal of each triangle's centroid. */
-    private static final double[] TRI_V = new double[TRIS * 9];
-    private static final double[] TRI_N = new double[TRIS * 3];
+    /** Dash and gap of a predicted line, UI units. */
+    private static final double DASH = 4.5;
+    private static final double GAP = 3.5;
+    /** A label avoids an orbit line this much more than a grid line. */
+    private static final int WEIGHT_ORBIT = 3;
+    private static final int WEIGHT_GRID = 1;
+    /** The occluding sphere is a hair larger than the mesh so a hidden line never peeks past the limb. */
+    private static final double OCCLUDE_GROW = 1.003;
 
-    static {
-        int t = 0;
-        for (int i = 0; i < LAT; i++) {
-            double p0 = -Math.PI / 2 + Math.PI * i / LAT;
-            double p1 = -Math.PI / 2 + Math.PI * (i + 1) / LAT;
-            for (int j = 0; j < LON; j++) {
-                double l0 = 2 * Math.PI * j / LON;
-                double l1 = 2 * Math.PI * (j + 1) / LON;
-                double[] a = point(p0, l0), b = point(p1, l0), c = point(p1, l1), d = point(p0, l1);
-                t = triangle(t, a, b, c);
-                t = triangle(t, a, c, d);
-            }
-        }
-    }
-
-    public final float[] x = new float[MAX_VERTS];
-    public final float[] y = new float[MAX_VERTS];
-    public final int[] argb = new int[MAX_VERTS];
-    /** Vertices in use; always a multiple of four. */
-    public int count;
-
-    /** The textured bodies' meshes, by body (0 Verdance, 1 Pale), and the bodies to draw this frame, farthest first. */
-    final TexturedSphere[] texMesh = {new TexturedSphere(), new TexturedSphere()};
-    final int[] texOrder = new int[2];
-    int texCount;
-
-    private final double[] screen = new double[2];
+    private final double[] screen = new double[3];
     /** The current patch's samples on screen, for picking: valid where {@link #pickOk} is set. */
     private final double[] pickX = new double[OrbitPlot.SAMPLES + 1];
     private final double[] pickY = new double[OrbitPlot.SAMPLES + 1];
@@ -73,6 +45,9 @@ public final class Scene3D {
     private final double[] sx = new double[OrbitPlot.SAMPLES + 1];
     private final double[] sy = new double[OrbitPlot.SAMPLES + 1];
     private final boolean[] ok = new boolean[OrbitPlot.SAMPLES + 1];
+    private final boolean[] hid = new boolean[OrbitPlot.SAMPLES + 1];
+    private final double[] runX = new double[OrbitPlot.SAMPLES + 2];
+    private final double[] runY = new double[OrbitPlot.SAMPLES + 2];
     private final double[] ringX = new double[RING + 1];
     private final double[] ringY = new double[RING + 1];
     private final double[] ringZ = new double[RING + 1];
@@ -80,45 +55,28 @@ public final class Scene3D {
     private final double[] occ = new double[8];
     private int occN;
 
+    private MapScene out;
+    private Labels labels;
     private OrbitCamera cam;
     private double cx, cy, focal;
     private double fx, fy, fz;
     private double ex, ey, ez;
+    /** The ship's mark: screen x, y, then the unit direction it moves in on screen; NaN when it is hidden. */
+    public final double[] ship = {Double.NaN, Double.NaN, 1, 0};
 
-    private static double[] point(double lat, double lon) {
-        double c = Math.cos(lat);
-        return new double[] {c * Math.cos(lon), c * Math.sin(lon), Math.sin(lat)};
-    }
-
-    private static int triangle(int t, double[] a, double[] b, double[] c) {
-        int k = 9 * t;
-        double[][] p = {a, b, c};
-        double nx = 0, ny = 0, nz = 0;
-        for (int v = 0; v < 3; v++) {
-            TRI_V[k + 3 * v] = p[v][0];
-            TRI_V[k + 3 * v + 1] = p[v][1];
-            TRI_V[k + 3 * v + 2] = p[v][2];
-            nx += p[v][0];
-            ny += p[v][1];
-            nz += p[v][2];
-        }
-        double len = Math.sqrt(nx * nx + ny * ny + nz * nz);
-        TRI_N[3 * t] = len > 0 ? nx / len : 0;
-        TRI_N[3 * t + 1] = len > 0 ? ny / len : 0;
-        TRI_N[3 * t + 2] = len > 0 ? nz / len : 1;
-        return t + 1;
-    }
+    /** How a line looks. {@code glow} is the width of the soft halo (0 for none) at alpha {@code glowAlpha}. */
+    private record Style(int argb, double half, double glow, int glowAlpha, double dash, double gap, int weight) {}
 
     /**
-     * Builds the frame for a {@code w} by {@code h} view centred on {@code focus} (root frame, m) at universal time
-     * {@code nowUt}. {@code plot} is the predicted coast; its samples are reused, the bodies and ship are placed now.
-     * {@code predicted}, when not null, is the line after a planned burn. A body with {@code textured[k]} (0 Verdance,
-     * 1 Pale) is not drawn flat: its mesh goes in {@link #texMesh} for the textured layer, listed in {@link #texOrder}.
+     * Builds the frame for a {@code w} by {@code h} view (UI units) centred on {@code focus} (root frame, m) at
+     * universal time {@code nowUt}. {@code plot} is the predicted coast; its samples are reused, the bodies and ship are
+     * placed now. {@code predicted}, when not null, is the line after a planned burn. A body with {@code textured[k]}
+     * (0 Verdance, 1 Pale) wears its surface map; one without is a lit sphere in its tone until the map arrives.
      */
-    public void build(OrbitCamera camera, OrbitPlot plot, @Nullable OrbitPlot predicted, double nowUt, double w,
-            double h, Vec3d focus, boolean[] textured) {
-        count = 0;
-        texCount = 0;
+    public void build(MapScene scene, Labels labelSolver, OrbitCamera camera, OrbitPlot plot,
+            @Nullable OrbitPlot predicted, double nowUt, double w, double h, Vec3d focus, boolean[] textured) {
+        out = scene;
+        labels = labelSolver;
         java.util.Arrays.fill(pickOk, false);
         cam = camera;
         cx = w / 2;
@@ -148,49 +106,87 @@ public final class Scene3D {
             body(verdance, MeridianSystem.VERDANCE, VERDANCE_LIT, 0, textured[0]);
         }
 
-        // Reference plane: the grid (faint) and Pale's orbit (a quiet ring).
+        // Reference plane: faint grid rings and Pale's orbit as a quiet ring with a glow.
         double rp = MeridianSystem.PALE.orbitRadius;
+        int grid = UiPalette.alpha(UiPalette.STEEL_500, 0x2C);
         for (int k = 1; k <= 3; k++) {
-            ring(rp * k / 4, 0x28000000 | STEEL_500 & 0xFFFFFF, 0.5);
+            ring(rp * k / 4, new Style(grid, MapScene.THIN_HALF, 0, 0, 0, 0, WEIGHT_GRID));
         }
-        for (int s = 0; s < 8; s++) {
-            double a = 2 * Math.PI * s / 8;
-            spoke(a, rp * 1.05, 0x28000000 | STEEL_500 & 0xFFFFFF);
-        }
-        ring(rp, 0xA0000000 | STEEL_500 & 0xFFFFFF, 0.5);
+        ring(rp, new Style(UiPalette.alpha(UiPalette.SIGNAL_EDGE, 0xE0), MapScene.THIN_HALF + 0.04, 1.6,
+                0x1E, 0, 0, WEIGHT_GRID + 1));
 
-        // The coast: later patches dimmer, the current one bright.
+        // The coast: later patches dashed and dimmer, the current one solid and glowing.
         for (int i = plot.patches.size() - 1; i >= 0; i--) {
-            int colour = i == plot.current ? SIGNAL : 0x90000000 | HYDROGEN_RGB;
-            polyline(plot.x[i], plot.y[i], plot.z[i], OrbitPlot.SAMPLES + 1, colour, 1.0);
+            Style st = i == plot.current
+                    ? new Style(SIGNAL, MapScene.ORBIT_HALF, 1.8, 0x34, 0, 0, WEIGHT_ORBIT)
+                    : new Style(UiPalette.alpha(HYDROGEN, 0xC8), MapScene.ORBIT_HALF * 0.85, 0, 0, DASH, GAP,
+                            WEIGHT_ORBIT);
+            polyline(plot.x[i], plot.y[i], plot.z[i], OrbitPlot.SAMPLES + 1, st);
             if (i == plot.current) {
                 System.arraycopy(sx, 0, pickX, 0, OrbitPlot.SAMPLES + 1);
                 System.arraycopy(sy, 0, pickY, 0, OrbitPlot.SAMPLES + 1);
-                System.arraycopy(ok, 0, pickOk, 0, OrbitPlot.SAMPLES + 1);
+                for (int k = 0; k <= OrbitPlot.SAMPLES; k++) {
+                    pickOk[k] = ok[k] && !hid[k];
+                }
             }
         }
-        // The line after a planned burn, over the coast.
+        // The line after a planned burn, over the coast: brass and dashed, so it reads as a prediction.
         if (predicted != null) {
             for (int i = predicted.patches.size() - 1; i >= 0; i--) {
-                int colour = i == 0 ? PLAN : 0x90000000 | PLAN_RGB;
-                polyline(predicted.x[i], predicted.y[i], predicted.z[i], OrbitPlot.SAMPLES + 1, colour, 1.0);
+                Style st = new Style(i == 0 ? BRASS : UiPalette.alpha(BRASS, 0xB4), MapScene.ORBIT_HALF, i == 0 ? 1.6 : 0,
+                        0x2E, DASH, GAP, WEIGHT_ORBIT);
+                polyline(predicted.x[i], predicted.y[i], predicted.z[i], OrbitPlot.SAMPLES + 1, st);
             }
         }
+        placeShip(plot, nowUt);
+    }
 
-        Vec3d ship = plot.shipRootAt(nowUt);
-        if (project(ship.x() - fx, ship.y() - fy, ship.z() - fz)) {
-            put(screen[0] - 3, screen[1] - 3, SIGNAL);
-            put(screen[0] + 3, screen[1] - 3, SIGNAL);
-            put(screen[0] + 3, screen[1] + 3, SIGNAL);
-            put(screen[0] - 3, screen[1] + 3, SIGNAL);
+    /** Puts the ship's marker in the front layer, pointing the way it flies, unless a body hides it. */
+    private void placeShip(OrbitPlot plot, double nowUt) {
+        ship[0] = Double.NaN;
+        Vec3d at = plot.shipRootAt(nowUt);
+        double px = at.x() - fx, py = at.y() - fy, pz = at.z() - fz;
+        if (!project(px, py, pz) || hidden(px, py, pz)) {
+            return;
         }
+        double x = screen[0], y = screen[1];
+        StateVector s = plot.shipStateAt(nowUt);
+        Vec3d v = s.v();
+        double dt = 1.0;
+        double dirx = 1, diry = 0;
+        double len = v.length();
+        if (len > 0) {
+            double k = Math.max(1, plot.shipRootAt(nowUt).length() * 0.001) / len;
+            if (project(px + v.x() * k * dt, py + v.y() * k * dt, pz + v.z() * k * dt)) {
+                double ddx = screen[0] - x, ddy = screen[1] - y;
+                double dl = Math.hypot(ddx, ddy);
+                if (dl > 1e-9) {
+                    dirx = ddx / dl;
+                    diry = ddy / dl;
+                }
+            }
+        }
+        ship[0] = x;
+        ship[1] = y;
+        ship[2] = dirx;
+        ship[3] = diry;
+        double nx = -diry, ny = dirx;
+        out.front.disc(x, y, 6.5, 3.5, UiPalette.alpha(SIGNAL, 0x26));
+        out.front.triangle(x + dirx * 4.6, y + diry * 4.6, SIGNAL, x - dirx * 3 + nx * 3, y - diry * 3 + ny * 3, SIGNAL,
+                x - dirx * 3 - nx * 3, y - diry * 3 - ny * 3, SIGNAL);
+    }
+
+    /** True when the root-frame point is on screen and no body hides it. */
+    public boolean visible(Vec3d root) {
+        double px = root.x() - fx, py = root.y() - fy, pz = root.z() - fz;
+        return project(px, py, pz) && !hidden(px, py, pz);
     }
 
     private void setOccluder(int k, Vec3d centre, double radius) {
         occ[4 * k] = centre.x() - fx;
         occ[4 * k + 1] = centre.y() - fy;
         occ[4 * k + 2] = centre.z() - fz;
-        occ[4 * k + 3] = radius;
+        occ[4 * k + 3] = radius * OCCLUDE_GROW;
     }
 
     private double dist(Vec3d centre) {
@@ -200,8 +196,8 @@ public final class Scene3D {
 
     /**
      * The nearest point of the current patch's drawn line to the pointer ({@code mx}, {@code my}): {fractional sample
-     * index, distance in px}, or null when no visible part of the line is within {@code maxPx}. Points a body hides
-     * are not on the line.
+     * index, distance in UI units}, or null when no visible part of the line is within {@code maxPx}. Points a body
+     * hides are not on the line.
      */
     public double @Nullable [] pickCurrent(double mx, double my, double maxPx) {
         double best = maxPx;
@@ -223,144 +219,114 @@ public final class Scene3D {
         return bestIndex < 0 ? null : new double[] {bestIndex, best};
     }
 
-    /** A body's haze, then its sphere (textured in its own layer, else flat), unless the eye is inside it. */
+    /** A body: its mesh in the bodies' layer, then its atmosphere and limb in front, unless the eye is inside it. */
     private void body(Vec3d centre, CelestialBody b, int rgb, int index, boolean textured) {
         double dx = centre.x() - fx, dy = centre.y() - fy, dz = centre.z() - fz;
         double d = Math.sqrt((dx - ex) * (dx - ex) + (dy - ey) * (dy - ey) + (dz - ez) * (dz - ez));
         if (d < b.radius * 1.02) {
             return;
         }
-        if (b.atmosphereTop > 0) {
-            haze(dx, dy, dz, b.radius, b.radius + b.atmosphereTop, d);
-        }
-        if (textured) {
-            texMesh[index].build(cam, cx, cy, focal, dx, dy, dz, b.radius, ex, ey, ez);
-            texOrder[texCount++] = index;
-        } else {
-            sphere(dx, dy, dz, b.radius, rgb);
-        }
-    }
-
-    /** The lit sphere: front-facing triangles, each shaded by its normal's sun term. */
-    private void sphere(double ccx, double ccy, double ccz, double radius, int rgb) {
-        for (int t = 0; t < TRIS; t++) {
-            double nx = TRI_N[3 * t], ny = TRI_N[3 * t + 1], nz = TRI_N[3 * t + 2];
-            double facing = nx * (ex - (ccx + radius * nx)) + ny * (ey - (ccy + radius * ny))
-                    + nz * (ez - (ccz + radius * nz));
-            if (facing <= 0) {
-                continue;
-            }
-            int k = 9 * t;
-            if (!project(ccx + radius * TRI_V[k], ccy + radius * TRI_V[k + 1], ccz + radius * TRI_V[k + 2])) {
-                continue;
-            }
-            double x0 = screen[0], y0 = screen[1];
-            if (!project(ccx + radius * TRI_V[k + 3], ccy + radius * TRI_V[k + 4], ccz + radius * TRI_V[k + 5])) {
-                continue;
-            }
-            double x1 = screen[0], y1 = screen[1];
-            if (!project(ccx + radius * TRI_V[k + 6], ccy + radius * TRI_V[k + 7], ccz + radius * TRI_V[k + 8])) {
-                continue;
-            }
-            // Smooth shading: each corner is lit by its own unit normal, which is its unit position.
-            put(x0, y0, shade(rgb, TRI_V[k]));
-            put(x1, y1, shade(rgb, TRI_V[k + 3]));
-            put(screen[0], screen[1], shade(rgb, TRI_V[k + 6]));
-            put(screen[0], screen[1], shade(rgb, TRI_V[k + 6]));
-        }
-    }
-
-    /** {@code rgb} lit from the sun on +X by a surface whose normal has x component {@code nx}, opaque. */
-    static int shade(int rgb, double nx) {
-        double light = AMBIENT + (1 - AMBIENT) * Math.max(0, nx);
-        int r = (int) Math.round(((rgb >> 16) & 0xFF) * light);
-        int g = (int) Math.round(((rgb >> 8) & 0xFF) * light);
-        int b = (int) Math.round((rgb & 0xFF) * light);
-        return 0xFF000000 | r << 16 | g << 8 | b;
-    }
-
-    /**
-     * The haze: an annulus from the body's disc out to its atmosphere's top, drawn as quads whose alpha fades from
-     * {@link #HAZE_ALPHA} at the disc to zero at the top. The disc's radius on screen is taken as f tan(asin(R/d)).
-     */
-    private void haze(double ccx, double ccy, double ccz, double radius, double top, double d) {
-        if (!project(ccx, ccy, ccz)) {
+        out.mesh[index].build(cam, cx, cy, focal, dx, dy, dz, b.radius, ex, ey, ez, 0, textured ? 0xFFFFFF : rgb & 0xFFFFFF);
+        out.order[out.meshCount++] = index;
+        if (!project(dx, dy, dz)) {
             return;
         }
         double ox = screen[0], oy = screen[1];
-        double inner = focal * radius / Math.sqrt(d * d - radius * radius);
-        double outer = focal * top / Math.sqrt(d * d - top * top);
-        if (!(outer > inner)) {
-            return;
+        double inner = focal * b.radius / Math.sqrt(d * d - b.radius * b.radius);
+        double top = b.atmosphereTop > 0 ? focal * (b.radius + b.atmosphereTop)
+                / Math.sqrt(d * d - (b.radius + b.atmosphereTop) * (b.radius + b.atmosphereTop)) : inner;
+        // The sun's direction on screen (screen y grows downward) and how much of its light the near side gets.
+        Vec3d right = cam.right();
+        Vec3d up = cam.up();
+        double sunX = right.x();
+        double sunY = -up.x();
+        double eyeDot = (ex / Math.sqrt(ex * ex + ey * ey + ez * ez + 1e-9)) * MapScene.SUN_X;
+        double lit = 0.5 + 0.5 * eyeDot;
+        if (b.atmosphereTop > 0) {
+            out.atmosphere(ox, oy, inner, top, sunX, sunY, lit);
         }
-        int segments = 96;
-        for (int s = 0; s < segments; s++) {
-            double a0 = 2 * Math.PI * s / segments, a1 = 2 * Math.PI * (s + 1) / segments;
-            double c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
-            int hazeIn = HAZE_ALPHA << 24 | HYDROGEN_RGB;
-            put(ox + inner * c0, oy + inner * s0, hazeIn);
-            put(ox + inner * c1, oy + inner * s1, hazeIn);
-            put(ox + outer * c1, oy + outer * s1, HYDROGEN_RGB);
-            put(ox + outer * c0, oy + outer * s0, HYDROGEN_RGB);
-        }
+        out.limb(ox, oy, inner);
+        labels.markCircle(ox, oy, inner, 4);
     }
 
     /** A circle of {@code radius} m in the reference plane around the root origin. */
-    private void ring(double radius, int argb, double halfWidthPx) {
+    private void ring(double radius, Style style) {
         for (int k = 0; k <= RING; k++) {
             double a = 2 * Math.PI * k / RING;
             ringX[k] = radius * Math.cos(a);
             ringY[k] = radius * Math.sin(a);
             ringZ[k] = 0;
         }
-        polyline(ringX, ringY, ringZ, RING + 1, argb, halfWidthPx);
+        polyline(ringX, ringY, ringZ, RING + 1, style);
     }
 
-    /** A straight grid line in the reference plane from the origin out to {@code length} m. */
-    private void spoke(double angle, double length, int argb) {
-        ringX[0] = 0;
-        ringY[0] = 0;
-        ringZ[0] = 0;
-        ringX[1] = length * Math.cos(angle);
-        ringY[1] = length * Math.sin(angle);
-        ringZ[1] = 0;
-        polyline(ringX, ringY, ringZ, 2, argb, 0.5);
-    }
-
-    /** A root-frame polyline of {@code n} points as ribbons, dropping points that are behind the eye or hidden. */
-    private void polyline(double[] X, double[] Y, double[] Z, int n, int argb, double halfWidthPx) {
+    /**
+     * A root-frame polyline of {@code n} points. Points behind the eye break it. Each run of segments goes to the layer
+     * under the bodies when it touches a point a body hides, else to the layer over them.
+     */
+    private void polyline(double[] X, double[] Y, double[] Z, int n, Style st) {
         for (int k = 0; k < n; k++) {
             double px = X[k] - fx, py = Y[k] - fy, pz = Z[k] - fz;
-            ok[k] = project(px, py, pz) && !hidden(px, py, pz);
+            ok[k] = project(px, py, pz);
+            hid[k] = ok[k] && hidden(px, py, pz);
             if (ok[k]) {
                 sx[k] = screen[0];
                 sy[k] = screen[1];
             }
         }
+        int layer = -1;
+        int m = 0;
         for (int k = 0; k + 1 < n; k++) {
-            if (ok[k] && ok[k + 1]) {
-                segment(sx[k], sy[k], sx[k + 1], sy[k + 1], halfWidthPx, argb);
+            if (!ok[k] || !ok[k + 1]) {
+                flush(layer, m, st);
+                layer = -1;
+                m = 0;
+                continue;
+            }
+            int l = hid[k] || hid[k + 1] ? 0 : 1;
+            if (l != layer) {
+                flush(layer, m, st);
+                layer = l;
+                m = 0;
+                runX[m] = sx[k];
+                runY[m] = sy[k];
+                m++;
+            }
+            runX[m] = sx[k + 1];
+            runY[m] = sy[k + 1];
+            m++;
+            if (l == 1) {
+                labels.markSegment(sx[k], sy[k], sx[k + 1], sy[k + 1], st.weight());
             }
         }
+        flush(layer, m, st);
     }
 
-    /** One ribbon segment: a quad {@code halfWidthPx} either side of the line. */
-    private void segment(double ax, double ay, double bx, double by, double halfWidthPx, int argb) {
-        double dx = bx - ax, dy = by - ay;
-        double len = Math.sqrt(dx * dx + dy * dy);
-        if (!(len > 1e-9)) {
+    private void flush(int layer, int m, Style st) {
+        if (layer < 0 || m < 2) {
             return;
         }
-        double nx = -dy / len * halfWidthPx, ny = dx / len * halfWidthPx;
-        put(ax + nx, ay + ny, argb);
-        put(bx + nx, by + ny, argb);
-        put(bx - nx, by - ny, argb);
-        put(ax - nx, ay - ny, argb);
+        var batch = layer == 0 ? out.back : out.front;
+        if (st.glow() > 0) {
+            batch.polyline(runX, runY, m, 0, st.glow(), UiPalette.alpha(st.argb(), st.glowAlpha()));
+        }
+        if (st.dash() > 0) {
+            batch.dashedPolyline(runX, runY, m, st.half(), MapScene.FEATHER, st.dash(), st.gap(), st.argb());
+        } else {
+            batch.polyline(runX, runY, m, st.half(), MapScene.FEATHER, st.argb());
+        }
     }
 
     /** Projects a focus-relative point into {@link #screen}; false when it is behind the eye. */
     private boolean project(double dx, double dy, double dz) {
         return !Double.isNaN(cam.project(dx, dy, dz, cx, cy, focal, screen));
+    }
+
+    /** The screen radius, UI units, of a body of {@code radius} m at root-frame {@code at}; 0 when it is behind the eye. */
+    public double radiusPx(Vec3d at, double radius) {
+        double dx = at.x() - fx - ex, dy = at.y() - fy - ey, dz = at.z() - fz - ez;
+        double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        return d > radius ? focal * radius / Math.sqrt(d * d - radius * radius) : 0;
     }
 
     /** True when a sphere lies between the eye and the point (focus-relative), so the point is out of sight. */
@@ -384,14 +350,12 @@ public final class Scene3D {
         return false;
     }
 
-    /** Appends one vertex. Drops it when the buffer is full. */
-    private void put(double px, double py, int colour) {
-        if (count >= MAX_VERTS) {
-            return;
-        }
-        x[count] = (float) px;
-        y[count] = (float) py;
-        argb[count] = colour;
-        count++;
+    /** {@code rgb} lit from the sun on +X by a surface whose normal has x component {@code nx}, opaque. Kept for the menus' planet. */
+    static int shade(int rgb, double nx) {
+        double light = 0.10 + 0.90 * Math.max(0, nx);
+        int r = (int) Math.round(((rgb >> 16) & 0xFF) * light);
+        int g = (int) Math.round(((rgb >> 8) & 0xFF) * light);
+        int b = (int) Math.round((rgb & 0xFF) * light);
+        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 }

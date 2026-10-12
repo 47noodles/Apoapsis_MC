@@ -15,10 +15,14 @@ import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 
 /** Checks that the text keys the map's top readout can show are in the lang file, so no raw key reaches the screen. */
 final class LangTests {
-    /** The keys of the top-left readout of the 3D and 2D maps ({@code Map3DScreen}, {@code MapScreen}). */
+    /** The keys of the figures list, the key hints and the clock of the 3D and 2D maps ({@code Map3DScreen}, {@code MapScreen}). */
     private static final String[] MAP_TOP_KEYS = {
-            "apoapsis.map.top.alt", "apoapsis.map.top.speed", "apoapsis.map.top.apsides", "apoapsis.map.top.periapsis",
-            "apoapsis.map.top.ap_in", "apoapsis.map.top.escape", "apoapsis.map3d.rel_inc"};
+            "apoapsis.map.stat.alt", "apoapsis.map.stat.speed", "apoapsis.map.stat.ap", "apoapsis.map.stat.pe",
+            "apoapsis.map.stat.inc", "apoapsis.map.stat.escape", "apoapsis.map.stat.gravity", "apoapsis.map.stat.radius",
+            "apoapsis.map.stat.atmosphere", "apoapsis.map.stat.none", "apoapsis.map.stat.orbit", "apoapsis.map.stat.period",
+            "apoapsis.map.stat.in", "apoapsis.map.hint.zoom", "apoapsis.map.hint.rotate", "apoapsis.map.hint.pan",
+            "apoapsis.map.hint.focus", "apoapsis.map.hint.close", "apoapsis.map.hint.more", "apoapsis.map.warp",
+            "apoapsis.map.time", "apoapsis.map3d.key.map3d"};
 
     private LangTests() {}
 

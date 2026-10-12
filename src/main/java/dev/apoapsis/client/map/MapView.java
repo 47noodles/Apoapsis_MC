@@ -12,7 +12,7 @@ final class MapView {
     static final double MIN_HALF_EXTENT_M = 100.0;
     static final double MAX_HALF_EXTENT_M = 2_000_000.0;
     /** A fit puts the subject at this fraction of the shorter side from the centre. */
-    private static final double FIT_FRACTION = 0.42;
+    private static final double FIT_FRACTION = 0.36;
     private static final double ZOOM_PER_STEP = 1.25;
 
     Follow follow = Follow.NONE;
@@ -21,12 +21,12 @@ final class MapView {
     double centreY;
 
     private double scale = 1e-3;
-    private int width = 1;
-    private int height = 1;
+    private double width = 1;
+    private double height = 1;
 
-    void setSize(int width, int height) {
-        this.width = Math.max(1, width);
-        this.height = Math.max(1, height);
+    void setSize(double width, double height) {
+        this.width = Math.max(1.0, width);
+        this.height = Math.max(1.0, height);
     }
 
     /** Pixels per metre. */

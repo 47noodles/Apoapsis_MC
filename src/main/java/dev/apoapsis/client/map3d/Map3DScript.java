@@ -1,6 +1,7 @@
 package dev.apoapsis.client.map3d;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.apoapsis.client.ui.UiScale;
 import dev.apoapsis.orbit.maneuver.ManeuverNode;
 import java.util.Locale;
 import net.minecraft.client.Minecraft;
@@ -18,6 +19,11 @@ public final class Map3DScript {
 
     private Map3DScript() {}
 
+    /** UI units (what the screen reports) to GUI pixels (what its mouse methods take). */
+    private static double gui(double ui) {
+        return ui * UiScale.current().scale();
+    }
+
     private static @Nullable Map3DScreen screen() {
         return Minecraft.getInstance().gui.screen() instanceof Map3DScreen s ? s : null;
     }
@@ -29,7 +35,7 @@ public final class Map3DScript {
         if (at == null) {
             return false;
         }
-        MouseButtonEvent e = new MouseButtonEvent(at[0], at[1], LEFT);
+        MouseButtonEvent e = new MouseButtonEvent(gui(at[0]), gui(at[1]), LEFT);
         s.mouseClicked(e, false);
         s.mouseReleased(e);
         return s.editor().nodeForTest() != null;
@@ -46,15 +52,15 @@ public final class Map3DScript {
             return false;
         }
         double[] u = s.editor().handleDirForTest(handle);
-        s.mouseClicked(new MouseButtonEvent(at[0], at[1], LEFT), false);
+        s.mouseClicked(new MouseButtonEvent(gui(at[0]), gui(at[1]), LEFT), false);
         double step = 4;
         double done = 0;
         while (done < pixels) {
             double d = Math.min(step, pixels - done);
             done += d;
-            s.mouseDragged(new MouseButtonEvent(at[0] + u[0] * done, at[1] + u[1] * done, LEFT), u[0] * d, u[1] * d);
+            s.mouseDragged(new MouseButtonEvent(gui(at[0] + u[0] * done), gui(at[1] + u[1] * done), LEFT), gui(u[0] * d), gui(u[1] * d));
         }
-        s.mouseReleased(new MouseButtonEvent(at[0] + u[0] * done, at[1] + u[1] * done, LEFT));
+        s.mouseReleased(new MouseButtonEvent(gui(at[0] + u[0] * done), gui(at[1] + u[1] * done), LEFT));
         return true;
     }
 
@@ -65,7 +71,7 @@ public final class Map3DScript {
         if (at == null) {
             return false;
         }
-        MouseButtonEvent e = new MouseButtonEvent(at[0], at[1], RIGHT);
+        MouseButtonEvent e = new MouseButtonEvent(gui(at[0]), gui(at[1]), RIGHT);
         s.mouseClicked(e, false);
         s.mouseReleased(e);
         return s.editor().nodeForTest() == null;
@@ -78,7 +84,7 @@ public final class Map3DScript {
         if (at == null) {
             return false;
         }
-        MouseButtonEvent e = new MouseButtonEvent(at[0], at[1], LEFT);
+        MouseButtonEvent e = new MouseButtonEvent(gui(at[0]), gui(at[1]), LEFT);
         s.mouseClicked(e, false);
         s.mouseReleased(e);
         return true;

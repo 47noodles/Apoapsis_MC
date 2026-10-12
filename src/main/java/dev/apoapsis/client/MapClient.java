@@ -5,7 +5,7 @@ import dev.apoapsis.client.hud.ReentryVignette;
 import dev.apoapsis.client.map.FlightHud;
 import dev.apoapsis.client.map.MapScreen;
 import dev.apoapsis.client.map3d.ManeuverEditor;
-import dev.apoapsis.client.map3d.Map3DPip;
+import dev.apoapsis.client.map.MapPip;
 import dev.apoapsis.client.map3d.Map3DScreen;
 import dev.apoapsis.client.map3d.SiteMarkers;
 import dev.apoapsis.ship.ShipEntity;
@@ -49,7 +49,7 @@ public final class MapClient {
     /** Called from {@code ApoapsisClient} with the mod event bus. */
     public static void register(IEventBus modBus) {
         modBus.addListener(MapClient::onRegisterGuiLayers);
-        modBus.addListener(Map3DPip::onRegisterPip);
+        modBus.addListener(MapPip::onRegisterPip);
         NeoForge.EVENT_BUS.addListener(MapClient::onClientTickPost);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, MapClient::onEntityMount);
         NeoForge.EVENT_BUS.addListener(MapClient::onLoggingOut);
